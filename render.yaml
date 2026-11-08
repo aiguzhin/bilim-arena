@@ -1,0 +1,20 @@
+databases:
+  - name: bilim-arena-db
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "17"
+
+services:
+  - type: web
+    name: bilim-arena
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/subjects
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bilim-arena-db
+          property: connectionString
