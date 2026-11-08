@@ -73,6 +73,11 @@ function memoryStore() {
         cities: group(p => p.city).map(({ city, ...c }) => c)
       };
     },
+    async schoolsOf(city) {
+      const m = {};
+      for (const p of Object.values(db.players)) if (p.city === city && p.school) m[p.school] = (m[p.school] || 0) + 1;
+      return Object.entries(m).filter(([, n]) => n >= 2).sort((a, b) => b[1] - a[1]).slice(0, 300).map(([name]) => name);
+    },
     async siteStats() {
       const players = Object.values(db.players);
       return {
@@ -172,6 +177,10 @@ function pgStore(url) {
       const cities = (await q(`select city as name, round(avg(rating))::int as rating, count(*)::int as players
         from players where games>0 and city<>'' group by city order by rating desc limit 50`)).rows;
       return { players, schools, cities };
+    },
+    async schoolsOf(city) {
+      return (await q(`select school from players where city=$1 and school<>'' group by school
+        having count(*) >= 2 order by count(*) desc limit 300`, [city])).rows.map(r => r.school);
     },
     async siteStats() {
       const r = (await q(`select

@@ -86,6 +86,7 @@
   function openProfile() {
     return new Promise(resolve => {
       const dlg = $('#profileDlg'), form = $('#profileForm'), err = $('#profileError'), f = form.elements;
+      attachSchoolSuggest(f.school, f.city);
       f.name.value = me.name; f.school.value = me.school; f.city.value = me.city;
       err.textContent = '';
       $('#profileCancel').onclick = () => { dlg.close(); resolve(null); };
@@ -604,6 +605,90 @@
     });
   }
 
+  // ---------- подсказки школ ----------
+  const schoolLists = new Map();
+  const loadSchools = city => {
+    if (!city) return Promise.resolve([]);
+    if (!schoolLists.has(city)) schoolLists.set(city, fetch(`/api/schools?city=${encodeURIComponent(city)}`).then(r => r.json()).then(d => d.schools || []).catch(() => []));
+    return schoolLists.get(city);
+  };
+  const norm = t => String(t).toLowerCase().replace(/ё/g, 'е').replace(/[«»"'.,()№-]/g, ' ').replace(/\s+/g, ' ').trim();
+  // Номер школы — по номеру, слова — по началу слов: «гим 12» найдёт «Школа-гимназия № 12».
+  function matchSchools(list, query) {
+    const q = norm(query);
+    if (!q) return list.slice(0, 8);
+    const toks = q.split(' ');
+    const nums = toks.filter(t => /^\d+$/.test(t)), words = toks.filter(t => !/^\d+$/.test(t));
+    return list.filter(name => {
+      const n = norm(name), nameNums = n.match(/\d+/g) || [], nameWords = n.split(' ');
+      return nums.every(x => nameNums.includes(x)) && words.every(w => nameWords.some(nw => nw.startsWith(w)) || n.includes(w));
+    }).slice(0, 8);
+  }
+  function numberForms(query) {
+    const m = String(query).match(/\d{1,3}/);
+    if (!m) return [];
+    const n = m[0];
+    return L.schoolForms.map(f => f.replace('{n}', n));
+  }
+  // Превращает поле «Школа» в поле с выпадающими подсказками для выбранного города.
+  function attachSchoolSuggest(input, citySelect) {
+    if (!input || input.dataset.suggest) return;
+    input.dataset.suggest = '1';
+    input.setAttribute('autocomplete', 'off');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    const id = 'sl' + Math.random().toString(36).slice(2, 8);
+    const box = document.createElement('ul');
+    box.className = 'suggest'; box.id = id; box.setAttribute('role', 'listbox'); box.hidden = true;
+    input.setAttribute('aria-controls', id);
+    input.parentElement.classList.add('suggest-wrap');
+    input.insertAdjacentElement('afterend', box);
+    let items = [], active = -1, seq = 0;
+    const close = () => { box.hidden = true; active = -1; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); };
+    const choose = v => { input.value = v; close(); input.dispatchEvent(new Event('change', { bubbles: true })); };
+    const paint = () => {
+      box.querySelectorAll('li[role=option]').forEach((li, i) => {
+        li.setAttribute('aria-selected', i === active);
+        if (i === active) { input.setAttribute('aria-activedescendant', li.id); li.scrollIntoView({ block: 'nearest' }); }
+      });
+    };
+    const update = async () => {
+      const my = ++seq;
+      const city = citySelect.value;
+      if (!city) { items = []; box.innerHTML = `<li class="suggest__note">${L.schoolPickCity}</li>`; box.hidden = document.activeElement !== input; input.setAttribute('aria-expanded', String(!box.hidden)); return; }
+      const list = await loadSchools(city);
+      if (my !== seq) return;
+      const q = input.value.trim();
+      const found = matchSchools(list, q);
+      // Если школа с этим номером уже есть в списке, шаблоны «по номеру» не нужны.
+      const qNum = (q.match(/\d+/) || [])[0];
+      const hasNum = qNum && found.some(x => (norm(x).match(/\d+/g) || []).includes(qNum));
+      const forms = hasNum ? [] : numberForms(q).filter(f => !found.some(x => norm(x) === norm(f)));
+      items = [...found, ...forms].slice(0, 10);
+      if (!items.length) { box.innerHTML = q ? '' : `<li class="suggest__note">${L.schoolHint}</li>`; }
+      else box.innerHTML = items.map((v, i) => `<li role="option" id="${id}-${i}" data-i="${i}"${i >= found.length ? ' class="suggest__form"' : ''}>${esc(v)}</li>`).join('');
+      if (found.length && forms.length) box.children[found.length].insertAdjacentHTML('beforebegin', `<li class="suggest__note" role="presentation">${L.schoolByNumber}</li>`);
+      if (!found.length && forms.length) box.insertAdjacentHTML('afterbegin', `<li class="suggest__note" role="presentation">${L.schoolByNumber}</li>`);
+      active = -1;
+      box.hidden = !box.innerHTML || document.activeElement !== input;
+      input.setAttribute('aria-expanded', String(!box.hidden));
+    };
+    input.addEventListener('input', update);
+    input.addEventListener('focus', update);
+    input.addEventListener('blur', () => setTimeout(close, 120));
+    citySelect.addEventListener('change', () => { loadSchools(citySelect.value); if (document.activeElement === input) update(); });
+    box.addEventListener('mousedown', e => { const li = e.target.closest('li[role=option]'); if (li) { e.preventDefault(); choose(items[+li.dataset.i]); } });
+    input.addEventListener('keydown', e => {
+      if (box.hidden || !items.length) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); active = (active + 1) % items.length; paint(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); active = (active - 1 + items.length) % items.length; paint(); }
+      else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); choose(items[active]); }
+      else if (e.key === 'Escape') { close(); }
+    });
+    if (citySelect.value) loadSchools(citySelect.value);
+  }
+
   // ---------- Google ----------
   let gConfig = null, gScript = null;
   async function googleReady() {
@@ -643,6 +728,7 @@
       </form>
     </div></div>`;
     const f = $('#gForm').elements;
+    attachSchoolSuggest(f.school, f.city);
     $('#gForm').onsubmit = async e => {
       e.preventDefault();
       $('#gBtn').disabled = true; $('#gError').textContent = '';
@@ -705,6 +791,7 @@
     };
     app.querySelectorAll('[data-auth]').forEach(b => b.onclick = () => setTab(b.dataset.auth));
     setTab(tab);
+    attachSchoolSuggest(f.school, f.city);
     form.onsubmit = async e => {
       e.preventDefault();
       const btn = $('#authBtn'); btn.disabled = true; $('#authError').textContent = '';

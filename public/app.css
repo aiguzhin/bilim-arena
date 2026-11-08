@@ -371,3 +371,12 @@ body.guest .auth-only { display: none !important; }
 .glink__row .gblock { margin: 0; }
 .glink__row .gbtn { justify-content: flex-start; }
 .glink__ok { display: inline-block; font-size: 14px; color: var(--good); background: var(--good-soft); padding: 6px 12px; border-radius: 999px; font-weight: 600; }
+
+/* ---------- подсказки школ ---------- */
+.suggest-wrap { position: relative; }
+.suggest { position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 6px; list-style: none;
+  background: #fff; border: 1.5px solid var(--line); border-radius: 12px; box-shadow: 0 16px 40px -12px rgba(14,37,82,.28); max-height: 300px; overflow-y: auto; }
+.suggest li[role=option] { padding: 10px 12px; border-radius: 8px; font-weight: 400; font-size: 15px; color: var(--ink); cursor: pointer; line-height: 1.35; }
+.suggest li[role=option]:hover, .suggest li[aria-selected="true"] { background: var(--blue-soft); }
+.suggest li.suggest__form { color: var(--ink-2); }
+.suggest__note { padding: 8px 12px 4px; font-size: 12px; font-weight: 600; color: var(--ink-3); }

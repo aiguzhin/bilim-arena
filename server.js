@@ -155,6 +155,20 @@ async function newSession(row, res) {
 
 app.get('/api/config', (req, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID || null }));
 
+// Подсказки школ: справочник + школы, которые указали минимум два ученика этого города.
+const SCHOOLS = require('./schools');
+const schoolCache = new Map();
+app.get('/api/schools', wrap(async (req, res) => {
+  const city = store.clean(req.query.city, 40);
+  if (!city) return res.json({ schools: [] });
+  const hit = schoolCache.get(city);
+  if (hit && Date.now() - hit.at < 5 * 60 * 1000) return res.json({ schools: hit.list });
+  const fromUsers = await db.schoolsOf(city).catch(() => []);
+  const list = [...new Set([...(SCHOOLS[city] || []), ...fromUsers])];
+  schoolCache.set(city, { at: Date.now(), list });
+  res.set('Cache-Control', 'public, max-age=300').json({ schools: list });
+}));
+
 app.post('/api/google', wrap(async (req, res) => {
   if (limited(req)) return res.status(429).json({ error: 'limit' });
   const g = await verifyGoogle(req.body?.credential);
