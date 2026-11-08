@@ -207,7 +207,7 @@
 
     $('#soloBtn').onclick = () => go('/play?mode=solo');
     loadTop();
-    fetch('/api/stats').then(r => r.json()).then(s => { const el = $('#onlineNow'); if (el) el.textContent = s.online; }).catch(() => {});
+    fetch('/api/stats').then(r => r.json()).then(s => { const el = $('#onlineNow'); if (el) el.textContent = Math.max(1, s.online); }).catch(() => {});
     demo();
   }
 
