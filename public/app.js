@@ -624,12 +624,6 @@
       return nums.every(x => nameNums.includes(x)) && words.every(w => nameWords.some(nw => nw.startsWith(w)) || n.includes(w));
     }).slice(0, 8);
   }
-  function numberForms(query) {
-    const m = String(query).match(/\d{1,3}/);
-    if (!m) return [];
-    const n = m[0];
-    return L.schoolForms.map(f => f.replace('{n}', n));
-  }
   // Превращает поле «Школа» в поле с выпадающими подсказками для выбранного города.
   function attachSchoolSuggest(input, citySelect) {
     if (!input || input.dataset.suggest) return;
@@ -660,16 +654,10 @@
       const list = await loadSchools(city);
       if (my !== seq) return;
       const q = input.value.trim();
-      const found = matchSchools(list, q);
-      // Если школа с этим номером уже есть в списке, шаблоны «по номеру» не нужны.
-      const qNum = (q.match(/\d+/) || [])[0];
-      const hasNum = qNum && found.some(x => (norm(x).match(/\d+/g) || []).includes(qNum));
-      const forms = hasNum ? [] : numberForms(q).filter(f => !found.some(x => norm(x) === norm(f)));
-      items = [...found, ...forms].slice(0, 10);
-      if (!items.length) { box.innerHTML = q ? '' : `<li class="suggest__note">${L.schoolHint}</li>`; }
-      else box.innerHTML = items.map((v, i) => `<li role="option" id="${id}-${i}" data-i="${i}"${i >= found.length ? ' class="suggest__form"' : ''}>${esc(v)}</li>`).join('');
-      if (found.length && forms.length) box.children[found.length].insertAdjacentHTML('beforebegin', `<li class="suggest__note" role="presentation">${L.schoolByNumber}</li>`);
-      if (!found.length && forms.length) box.insertAdjacentHTML('afterbegin', `<li class="suggest__note" role="presentation">${L.schoolByNumber}</li>`);
+      // Только существующие школы: из реестра и указанные учениками этого города.
+      items = matchSchools(list, q);
+      if (items.length) box.innerHTML = items.map((v, i) => `<li role="option" id="${id}-${i}" data-i="${i}">${esc(v)}</li>`).join('');
+      else box.innerHTML = `<li class="suggest__note">${q ? L.schoolNotFound : (list.length ? L.schoolHint : L.schoolNoList)}</li>`;
       active = -1;
       box.hidden = !box.innerHTML || document.activeElement !== input;
       input.setAttribute('aria-expanded', String(!box.hidden));
