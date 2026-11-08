@@ -24,7 +24,11 @@
     <nav class="nav">
       <a href="/rating" data-link class="nav__rating" data-i18n="navRating">Рейтинг</a>
       <a href="/#how" class="hide-sm" data-i18n="navHow">Как это работает</a>
-      <button class="lang" id="langBtn" type="button">Қаз</button>
+      <div class="lang-seg" id="langSeg" role="radiogroup" aria-label="Тіл / Язык">
+        <span class="lang-seg__thumb" aria-hidden="true"></span>
+        <button type="button" role="radio" data-lang="kk">Қаз</button>
+        <button type="button" role="radio" data-lang="ru">Рус</button>
+      </div>
       <button class="profile-chip" id="profileChip" hidden></button>
       <a href="/play" data-link class="btn btn--sm" data-i18n="navPlay">Играть</a>
     </nav>

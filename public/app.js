@@ -20,7 +20,8 @@
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = L[el.dataset.i18n]; });
     document.querySelectorAll('[data-i18n-ph]').forEach(el => { el.placeholder = L[el.dataset.i18nPh]; });
-    const lb = $('#langBtn'); lb.textContent = L.langSwitch; lb.setAttribute('aria-label', L.langSwitchLabel);
+    const seg = $('#langSeg'); seg.dataset.active = lang;
+    seg.querySelectorAll('[data-lang]').forEach(b => { const on = b.dataset.lang === lang; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
     const sel = $('#citySelect'), cur = sel.value;
     sel.innerHTML = `<option value="">${L.fCityPick}</option>` + CITIES.map(([ru, kk]) => `<option value="${ru}">${lang === 'kk' ? kk : ru}</option>`).join('') + `<option value="Другой город">${L.otherCity}</option>`;
     sel.value = cur;
@@ -31,14 +32,20 @@
   let me = null, room = null, current = null, picked = null, tick = null, lastEnd = null, lastReveal = null;
   let cleanup = [];
 
-  $('#langBtn').onclick = () => {
-    lang = lang === 'ru' ? 'kk' : 'ru'; L = I18N[lang]; store.set('ba_lang', lang);
+  const setLang = next => {
+    if (next === lang) return;
+    lang = next; L = I18N[lang]; store.set('ba_lang', lang);
     applyStatic();
     if (room && room.state === 'playing' && current) viewQuestion(true);
     else if (room && room.state === 'lobby') viewLobby();
     else if (room && room.state === 'done' && lastEnd) viewResult(lastEnd);
     else if (!room) route();
   };
+  $('#langSeg').addEventListener('click', e => { const b = e.target.closest('[data-lang]'); if (b) setLang(b.dataset.lang); });
+  $('#langSeg').addEventListener('keydown', e => {
+    if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    e.preventDefault(); setLang(lang === 'ru' ? 'kk' : 'ru'); $(`#langSeg [data-lang="${lang}"]`).focus();
+  });
 
   const topicName = t => {
     if (!t) return '';
