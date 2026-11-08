@@ -105,9 +105,7 @@ app.post('/api/register', wrap(async (req, res) => {
   if (prof.error) return res.status(400).json(prof);
   const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: await hashPassword(password), ...prof });
   if (!row) return res.status(409).json({ error: 'taken' });
-  const token = crypto.randomBytes(32).toString('hex');
-  await db.createSession(token, row.id);
-  res.json({ token, user: store.PUBLIC(row) });
+  await newSession(row, res);
 }));
 
 app.post('/api/login', wrap(async (req, res) => {
@@ -115,9 +113,7 @@ app.post('/api/login', wrap(async (req, res) => {
   const username = String(req.body?.username || '').trim().toLowerCase();
   const row = await db.findByUsername(username);
   if (!row || !(await checkPassword(String(req.body?.password || ''), row.pass_hash))) return res.status(401).json({ error: 'wrong' });
-  const token = crypto.randomBytes(32).toString('hex');
-  await db.createSession(token, row.id);
-  res.json({ token, user: store.PUBLIC(row) });
+  await newSession(row, res);
 }));
 
 app.post('/api/logout', auth, wrap(async (req, res) => { await db.deleteSession(req.token); res.json({ ok: true }); }));
@@ -131,6 +127,70 @@ app.patch('/api/me', auth, wrap(async (req, res) => {
   const prof = readProfile(req.body || {});
   if (prof.error) return res.status(400).json(prof);
   res.json({ user: store.PUBLIC(await db.updateProfile(req.player.id, prof)) });
+}));
+
+// ---------- вход через Google ----------
+// Кнопка Google на сайте отдаёт подписанный ID-токен; сервер проверяет подпись и адресата (наш Client ID).
+const GOOGLE_CLIENT_ID = (process.env.GOOGLE_CLIENT_ID || '').trim();
+const { OAuth2Client } = require('google-auth-library');
+const gClient = new OAuth2Client();
+async function verifyGoogle(credential) {
+  if (!GOOGLE_CLIENT_ID || typeof credential !== 'string' || credential.length > 4096) return null;
+  try {
+    const t = await gClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+    const p = t.getPayload();
+    if (!p?.sub || p.email_verified === false) return null;
+    return { sub: p.sub, email: p.email || '', name: p.given_name || p.name || '' };
+  } catch { return null; }
+}
+// Новые пользователи Google сначала указывают город и школу; до этого их данные ждут 15 минут.
+const pendingGoogle = new Map();
+setInterval(() => { const now = Date.now(); for (const [k, v] of pendingGoogle) if (now - v.at > 15 * 60 * 1000) pendingGoogle.delete(k); }, 5 * 60 * 1000);
+
+async function newSession(row, res) {
+  const token = crypto.randomBytes(32).toString('hex');
+  await db.createSession(token, row.id);
+  res.json({ token, user: store.PUBLIC(row) });
+}
+
+app.get('/api/config', (req, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID || null }));
+
+app.post('/api/google', wrap(async (req, res) => {
+  if (limited(req)) return res.status(429).json({ error: 'limit' });
+  const g = await verifyGoogle(req.body?.credential);
+  if (!g) return res.status(401).json({ error: 'google' });
+  const row = await db.findByGoogle(g.sub);
+  if (row) return newSession(row, res);
+  const pending = crypto.randomBytes(24).toString('hex');
+  pendingGoogle.set(pending, { ...g, at: Date.now() });
+  res.json({ needProfile: true, pending, name: store.clean(g.name, 24) });
+}));
+
+app.post('/api/google/complete', wrap(async (req, res) => {
+  const b = req.body || {};
+  const g = pendingGoogle.get(String(b.pending || ''));
+  if (!g) return res.status(400).json({ error: 'expired' });
+  if (b.consent !== true) return res.status(400).json({ error: 'consent' });
+  const prof = readProfile(b);
+  if (prof.error) return res.status(400).json(prof);
+  const existing = await db.findByGoogle(g.sub);
+  if (existing) { pendingGoogle.delete(b.pending); return newSession(existing, res); }
+  const base = (g.email.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 14).padEnd(3, '0');
+  let row = null;
+  for (let i = 0; i < 6 && !row; i++) {
+    const username = i === 0 ? base : `${base}${crypto.randomInt(10, 9999)}`;
+    row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: null, google_sub: g.sub, email: g.email, ...prof });
+  }
+  if (!row) return res.status(409).json({ error: 'server' });
+  pendingGoogle.delete(b.pending);
+  newSession(row, res);
+}));
+
+app.post('/api/google/link', auth, wrap(async (req, res) => {
+  const g = await verifyGoogle(req.body?.credential);
+  if (!g) return res.status(401).json({ error: 'google' });
+  if (!(await db.linkGoogle(req.player.id, g.sub, g.email))) return res.status(409).json({ error: 'googleTaken' });
+  res.json({ user: store.PUBLIC(await db.get(req.player.id)) });
 }));
 
 app.get('/api/site', wrap(async (req, res) => {

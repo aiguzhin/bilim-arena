@@ -359,3 +359,15 @@ body.guest .auth-only { display: none !important; }
   .acc li { grid-template-columns: 1fr; }
   .acc__train { grid-column: 1; grid-row: auto; }
 }
+
+/* ---------- Google ---------- */
+.gblock { margin-bottom: 4px; }
+.gbtn { min-height: 44px; display: flex; justify-content: center; }
+.or { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--ink-3); font-size: 14px; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+#gAuthError:empty { display: none; }
+.glink { margin-top: 18px; }
+.glink__row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; color: var(--ink-2); font-size: 15px; }
+.glink__row .gblock { margin: 0; }
+.glink__row .gbtn { justify-content: flex-start; }
+.glink__ok { display: inline-block; font-size: 14px; color: var(--good); background: var(--good-soft); padding: 6px 12px; border-radius: 999px; font-weight: 600; }

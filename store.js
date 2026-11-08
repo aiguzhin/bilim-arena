@@ -7,7 +7,7 @@ function clean(s, max = 40) {
   return String(s || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-const PUBLIC = p => p && ({ id: p.id, username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins, createdAt: p.created_at });
+const PUBLIC = p => p && ({ id: p.id, username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins, createdAt: p.created_at, google: !!p.google_sub, hasPassword: !!p.pass_hash });
 
 // ---------- память ----------
 function memoryStore() {
@@ -28,6 +28,11 @@ function memoryStore() {
       save(); return db.players[a.id];
     },
     async findByUsername(u) { return byUsername(u); },
+    async findByGoogle(sub) { return Object.values(db.players).find(p => p.google_sub === sub) || null; },
+    async linkGoogle(id, sub, email) {
+      if (Object.values(db.players).some(p => p.google_sub === sub && p.id !== id)) return false;
+      Object.assign(db.players[id], { google_sub: sub, email }); save(); return true;
+    },
     async get(id) { return db.players[id] || null; },
     async updateProfile(id, p) { Object.assign(db.players[id], p); save(); return db.players[id]; },
     async createSession(token, playerId) { db.sessions[token] = { playerId, created: Date.now() }; save(); },
@@ -96,6 +101,9 @@ function pgStore(url) {
       await q(`alter table players add column if not exists pass_hash text`);
       await q(`alter table players add column if not exists created_at timestamptz not null default now()`);
       await q(`create unique index if not exists players_username_key on players (username)`);
+      await q(`alter table players add column if not exists google_sub text`);
+      await q(`alter table players add column if not exists email text`);
+      await q(`create unique index if not exists players_google_key on players (google_sub)`);
       // Записи гостей из первой версии сайта: без логина в них войти нельзя, из рейтинга убираем.
       await q(`delete from players where username is null`);
       await q(`create table if not exists sessions (
@@ -113,11 +121,16 @@ function pgStore(url) {
     },
     async createAccount(a) {
       const r = await q(
-        `insert into players (id, username, pass_hash, name, school, city) values ($1,$2,$3,$4,$5,$6)
-         on conflict do nothing returning *`, [a.id, a.username, a.pass_hash, a.name, a.school, a.city]);
+        `insert into players (id, username, pass_hash, name, school, city, google_sub, email) values ($1,$2,$3,$4,$5,$6,$7,$8)
+         on conflict do nothing returning *`, [a.id, a.username, a.pass_hash || null, a.name, a.school, a.city, a.google_sub || null, a.email || null]);
       return r.rows[0] || null;
     },
     async findByUsername(u) { return (await q('select * from players where username=$1', [u])).rows[0] || null; },
+    async findByGoogle(sub) { return (await q('select * from players where google_sub=$1', [sub])).rows[0] || null; },
+    async linkGoogle(id, sub, email) {
+      try { await q('update players set google_sub=$2, email=$3, updated_at=now() where id=$1', [id, sub, email]); return true; }
+      catch (e) { if (e.code === '23505') return false; throw e; }
+    },
     async get(id) { return (await q('select * from players where id=$1', [id])).rows[0] || null; },
     async updateProfile(id, p) {
       return (await q('update players set name=$2, school=$3, city=$4, updated_at=now() where id=$1 returning *', [id, p.name, p.school, p.city])).rows[0];

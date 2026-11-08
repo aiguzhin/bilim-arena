@@ -603,6 +603,59 @@
     });
   }
 
+  // ---------- Google ----------
+  let gConfig = null, gScript = null;
+  async function googleReady() {
+    if (!gConfig) gConfig = await fetch('/api/config').then(r => r.json()).catch(() => ({}));
+    if (!gConfig.googleClientId) return false;
+    if (!gScript) gScript = new Promise(res => {
+      const sc = document.createElement('script');
+      sc.src = 'https://accounts.google.com/gsi/client'; sc.async = true;
+      sc.onload = () => res(true); sc.onerror = () => res(false);
+      document.head.appendChild(sc);
+    });
+    return gScript;
+  }
+  // Рисует официальную кнопку Google в элементе el; onCredential получает подписанный токен.
+  async function googleButton(el, onCredential) {
+    if (!el || !(await googleReady()) || !window.google?.accounts?.id) return false;
+    google.accounts.id.initialize({ client_id: gConfig.googleClientId, callback: r => onCredential(r.credential), ux_mode: 'popup', cancel_on_tap_outside: true });
+    el.innerHTML = '';
+    google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'continue_with', logo_alignment: 'center', width: Math.min(el.clientWidth || 360, 400), locale: lang === 'kk' ? 'kk' : 'ru' });
+    el.closest('.gblock')?.removeAttribute('hidden');
+    return true;
+  }
+
+  function viewGoogleProfile(pending, name) {
+    setTitle(L.gTitle);
+    app.innerHTML = `
+    <div class="page"><div class="wrap narrow" style="max-width:480px">
+      <h1>${L.gTitle}</h1>
+      <p class="page__lead">${L.gLead}</p>
+      <form id="gForm" class="auth__form panel" style="margin-top:24px" novalidate>
+        <label class="field"><span>${L.fName}</span><input name="name" maxlength="24" value="${esc(name)}" placeholder="${L.fNamePh}"></label>
+        <label class="field"><span>${L.fCity}</span><select name="city">${$('#citySelect').innerHTML}</select></label>
+        <label class="field"><span>${L.fSchool}</span><input name="school" maxlength="60" placeholder="${L.fSchoolPh}"></label>
+        <label class="check"><input type="checkbox" name="consent"> <span>${L.consent}</span></label>
+        <p class="form-error" id="gError" role="alert"></p>
+        <button class="btn btn--block" id="gBtn">${L.gFinish}</button>
+      </form>
+    </div></div>`;
+    const f = $('#gForm').elements;
+    $('#gForm').onsubmit = async e => {
+      e.preventDefault();
+      $('#gBtn').disabled = true; $('#gError').textContent = '';
+      try {
+        const r = await api('/api/google/complete', { method: 'POST', body: { pending, name: f.name.value, city: f.city.value, school: f.school.value, consent: f.consent.checked } });
+        signIn(r.token, r.user); route();
+      } catch (x) {
+        if (x.code === 'expired') return viewAuth();
+        $('#gError').textContent = L.err[x.code] || L.err.server; $('#gBtn').disabled = false;
+      }
+    };
+    (f.name.value ? f.city : f.name).focus();
+  }
+
   // ---------- вход и регистрация ----------
   function viewAuth() {
     setTitle(L.tabLogin);
@@ -617,6 +670,11 @@
           <ul class="auth__points">${L.authPoints.map(x => `<li>${x}</li>`).join('')}</ul>
         </div>
         <div class="auth__card panel">
+          <div class="gblock" hidden>
+            <div id="gBtnBox" class="gbtn"></div>
+            <div class="or"><span>${L.or}</span></div>
+          </div>
+          <p class="form-error" id="gAuthError" role="alert"></p>
           <div class="tabs-sm" role="tablist">
             <button type="button" role="tab" data-auth="register">${L.tabRegister}</button>
             <button type="button" role="tab" data-auth="login">${L.tabLogin}</button>
@@ -659,6 +717,14 @@
       } catch (x) { $('#authError').textContent = L.err[x.code] || L.err.server; btn.disabled = false; }
     };
     f.username.focus();
+    googleButton($('#gBtnBox'), async credential => {
+      $('#gAuthError').textContent = '';
+      try {
+        const r = await api('/api/google', { method: 'POST', body: { credential } });
+        if (r.needProfile) return viewGoogleProfile(r.pending, r.name);
+        signIn(r.token, r.user); route();
+      } catch (x) { $('#gAuthError').textContent = L.err[x.code] || L.err.server; }
+    });
   }
 
   // ---------- кабинет ----------
@@ -684,6 +750,9 @@
         </div>
         <div class="me__actions"><button class="btn btn--ghost btn--sm" id="editBtn">${L.editProfile}</button><button class="btn btn--ghost btn--sm" id="logoutBtn">${L.logout}</button></div>
       </div>
+      <div class="glink">
+        ${u.google ? `<span class="glink__ok">${L.gLinked}</span>` : `<div class="glink__row"><span>${L.gLinkLead}</span><div class="gblock" hidden><div id="gLinkBox" class="gbtn"></div></div></div><p class="form-error" id="gLinkError" role="alert"></p>`}
+      </div>
       <div class="tiles">
         <div><b class="num">${u.rating}</b><span>${L.tRating}</span></div>
         <div><b class="num">${u.games}</b><span>${L.tGames}</span></div>
@@ -705,6 +774,10 @@
     </div></div>${footer()}`;
     $('#editBtn').onclick = async () => { if (await openProfile()) viewMe(); };
     $('#logoutBtn').onclick = async () => { try { await api('/api/logout', { method: 'POST' }); } catch {} signOut(); };
+    if (!u.google) googleButton($('#gLinkBox'), async credential => {
+      try { const r = await api('/api/google/link', { method: 'POST', body: { credential } }); me = { ...me, ...r.user }; toast(L.gLinkedToast); viewMe(); }
+      catch (x) { $('#gLinkError').textContent = L.err[x.code] || L.err.server; }
+    });
   }
 
   // ---------- о проекте ----------
