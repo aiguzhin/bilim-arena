@@ -4,7 +4,17 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const LETTERS = ['A', 'B', 'C', 'D'];
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const socket = io({ transports: ['websocket', 'polling'] });
+  // ---------- сессия ----------
+  const getToken = () => { try { return localStorage.getItem('ba_token') || ''; } catch { return ''; } };
+  const setToken = t => { try { t ? localStorage.setItem('ba_token', t) : localStorage.removeItem('ba_token'); } catch {} };
+  const socket = io({ autoConnect: false, transports: ['websocket', 'polling'], auth: cb => cb({ token: getToken() }) });
+  async function api(path, opts = {}) {
+    const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...(opts.headers || {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    const data = await r.json().catch(() => ({ error: 'server' }));
+    if (r.status === 401 && path !== '/api/login') { signOut(); throw Object.assign(new Error('auth'), { code: 'auth' }); }
+    if (!r.ok) throw Object.assign(new Error(data.error || 'server'), { code: data.error || 'server' });
+    return data;
+  }
 
   // ---------- язык ----------
   const store = {
@@ -54,57 +64,49 @@
   };
 
   // ---------- профиль ----------
-  function loadProfile() { try { return JSON.parse(store.get('ba_profile')); } catch { return null; } }
-  function uid() { return (crypto.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2))).replace(/[^a-z0-9-]/gi, ''); }
-
-  function hello(p) {
-    return new Promise(res => socket.emit('hello', p, r => {
-      if (r?.ok) { me = { ...p, ...r }; renderChip(); }
-      res(r);
-    }));
-  }
-
   function renderChip() {
     const chip = $('#profileChip');
+    document.body.classList.toggle('guest', !me);
     if (!me) { chip.hidden = true; return; }
     chip.hidden = false;
     chip.innerHTML = `${esc(me.name)}<b class="num">${me.rating}</b>`;
-    chip.title = L.editProfile;
+    chip.title = L.meTitle;
   }
 
-  function openProfile(force) {
+  function signIn(token, user) {
+    setToken(token); me = user; renderChip();
+    socket.connect();
+  }
+  function signOut() {
+    setToken(''); me = null; room = null; current = null; lastEnd = null;
+    socket.disconnect(); renderChip();
+    route();
+  }
+
+  function openProfile() {
     return new Promise(resolve => {
       const dlg = $('#profileDlg'), form = $('#profileForm'), err = $('#profileError'), f = form.elements;
-      const p = loadProfile();
-      if (p) { f.name.value = p.name; f.school.value = p.school; f.city.value = p.city; f.consent.checked = true; }
+      f.name.value = me.name; f.school.value = me.school; f.city.value = me.city;
       err.textContent = '';
       $('#profileCancel').onclick = () => { dlg.close(); resolve(null); };
       form.onsubmit = async e => {
         e.preventDefault();
-        const prof = { id: p?.id || uid(), name: f.name.value.trim(), school: f.school.value.trim(), city: f.city.value };
-        const r = await hello(prof);
-        if (r?.error) { err.textContent = L.err[r.error] || r.error; return; }
-        store.set('ba_profile', JSON.stringify(prof)); dlg.close(); resolve(prof);
+        try {
+          const r = await api('/api/me', { method: 'PATCH', body: { name: f.name.value, school: f.school.value, city: f.city.value } });
+          me = { ...me, ...r.user }; renderChip(); socket.emit('profile_updated');
+          dlg.close(); resolve(me);
+        } catch (x) { err.textContent = L.err[x.code] || L.err.server; }
       };
       dlg.showModal();
-      if (!force) f.name.focus();
     });
   }
 
-  async function ensureProfile() {
-    if (me) return me;
-    const p = loadProfile();
-    if (p) { const r = await hello(p); if (r?.ok) return me; }
-    return openProfile();
-  }
+  $('#profileChip').onclick = () => go('/me');
 
-  $('#profileChip').onclick = () => openProfile(true);
-
-  socket.on('connect', async () => {
-    const p = loadProfile();
-    if (p) await hello(p);
+  socket.on('connect', () => {
     if (room && room.code && room.state !== 'done') socket.emit('join', { code: room.code }, () => {});
   });
+  socket.on('connect_error', e => { if (e.message === 'auth') signOut(); });
 
   // ---------- утилиты ----------
   let toastT;
@@ -131,10 +133,16 @@
     const path = location.pathname;
     window.scrollTo(0, 0);
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
+    if (!me && getToken()) {
+      try { const r = await api('/api/me'); me = r.user; renderChip(); socket.connect(); } catch {}
+    }
+    if (!me) return viewAuth();
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
     if (path === '/rating') return viewRating();
+    if (path === '/me') return viewMe();
+    if (path === '/about') return viewAbout();
     viewHome();
   }
 
@@ -228,7 +236,7 @@
   }
 
   function footer() {
-    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena</span><span>${L.footer}</span></div></footer>`;
+    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena${me ? ` · <a href="/about" data-link>${L.navAbout}</a>` : ''}</span><span>${L.footer}</span></div></footer>`;
   }
 
   async function loadTop() {
@@ -276,7 +284,8 @@
     setTitle(L.setupTitle);
     const params = new URLSearchParams(location.search);
     const mode = ['duel', 'class', 'solo'].includes(params.get('mode')) ? params.get('mode') : 'duel';
-    const saved = store.get('ba_topic') || 'combo:math-physics';
+    const qTopic = params.get('topic');
+    const saved = (qTopic && (meta.subjects[qTopic] || qTopic.startsWith('combo:')) ? qTopic : null) || store.get('ba_topic') || 'combo:math-physics';
     const isCombo = saved.startsWith('combo:');
     const comboKeys = Object.keys(meta.combos);
     const profileSubs = Object.keys(meta.subjects).filter(k => !meta.mandatory.includes(k));
@@ -344,7 +353,6 @@
 
     form.onsubmit = async e => {
       e.preventDefault();
-      if (!await ensureProfile()) return;
       const t = topic(); store.set('ba_topic', t);
       socket.emit('create', { mode: form.mode.value, subject: t }, r => {
         if (r?.error) { $('#setupError').textContent = L.err[r.error] || r.error; return; }
@@ -353,7 +361,6 @@
     };
 
     $('#quickBtn').onclick = async () => {
-      if (!await ensureProfile()) return;
       const t = topic(); store.set('ba_topic', t);
       $('#qwText').textContent = L.quickWait(topicName(t));
       socket.emit('quick', { subject: t }, r => {
@@ -373,14 +380,13 @@
     if (push) history.pushState({}, '', `/b/${code}`);
     if (room?.code === code) return;
     app.innerHTML = `<div class="page"><div class="wrap narrow"><h1>${L.joinTitle}</h1><p class="page__lead">${L.joinLead}</p><div style="margin-top:24px"><button class="btn" id="joinBtn">${L.joinBtn}</button></div></div></div>`;
-    const doJoin = async () => {
-      if (!await ensureProfile()) return;
+    const doJoin = () => {
       socket.emit('join', { code }, r => {
         if (r?.error) app.innerHTML = `<div class="page"><div class="wrap narrow"><h1>${L.joinFail}</h1><p class="page__lead">${esc(L.err[r.error] || r.error)}</p><div style="margin-top:24px"><a href="/play" data-link class="btn">${L.createOwn}</a></div></div></div>`;
       });
     };
     $('#joinBtn').onclick = doJoin;
-    if (loadProfile()) doJoin();
+    if (socket.connected) doJoin(); else socket.once('connect', doJoin);
   }
 
   // ---------- события баттла ----------
@@ -595,6 +601,131 @@
         socket.emit('invite', { from, code: r.code });
       });
     });
+  }
+
+  // ---------- вход и регистрация ----------
+  function viewAuth() {
+    setTitle(L.tabLogin);
+    const invite = /^\/b\/[A-Z0-9]{5}$/i.test(location.pathname);
+    let tab = sessionStorage.getItem('ba_authtab') || 'register';
+    app.innerHTML = `
+    <section class="auth">
+      <div class="wrap auth__grid">
+        <div class="auth__pitch">
+          <h1>${L.heroTitle}</h1>
+          <p class="hero__lead">${invite ? L.inviteNote : L.authLead}</p>
+          <ul class="auth__points">${L.authPoints.map(x => `<li>${x}</li>`).join('')}</ul>
+        </div>
+        <div class="auth__card panel">
+          <div class="tabs-sm" role="tablist">
+            <button type="button" role="tab" data-auth="register">${L.tabRegister}</button>
+            <button type="button" role="tab" data-auth="login">${L.tabLogin}</button>
+          </div>
+          <form id="authForm" class="auth__form" novalidate>
+            <label class="field"><span>${L.fUsername}</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required><small class="reg">${L.fUsernameHint}</small></label>
+            <label class="field"><span>${L.fPassword}</span><input name="password" type="password" maxlength="72" required><small class="reg">${L.fPasswordHint}</small></label>
+            <label class="field reg"><span>${L.fName}</span><input name="name" maxlength="24" autocomplete="nickname" placeholder="${L.fNamePh}"></label>
+            <label class="field reg"><span>${L.fCity}</span><select name="city">${$('#citySelect').innerHTML}</select></label>
+            <label class="field reg"><span>${L.fSchool}</span><input name="school" maxlength="60" placeholder="${L.fSchoolPh}"></label>
+            <label class="check reg"><input type="checkbox" name="consent"> <span>${L.consent}</span></label>
+            <p class="form-error" id="authError" role="alert"></p>
+            <button class="btn btn--block" id="authBtn"></button>
+          </form>
+        </div>
+      </div>
+    </section>
+    ${footer()}`;
+    const form = $('#authForm'), f = form.elements;
+    const setTab = t => {
+      tab = t; sessionStorage.setItem('ba_authtab', t);
+      app.querySelectorAll('[data-auth]').forEach(b => b.setAttribute('aria-selected', b.dataset.auth === t));
+      form.querySelectorAll('.reg').forEach(el => { el.hidden = t !== 'register'; });
+      f.password.autocomplete = t === 'register' ? 'new-password' : 'current-password';
+      $('#authBtn').textContent = t === 'register' ? L.registerBtn : L.loginBtn;
+      $('#authError').textContent = '';
+    };
+    app.querySelectorAll('[data-auth]').forEach(b => b.onclick = () => setTab(b.dataset.auth));
+    setTab(tab);
+    form.onsubmit = async e => {
+      e.preventDefault();
+      const btn = $('#authBtn'); btn.disabled = true; $('#authError').textContent = '';
+      try {
+        const body = tab === 'register'
+          ? { username: f.username.value, password: f.password.value, name: f.name.value, city: f.city.value, school: f.school.value, consent: f.consent.checked }
+          : { username: f.username.value, password: f.password.value };
+        const r = await api(tab === 'register' ? '/api/register' : '/api/login', { method: 'POST', body });
+        signIn(r.token, r.user);
+        route();
+      } catch (x) { $('#authError').textContent = L.err[x.code] || L.err.server; btn.disabled = false; }
+    };
+    f.username.focus();
+  }
+
+  // ---------- кабинет ----------
+  async function viewMe() {
+    setTitle(L.meTitle);
+    app.innerHTML = `<div class="page"><div class="wrap narrow"><p class="muted">${L.loading}</p></div></div>`;
+    let d;
+    try { d = await api('/api/me'); } catch { return; }
+    me = { ...me, ...d.user }; renderChip();
+    const u = d.user;
+    const answered = d.subjects.reduce((n, x) => n + x.answered, 0), right = d.subjects.reduce((n, x) => n + x.correct, 0);
+    const acc = answered ? Math.round(right / answered * 100) : null;
+    const subs = d.subjects.filter(x => x.answered > 0).map(x => ({ ...x, pct: Math.round(x.correct / x.answered * 100) })).sort((a, b) => a.pct - b.pct);
+    const since = u.createdAt ? new Date(u.createdAt).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const fmt = iso => new Date(iso).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : 'ru-RU', { day: 'numeric', month: 'short' });
+    app.innerHTML = `
+    <div class="page"><div class="wrap narrow">
+      <div class="me__head">
+        <div>
+          <h1>${esc(u.name)}</h1>
+          <p class="page__lead">@${esc(u.username)} · ${esc(u.school)}, ${esc(cityName(u.city))}</p>
+          ${since ? `<p class="muted" style="font-size:14px;margin-top:4px">${L.memberSince(since)}</p>` : ''}
+        </div>
+        <div class="me__actions"><button class="btn btn--ghost btn--sm" id="editBtn">${L.editProfile}</button><button class="btn btn--ghost btn--sm" id="logoutBtn">${L.logout}</button></div>
+      </div>
+      <div class="tiles">
+        <div><b class="num">${u.rating}</b><span>${L.tRating}</span></div>
+        <div><b class="num">${u.games}</b><span>${L.tGames}</span></div>
+        <div><b class="num">${u.wins}</b><span>${L.tWins}</span></div>
+        <div><b class="num">${acc === null ? '—' : acc + '%'}</b><span>${L.tAcc}</span></div>
+      </div>
+      <h2 class="me__h2">${L.subjectsTitle}</h2>
+      ${subs.length ? `<p class="muted" style="margin:-6px 0 14px">${L.subjectsLead}</p><ul class="acc">${subs.map((x, i) => `
+        <li>
+          <div class="acc__top"><span>${esc(pick(meta.subjects[x.subject]) || x.subject)}${i === 0 && subs.length > 1 && x.pct < 70 ? ` <span class="acc__weak">${L.weak}</span>` : ''}</span><span class="num"><b>${x.pct}%</b> <span class="muted">· ${L.rightOf(x.correct, x.answered)}</span></span></div>
+          <div class="acc__bar"><i style="width:${x.pct}%" class="${x.pct < 50 ? 'low' : x.pct < 75 ? 'mid' : ''}"></i></div>
+          <a href="/play?mode=solo&topic=${x.subject}" data-link class="acc__train">${L.train}</a>
+        </li>`).join('')}</ul>` : `<div class="empty">${L.subjectsEmpty}<br><a href="/play" data-link class="btn">${L.play}</a></div>`}
+      <h2 class="me__h2">${L.recentTitle}</h2>
+      ${d.recent.length ? `<table class="table"><tbody>${d.recent.map(g => `
+        <tr><td><b>${L.modeName[g.mode] || g.mode}</b><div class="sub">${esc(topicName(g.topic))} · ${fmt(g.created_at)}</div></td>
+        <td class="num hide-sm">${L.rightOf(g.correct, g.total)}</td>
+        <td class="r">${g.mode === 'solo' ? g.score : `<span class="${g.delta > 0 ? 'pos-d' : g.delta < 0 ? 'neg-d' : ''}">${g.delta > 0 ? '+' : ''}${g.delta}</span>`}</td></tr>`).join('')}</tbody></table>` : `<div class="empty">${L.recentEmpty}</div>`}
+    </div></div>${footer()}`;
+    $('#editBtn').onclick = async () => { if (await openProfile()) viewMe(); };
+    $('#logoutBtn').onclick = async () => { try { await api('/api/logout', { method: 'POST' }); } catch {} signOut(); };
+  }
+
+  // ---------- о проекте ----------
+  async function viewAbout() {
+    setTitle(L.navAbout);
+    const order = ['users', 'schools', 'cities', 'games', 'answers', 'questions'];
+    app.innerHTML = `
+    <div class="page"><div class="wrap narrow">
+      <h1>${L.aboutTitle}</h1>
+      <p class="page__lead">${L.aboutLead}</p>
+      <h2 class="me__h2">${L.statsTitle}</h2>
+      <div class="tiles tiles--6" id="siteStats">${order.map(k => `<div><b class="num">—</b><span>${L.statLabels[k]}</span></div>`).join('')}</div>
+      <div class="about__block"><h2>${L.formatTitle}</h2><p>${L.formatText}</p></div>
+      <div class="about__block"><h2>${L.scoringTitle}</h2><p>${L.scoringText}</p></div>
+      <div class="about__block"><h2>${L.privacyTitle}</h2><p>${L.privacyText}</p></div>
+      <div style="margin-top:32px"><a href="/play" data-link class="btn">${L.aboutCta}</a></div>
+    </div></div>${footer()}`;
+    try {
+      const st = await fetch('/api/site').then(r => r.json());
+      $('#siteStats').innerHTML = order.map(k => `<div><b class="num">${Number(st[k] || 0).toLocaleString('ru-RU')}</b><span>${L.statLabels[k]}</span></div>`).join('');
+    } catch {}
   }
 
   // ---------- рейтинг ----------

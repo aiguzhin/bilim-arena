@@ -1,5 +1,6 @@
 const path = require('path');
 const http = require('http');
+const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
 const BANK = require('./questions');
@@ -51,7 +52,90 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about'], sendIndex);
+
+// ---------- аккаунты ----------
+app.use(express.json({ limit: '10kb' }));
+
+const scrypt = (pw, salt) => new Promise((res, rej) => crypto.scrypt(pw, salt, 64, (e, k) => (e ? rej(e) : res(k))));
+async function hashPassword(pw) { const salt = crypto.randomBytes(16); return `${salt.toString('hex')}:${(await scrypt(pw, salt)).toString('hex')}`; }
+async function checkPassword(pw, stored) {
+  const [salt, hash] = String(stored || '').split(':');
+  if (!salt || !hash) return false;
+  const k = await scrypt(pw, Buffer.from(salt, 'hex'));
+  return crypto.timingSafeEqual(k, Buffer.from(hash, 'hex'));
+}
+
+// Ограничение попыток входа и регистрации: не больше 10 в 10 минут с одного адреса.
+const attempts = new Map();
+function limited(req) {
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const now = Date.now(), a = attempts.get(ip);
+  if (!a || now - a.start > 10 * 60 * 1000) { attempts.set(ip, { start: now, n: 1 }); return false; }
+  a.n += 1; return a.n > 10;
+}
+setInterval(() => { const now = Date.now(); for (const [k, a] of attempts) if (now - a.start > 10 * 60 * 1000) attempts.delete(k); }, 10 * 60 * 1000);
+
+const tokenOf = req => (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+async function auth(req, res, next) {
+  const t = tokenOf(req);
+  const p = t && /^[a-f0-9]{64}$/.test(t) ? await db.sessionPlayer(t).catch(() => null) : null;
+  if (!p) return res.status(401).json({ error: 'auth' });
+  req.player = p; req.token = t; next();
+}
+const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'server' }); });
+
+function readProfile(b) {
+  const name = store.clean(b.name, 24), school = store.clean(b.school, 60), city = store.clean(b.city, 40);
+  if (name.length < 2) return { error: 'name' };
+  if (school.length < 2) return { error: 'school' };
+  if (!city) return { error: 'city' };
+  return { name, school, city };
+}
+
+app.post('/api/register', wrap(async (req, res) => {
+  if (limited(req)) return res.status(429).json({ error: 'limit' });
+  const b = req.body || {};
+  const username = String(b.username || '').trim().toLowerCase();
+  const password = String(b.password || '');
+  if (!/^[a-z0-9_.]{3,20}$/.test(username)) return res.status(400).json({ error: 'username' });
+  if (password.length < 6 || password.length > 72) return res.status(400).json({ error: 'password' });
+  if (b.consent !== true) return res.status(400).json({ error: 'consent' });
+  const prof = readProfile(b);
+  if (prof.error) return res.status(400).json(prof);
+  const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: await hashPassword(password), ...prof });
+  if (!row) return res.status(409).json({ error: 'taken' });
+  const token = crypto.randomBytes(32).toString('hex');
+  await db.createSession(token, row.id);
+  res.json({ token, user: store.PUBLIC(row) });
+}));
+
+app.post('/api/login', wrap(async (req, res) => {
+  if (limited(req)) return res.status(429).json({ error: 'limit' });
+  const username = String(req.body?.username || '').trim().toLowerCase();
+  const row = await db.findByUsername(username);
+  if (!row || !(await checkPassword(String(req.body?.password || ''), row.pass_hash))) return res.status(401).json({ error: 'wrong' });
+  const token = crypto.randomBytes(32).toString('hex');
+  await db.createSession(token, row.id);
+  res.json({ token, user: store.PUBLIC(row) });
+}));
+
+app.post('/api/logout', auth, wrap(async (req, res) => { await db.deleteSession(req.token); res.json({ ok: true }); }));
+
+app.get('/api/me', auth, wrap(async (req, res) => {
+  const stats = await db.profileStats(req.player.id);
+  res.json({ user: store.PUBLIC(req.player), ...stats });
+}));
+
+app.patch('/api/me', auth, wrap(async (req, res) => {
+  const prof = readProfile(req.body || {});
+  if (prof.error) return res.status(400).json(prof);
+  res.json({ user: store.PUBLIC(await db.updateProfile(req.player.id, prof)) });
+}));
+
+app.get('/api/site', wrap(async (req, res) => {
+  res.json({ ...(await db.siteStats()), questions: Object.values(BANK).reduce((n, v) => n + v.q.length, 0), combos: Object.keys(COMBOS).length });
+}));
 
 // ---------- комнаты ----------
 const rooms = new Map();
@@ -70,7 +154,7 @@ function shuffle(a) {
 }
 
 function take(subject, n) {
-  return shuffle(BANK[subject].q.slice()).slice(0, n).map(q => ({ ...q, s: BANK[subject].name }));
+  return shuffle(BANK[subject].q.slice()).slice(0, n).map(q => ({ ...q, k: subject, s: BANK[subject].name }));
 }
 
 function pickQuestions(topic) {
@@ -81,7 +165,7 @@ function pickQuestions(topic) {
   } else list = take(topic, ROUND);
   return list.map(q => {
     const order = shuffle([0, 1, 2, 3]);
-    return { t: q.t, s: q.s, o: { ru: order.map(i => q.o.ru[i]), kk: order.map(i => q.o.kk[i]) }, a: order.indexOf(q.a), e: q.e };
+    return { k: q.k, t: q.t, s: q.s, o: { ru: order.map(i => q.o.ru[i]), kk: order.map(i => q.o.kk[i]) }, a: order.indexOf(q.a), e: q.e };
   });
 }
 
@@ -162,26 +246,35 @@ async function finish(r) {
   const changes = {};
   let winner = null;
 
+  const deltas = {}, wins = {};
   if (r.mode === 'duel' && list.length === 2) {
     const [a, b] = list;
-    const ra = (await db.get(a.pid))?.rating ?? 1000;
-    const rb = (await db.get(b.pid))?.rating ?? 1000;
+    const ra = await db.ratingOf(a.pid).catch(() => 1000);
+    const rb = await db.ratingOf(b.pid).catch(() => 1000);
     const res = a.score === b.score ? (a.time === b.time ? 0.5 : a.time < b.time ? 1 : 0) : a.score > b.score ? 1 : 0;
     const ea = 1 / (1 + 10 ** ((rb - ra) / 400));
     const da = Math.round(32 * (res - ea));
-    changes[a.sid] = da; changes[b.sid] = -da;
+    deltas[a.sid] = da; deltas[b.sid] = -da;
+    wins[a.sid] = res === 1; wins[b.sid] = res === 0;
     winner = res === 1 ? a.sid : res === 0 ? b.sid : null;
-    await db.apply([{ id: a.pid, delta: da, win: res === 1 }, { id: b.pid, delta: -da, win: res === 0 }]).catch(console.error);
   } else if (r.mode === 'class') {
     const t = teamScores(r);
     winner = t.A.avg === t.B.avg ? null : t.A.avg > t.B.avg ? 'A' : 'B';
-    const ups = list.map(p => {
-      const d = winner === null ? 4 : p.team === winner ? 10 : 2;
-      changes[p.sid] = d;
-      return { id: p.pid, delta: d, win: p.team === winner };
-    });
-    await db.apply(ups).catch(console.error);
+    for (const p of list) { deltas[p.sid] = winner === null ? 4 : p.team === winner ? 10 : 2; wins[p.sid] = p.team === winner; }
   }
+  Object.assign(changes, deltas);
+
+  // Сохраняем игру: счёт, рейтинг и статистику по предметам для каждого игрока.
+  const seen = new Set();
+  const rows = list.filter(p => !seen.has(p.pid) && seen.add(p.pid)).map(p => {
+    const subjects = {};
+    r.questions.forEach((q, i) => {
+      const s = subjects[q.k] ||= { answered: 0, correct: 0 };
+      s.answered += 1; if (p.answers[i]?.correct) s.correct += 1;
+    });
+    return { id: p.pid, score: p.score, correct: p.answers.filter(x => x?.correct).length, total: r.questions.length, delta: deltas[p.sid] || 0, win: !!wins[p.sid], subjects };
+  });
+  await db.recordGame({ mode: r.mode, topic: r.subject, players: rows }).catch(console.error);
 
   const review = r.questions.map(q => ({ t: q.t, s: q.s, o: q.o, a: q.a, e: q.e }));
   for (const p of list) {
@@ -194,16 +287,19 @@ async function finish(r) {
 }
 
 // ---------- сокеты ----------
-io.on('connection', socket => {
-  let profile = null;
+io.use(async (socket, next) => {
+  const t = String(socket.handshake.auth?.token || '');
+  const p = /^[a-f0-9]{64}$/.test(t) ? await db.sessionPlayer(t).catch(() => null) : null;
+  if (!p) return next(new Error('auth'));
+  socket.data.player = p; next();
+});
 
-  socket.on('hello', async (p, ack) => {
-    const id = String(p?.id || '');
-    const name = store.clean(p?.name, 24);
-    if (!/^[a-z0-9-]{8,40}$/i.test(id) || name.length < 2) return ack?.({ error: 'name' });
-    profile = { id, name, school: store.clean(p?.school, 60), city: store.clean(p?.city, 40) };
-    try { const row = await db.upsert(profile); ack?.({ ok: true, rating: row.rating, games: row.games, wins: row.wins }); }
-    catch (e) { console.error(e); ack?.({ ok: true, rating: 1000, games: 0, wins: 0 }); }
+io.on('connection', socket => {
+  const pl = socket.data.player;
+  let profile = { id: pl.id, name: pl.name, school: pl.school, city: pl.city };
+  socket.on('profile_updated', async () => {
+    const p = await db.get(profile.id).catch(() => null);
+    if (p) profile = { id: p.id, name: p.name, school: p.school, city: p.city };
   });
 
   const join = (r, team) => {

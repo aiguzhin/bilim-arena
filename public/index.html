@@ -21,16 +21,16 @@
       <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#0E2552"/><path d="M9 23 L16 9 L23 23" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M11.8 18h8.4" stroke="#F2B600" stroke-width="3" stroke-linecap="round"/></svg>
       <span>Bilim Arena</span>
     </a>
-    <nav class="nav">
-      <a href="/rating" data-link class="nav__rating" data-i18n="navRating">Рейтинг</a>
-      <a href="/#how" class="hide-sm" data-i18n="navHow">Как это работает</a>
+    <nav class="nav" id="mainNav">
+      <a href="/rating" data-link class="nav__rating auth-only" data-i18n="navRating">Рейтинг</a>
+      <a href="/about" data-link class="hide-sm auth-only" data-i18n="navAbout">О проекте</a>
       <div class="lang-seg" id="langSeg" role="radiogroup" aria-label="Тіл / Язык">
         <span class="lang-seg__thumb" aria-hidden="true"></span>
         <button type="button" role="radio" data-lang="kk">Қаз</button>
         <button type="button" role="radio" data-lang="ru">Рус</button>
       </div>
       <button class="profile-chip" id="profileChip" hidden></button>
-      <a href="/play" data-link class="btn btn--sm" data-i18n="navPlay">Играть</a>
+      <a href="/play" data-link class="btn btn--sm auth-only" data-i18n="navPlay">Играть</a>
     </nav>
   </div>
 </header>
@@ -44,7 +44,6 @@
     <label class="field"><span data-i18n="fName"></span><input name="name" maxlength="24" required minlength="2" autocomplete="nickname" data-i18n-ph="fNamePh"></label>
     <label class="field"><span data-i18n="fCity"></span><select name="city" required id="citySelect"></select></label>
     <label class="field"><span data-i18n="fSchool"></span><input name="school" maxlength="60" required data-i18n-ph="fSchoolPh"></label>
-    <label class="check"><input type="checkbox" name="consent" required> <span data-i18n="consent"></span></label>
     <p class="form-error" id="profileError" role="alert"></p>
     <div class="dlg__actions">
       <button type="button" class="btn btn--ghost" id="profileCancel" data-i18n="cancel"></button>

@@ -309,3 +309,53 @@ footer.foot { border-top: 1px solid var(--line); padding: 28px 0 40px; color: va
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- вход ---------- */
+body.guest .auth-only { display: none !important; }
+.auth { padding: 56px 0 72px; }
+.auth__grid { display: grid; grid-template-columns: 1fr 440px; gap: 56px; align-items: start; }
+.auth__pitch h1 { font-size: clamp(32px, 4.4vw, 48px); max-width: 14ch; }
+.auth__points { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 14px; }
+.auth__points li { padding-left: 26px; position: relative; color: var(--ink); font-weight: 500; }
+.auth__points li::before { content: ''; position: absolute; left: 0; top: 10px; width: 12px; height: 3px; border-radius: 2px; background: var(--gold); }
+.auth__card { padding: 24px; }
+.auth__card .tabs-sm { width: 100%; display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 18px; }
+.auth__form { display: grid; gap: 14px; }
+.field small { font-weight: 400; color: var(--ink-3); font-size: 13px; }
+.field select { height: 48px; border: 1.5px solid var(--line); border-radius: 10px; padding: 0 14px; font-size: 16px; background: #fff; }
+
+/* ---------- кабинет ---------- */
+.me__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.me__actions { display: flex; gap: 8px; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 28px 0 8px; }
+.tiles--6 { grid-template-columns: repeat(3, 1fr); }
+.tiles > div { background: var(--field); border-radius: 14px; padding: 16px; }
+.tiles b { display: block; font: 700 26px/1.1 var(--display); color: var(--navy); }
+.tiles span { font-size: 14px; color: var(--ink-2); }
+.me__h2 { font-size: 22px; margin: 36px 0 14px; }
+.acc { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.acc li { border: 1.5px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; align-items: center; }
+.acc__top { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; grid-column: 1; flex-wrap: wrap; }
+.acc__top .muted { font-weight: 400; font-size: 14px; }
+.acc__bar { grid-column: 1; height: 8px; background: var(--field); border-radius: 8px; overflow: hidden; }
+.acc__bar i { display: block; height: 100%; background: var(--good); border-radius: 8px; }
+.acc__bar i.mid { background: var(--gold); }
+.acc__bar i.low { background: var(--bad); }
+.acc__train { grid-column: 2; grid-row: 1 / span 2; font-weight: 600; font-size: 14px; text-decoration: none; }
+.acc__weak { display: inline-block; margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--bad); background: var(--bad-soft); padding: 2px 8px; border-radius: 999px; }
+.pos-d { color: var(--good); font-weight: 700; }
+.neg-d { color: var(--bad); font-weight: 700; }
+.about__block { margin-top: 36px; }
+.about__block h2 { font-size: 22px; margin-bottom: 10px; }
+.about__block p { color: var(--ink-2); max-width: 64ch; }
+
+@media (max-width: 900px) {
+  .auth__grid { grid-template-columns: 1fr; gap: 28px; }
+  .auth { padding: 28px 0 48px; }
+  .auth__points { display: none; }
+}
+@media (max-width: 600px) {
+  .tiles, .tiles--6 { grid-template-columns: repeat(2, 1fr); }
+  .acc li { grid-template-columns: 1fr; }
+  .acc__train { grid-column: 1; grid-row: auto; }
+}
