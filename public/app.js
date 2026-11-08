@@ -136,6 +136,7 @@
     if (!me && getToken()) {
       try { const r = await api('/api/me'); me = r.user; renderChip(); socket.connect(); } catch {}
     }
+    if (path === '/privacy') return viewPrivacy();
     if (!me) return viewAuth();
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
@@ -236,7 +237,7 @@
   }
 
   function footer() {
-    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena${me ? ` · <a href="/about" data-link>${L.navAbout}</a>` : ''}</span><span>${L.footer}</span></div></footer>`;
+    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena${me ? ` · <a href="/about" data-link>${L.navAbout}</a>` : ''} · <a href="/privacy" data-link>${L.privTitle}</a></span><span>${L.footer}</span></div></footer>`;
   }
 
   async function loadTop() {
@@ -778,6 +779,18 @@
       try { const r = await api('/api/google/link', { method: 'POST', body: { credential } }); me = { ...me, ...r.user }; toast(L.gLinkedToast); viewMe(); }
       catch (x) { $('#gLinkError').textContent = L.err[x.code] || L.err.server; }
     });
+  }
+
+  // ---------- политика конфиденциальности (открыта без входа) ----------
+  function viewPrivacy() {
+    setTitle(L.privTitle);
+    app.innerHTML = `
+    <div class="page"><div class="wrap narrow">
+      <h1>${L.privTitle}</h1>
+      <p class="page__lead">${L.privUpdated}</p>
+      ${L.privSections.map(([h, t]) => `<div class="about__block"><h2>${h}</h2><p>${t}</p></div>`).join('')}
+      <div style="margin-top:32px"><a href="/" data-link class="btn">${me ? L.aboutCta : L.loginBtn}</a></div>
+    </div></div>${footer()}`;
   }
 
   // ---------- о проекте ----------

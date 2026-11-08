@@ -52,7 +52,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '10kb' }));
