@@ -14,7 +14,6 @@ services:
     startCommand: npm start
     healthCheckPath: /api/subjects
     envVars:
+      # База данных — Neon (бесплатно, бессрочно). Строка подключения задаётся вручную в панели Render.
       - key: DATABASE_URL
-        fromDatabase:
-          name: bilim-arena-db
-          property: connectionString
+        sync: false
