@@ -39,13 +39,19 @@ function validTopic(t) {
   return typeof t === 'string' && (t.startsWith('combo:') ? !!COMBOS[t.slice(6)] : !!SUBJECTS[t]);
 }
 
-app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: '1h' }));
+// Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
+const fs = require('fs');
+const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js))"/g, `$1?v=${VERSION}"`);
+const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
+app.get(['/', '/index.html'], sendIndex);
+app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
 app.get('/api/subjects', (req, res) => res.json({ subjects: SUBJECTS, mandatory: MANDATORY, combos: COMBOS, count: Object.values(BANK).reduce((n, v) => n + v.q.length, 0) }));
 app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get(['/b/:code', '/rating', '/play'], sendIndex);
 
 // ---------- комнаты ----------
 const rooms = new Map();
