@@ -16,19 +16,40 @@ const COUNTDOWN_S = 3;
 const ROUND = 10;
 
 const SUBJECTS = Object.fromEntries(Object.entries(BANK).map(([k, v]) => [k, v.name]));
-SUBJECTS.mix = 'Микс всех предметов';
+const MANDATORY = ['history', 'mathlit', 'reading'];
+// Комбинации профильных предметов ЕНТ, по которым есть вопросы в банке.
+const COMBOS = {
+  'math-physics': ['math', 'physics'],
+  'math-geography': ['math', 'geography'],
+  'biology-chemistry': ['biology', 'chemistry'],
+  'biology-geography': ['biology', 'geography'],
+  'chemistry-physics': ['chemistry', 'physics']
+};
+// Раскладка раунда по комбинации — в пропорции ЕНТ (20 : 10 : 10 : 40 : 40 из 120).
+const COMBO_PLAN = [['history', 2], ['mathlit', 1], ['reading', 1], [0, 3], [1, 3]];
+
+function topicName(topic) {
+  if (topic.startsWith('combo:')) {
+    const [a, b] = COMBOS[topic.slice(6)];
+    return { ru: `${SUBJECTS[a].ru} — ${SUBJECTS[b].ru}`, kk: `${SUBJECTS[a].kk} — ${SUBJECTS[b].kk}` };
+  }
+  return SUBJECTS[topic];
+}
+function validTopic(t) {
+  return typeof t === 'string' && (t.startsWith('combo:') ? !!COMBOS[t.slice(6)] : !!SUBJECTS[t]);
+}
 
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: '1h' }));
-app.get('/api/subjects', (req, res) => res.json(SUBJECTS));
+app.get('/api/subjects', (req, res) => res.json({ subjects: SUBJECTS, mandatory: MANDATORY, combos: COMBOS, count: Object.values(BANK).reduce((n, v) => n + v.q.length, 0) }));
 app.get('/api/leaders', async (req, res) => {
-  try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'Рейтинг временно недоступен' }); }
+  try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
 app.get(['/b/:code', '/rating', '/play'], (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ---------- комнаты ----------
 const rooms = new Map();
-const queue = new Map(); // subject -> socket
+const queue = new Map(); // topic -> socket
 
 function code() {
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -42,13 +63,19 @@ function shuffle(a) {
   return a;
 }
 
-function pickQuestions(subject) {
-  let pool;
-  if (subject === 'mix') pool = Object.values(BANK).flatMap(s => s.q.map(q => ({ ...q, s: s.name })));
-  else pool = BANK[subject].q.map(q => ({ ...q, s: BANK[subject].name }));
-  return shuffle(pool.slice()).slice(0, ROUND).map(q => {
+function take(subject, n) {
+  return shuffle(BANK[subject].q.slice()).slice(0, n).map(q => ({ ...q, s: BANK[subject].name }));
+}
+
+function pickQuestions(topic) {
+  let list;
+  if (topic.startsWith('combo:')) {
+    const pair = COMBOS[topic.slice(6)];
+    list = COMBO_PLAN.flatMap(([sub, n]) => take(typeof sub === 'number' ? pair[sub] : sub, n));
+  } else list = take(topic, ROUND);
+  return list.map(q => {
     const order = shuffle([0, 1, 2, 3]);
-    return { t: q.t, s: q.s, o: order.map(i => q.o[i]), a: order.indexOf(q.a), e: q.e };
+    return { t: q.t, s: q.s, o: { ru: order.map(i => q.o.ru[i]), kk: order.map(i => q.o.kk[i]) }, a: order.indexOf(q.a), e: q.e };
   });
 }
 
@@ -67,7 +94,7 @@ function publicRoom(r) {
     score: p.score, connected: p.connected, answered: r.state === 'playing' && p.answers[r.i] !== undefined
   }));
   return {
-    code: r.code, mode: r.mode, subject: r.subject, subjectName: SUBJECTS[r.subject], state: r.state,
+    code: r.code, mode: r.mode, subject: r.subject, subjectName: topicName(r.subject), state: r.state,
     hostSid: r.hostSid, players, teams: teamScores(r), total: ROUND
   };
 }
@@ -167,7 +194,7 @@ io.on('connection', socket => {
   socket.on('hello', async (p, ack) => {
     const id = String(p?.id || '');
     const name = store.clean(p?.name, 24);
-    if (!/^[a-z0-9-]{8,40}$/i.test(id) || name.length < 2) return ack?.({ error: 'Укажите имя — от 2 символов' });
+    if (!/^[a-z0-9-]{8,40}$/i.test(id) || name.length < 2) return ack?.({ error: 'name' });
     profile = { id, name, school: store.clean(p?.school, 60), city: store.clean(p?.city, 40) };
     try { const row = await db.upsert(profile); ack?.({ ok: true, rating: row.rating, games: row.games, wins: row.wins }); }
     catch (e) { console.error(e); ack?.({ ok: true, rating: 1000, games: 0, wins: 0 }); }
@@ -192,8 +219,8 @@ io.on('connection', socket => {
   };
 
   socket.on('create', ({ mode, subject } = {}, ack) => {
-    if (!profile) return ack?.({ error: 'Сначала заполните профиль' });
-    if (!['duel', 'class', 'solo'].includes(mode) || !SUBJECTS[subject]) return ack?.({ error: 'Выберите режим и предмет' });
+    if (!profile) return ack?.({ error: 'profile' });
+    if (!['duel', 'class', 'solo'].includes(mode) || !validTopic(subject)) return ack?.({ error: 'pick' });
     const r = makeRoom(mode, subject, socket.id);
     join(r);
     ack?.({ code: r.code });
@@ -202,10 +229,10 @@ io.on('connection', socket => {
   });
 
   socket.on('join', ({ code, team } = {}, ack) => {
-    if (!profile) return ack?.({ error: 'Сначала заполните профиль' });
+    if (!profile) return ack?.({ error: 'profile' });
     const r = rooms.get(String(code || '').toUpperCase());
-    if (!r) return ack?.({ error: 'Баттл не найден. Возможно, он уже закончился — создайте новый.' });
-    if (!join(r, team)) return ack?.({ error: r.state === 'lobby' ? 'В этом баттле уже нет мест' : 'Баттл уже идёт. Попросите друга создать новый.' });
+    if (!r) return ack?.({ error: 'notfound' });
+    if (!join(r, team)) return ack?.({ error: r.state === 'lobby' ? 'full' : 'started' });
     ack?.({ code: r.code });
     emitRoom(r);
     if (r.state === 'playing') {
@@ -223,9 +250,9 @@ io.on('connection', socket => {
 
   socket.on('start', ({ code } = {}, ack) => {
     const r = rooms.get(code);
-    if (!r || r.hostSid !== socket.id) return ack?.({ error: 'Начать может только организатор' });
+    if (!r || r.hostSid !== socket.id) return ack?.({ error: 'host' });
     const t = teamScores(r);
-    if (r.mode === 'class' && (!t.A.players || !t.B.players)) return ack?.({ error: 'В каждой команде должен быть хотя бы один игрок' });
+    if (r.mode === 'class' && (!t.A.players || !t.B.players)) return ack?.({ error: 'teams' });
     startGame(r); ack?.({ ok: true });
   });
 
@@ -242,7 +269,7 @@ io.on('connection', socket => {
   });
 
   socket.on('quick', ({ subject } = {}, ack) => {
-    if (!profile || !SUBJECTS[subject]) return ack?.({ error: 'Выберите предмет' });
+    if (!profile || !validTopic(subject)) return ack?.({ error: 'pick' });
     const other = queue.get(subject);
     if (other && other.connected && other.id !== socket.id && other.data.pid !== profile.id) {
       queue.delete(subject);

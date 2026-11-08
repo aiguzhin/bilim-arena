@@ -22,10 +22,11 @@
       <span>Bilim Arena</span>
     </a>
     <nav class="nav">
-      <a href="/rating" data-link class="nav__rating">Рейтинг</a>
-      <a href="/#how" class="hide-sm">Как это работает</a>
+      <a href="/rating" data-link class="nav__rating" data-i18n="navRating">Рейтинг</a>
+      <a href="/#how" class="hide-sm" data-i18n="navHow">Как это работает</a>
+      <button class="lang" id="langBtn" type="button">Қаз</button>
       <button class="profile-chip" id="profileChip" hidden></button>
-      <a href="/play" data-link class="btn btn--sm">Играть</a>
+      <a href="/play" data-link class="btn btn--sm" data-i18n="navPlay">Играть</a>
     </nav>
   </div>
 </header>
@@ -34,21 +35,16 @@
 
 <dialog id="profileDlg" class="dlg">
   <form method="dialog" id="profileForm" class="dlg__body">
-    <h2>Кто играет?</h2>
-    <p class="muted">Имя, школа и город нужны для рейтинга. Фамилию указывать не обязательно.</p>
-    <label class="field"><span>Имя или ник</span><input name="name" maxlength="24" required minlength="2" autocomplete="nickname" placeholder="Например, Айгерим"></label>
-    <label class="field"><span>Город</span>
-      <select name="city" required>
-        <option value="">Выберите город</option>
-        <option>Астана</option><option>Алматы</option><option>Шымкент</option><option>Актобе</option><option>Караганда</option><option>Тараз</option><option>Павлодар</option><option>Усть-Каменогорск</option><option>Семей</option><option>Атырау</option><option>Костанай</option><option>Кызылорда</option><option>Уральск</option><option>Петропавловск</option><option>Актау</option><option>Туркестан</option><option>Талдыкорган</option><option>Кокшетау</option><option>Жезказган</option><option>Экибастуз</option><option>Темиртау</option><option>Конаев</option><option>Другой город</option>
-      </select>
-    </label>
-    <label class="field"><span>Школа</span><input name="school" maxlength="60" required placeholder="Например, НИШ ФМН или школа № 12"></label>
-    <label class="check"><input type="checkbox" name="consent" required> <span>Мне есть 18 лет, или родитель согласен, что имя и школа будут видны в рейтинге</span></label>
+    <h2 data-i18n="dlgTitle"></h2>
+    <p class="muted" data-i18n="dlgLead"></p>
+    <label class="field"><span data-i18n="fName"></span><input name="name" maxlength="24" required minlength="2" autocomplete="nickname" data-i18n-ph="fNamePh"></label>
+    <label class="field"><span data-i18n="fCity"></span><select name="city" required id="citySelect"></select></label>
+    <label class="field"><span data-i18n="fSchool"></span><input name="school" maxlength="60" required data-i18n-ph="fSchoolPh"></label>
+    <label class="check"><input type="checkbox" name="consent" required> <span data-i18n="consent"></span></label>
     <p class="form-error" id="profileError" role="alert"></p>
     <div class="dlg__actions">
-      <button type="button" class="btn btn--ghost" id="profileCancel">Отмена</button>
-      <button class="btn" type="submit">Сохранить</button>
+      <button type="button" class="btn btn--ghost" id="profileCancel" data-i18n="cancel"></button>
+      <button class="btn" type="submit" data-i18n="save"></button>
     </div>
   </form>
 </dialog>
@@ -56,6 +52,7 @@
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
