@@ -3,7 +3,8 @@ const http = require('http');
 const crypto = require('crypto');
 const express = require('express');
 const { Server } = require('socket.io');
-const BANK = require('./questions');
+const BANK = require('./bank');
+const mock = require('./mock');
 const store = require('./store');
 
 const db = store.create();
@@ -18,14 +19,12 @@ const ROUND = 10;
 
 const SUBJECTS = Object.fromEntries(Object.entries(BANK).map(([k, v]) => [k, v.name]));
 const MANDATORY = ['history', 'mathlit', 'reading'];
-// Комбинации профильных предметов ЕНТ, по которым есть вопросы в банке.
-const COMBOS = {
-  'math-physics': ['math', 'physics'],
-  'math-geography': ['math', 'geography'],
-  'biology-chemistry': ['biology', 'chemistry'],
-  'biology-geography': ['biology', 'geography'],
-  'chemistry-physics': ['chemistry', 'physics']
-};
+// Комбинации профильных предметов ЕНТ (все, кроме творческого экзамена).
+const COMBOS = Object.fromEntries([
+  ['math', 'physics'], ['math', 'informatics'], ['math', 'geography'], ['biology', 'chemistry'], ['biology', 'geography'],
+  ['chemistry', 'physics'], ['worldhistory', 'geography'], ['worldhistory', 'law'], ['english', 'worldhistory'],
+  ['geography', 'english'], ['kazlang', 'kazlit'], ['ruslang', 'ruslit']
+].filter(([a, b]) => BANK[a] && BANK[b]).map(([a, b]) => [`${a}-${b}`, [a, b]]));
 // Раскладка раунда по комбинации — в пропорции ЕНТ (20 : 10 : 10 : 40 : 40 из 120).
 const COMBO_PLAN = [['history', 2], ['mathlit', 1], ['reading', 1], [0, 3], [1, 3]];
 
@@ -43,7 +42,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
@@ -52,10 +51,10 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id'], sendIndex);
 
 // ---------- аккаунты ----------
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '64kb' }));
 
 const scrypt = (pw, salt) => new Promise((res, rej) => crypto.scrypt(pw, salt, 64, (e, k) => (e ? rej(e) : res(k))));
 async function hashPassword(pw) { const salt = crypto.randomBytes(16); return `${salt.toString('hex')}:${(await scrypt(pw, salt)).toString('hex')}`; }
@@ -211,6 +210,65 @@ app.get('/api/site', wrap(async (req, res) => {
   res.json({ ...(await db.siteStats()), questions: Object.values(BANK).reduce((n, v) => n + v.q.length, 0), combos: Object.keys(COMBOS).length });
 }));
 
+// ---------- пробный ЕНТ ----------
+const mockPublic = (t, withKey) => {
+  const answers = t.answers || {};
+  return {
+    id: t.id, combo: t.combo, done: !!t.finished_at, endsAt: new Date(t.ends_at).getTime(), now: Date.now(),
+    startedAt: new Date(t.started_at).getTime(), finishedAt: t.finished_at ? new Date(t.finished_at).getTime() : null,
+    answers, result: t.result || null,
+    sections: t.sections.map(sec => ({ k: sec.k, name: mock.names(sec.k), items: sec.items.map((it, i) => mock.view(it, withKey, answers[`${sec.k}.${i}`])) }))
+  };
+};
+async function finishMock(t, raw) {
+  const answers = mock.cleanAnswers(t.sections, raw ?? t.answers);
+  const result = mock.score(t.sections, answers);
+  return (await db.finishMock(t.id, answers, result)) || (await db.getMock(t.id, t.player_id));
+}
+// Просроченный тест завершается сам — с теми ответами, что успели сохраниться.
+async function loadMock(id, pid) {
+  const t = await db.getMock(id, pid);
+  if (t && !t.finished_at && Date.now() > new Date(t.ends_at).getTime() + mock.GRACE_MS) return finishMock(t);
+  return t;
+}
+
+app.get('/api/ent/active', auth, wrap(async (req, res) => {
+  let t = await db.activeMock(req.player.id);
+  if (t && Date.now() > new Date(t.ends_at).getTime() + mock.GRACE_MS) { await finishMock(t); t = null; }
+  res.json({ id: t?.id || null, combo: t?.combo || null });
+}));
+app.get('/api/ent', auth, wrap(async (req, res) => res.json({ tests: await db.listMocks(req.player.id) })));
+app.post('/api/ent', auth, wrap(async (req, res) => {
+  const combo = String(req.body?.combo || '');
+  if (!COMBOS[combo]) return res.status(400).json({ error: 'pick' });
+  const active = await db.activeMock(req.player.id);
+  if (active && Date.now() <= new Date(active.ends_at).getTime() + mock.GRACE_MS) {
+    if (req.body?.restart !== true) return res.json({ id: active.id, resumed: true });
+    await finishMock(active);
+  }
+  const t = { id: crypto.randomUUID(), player_id: req.player.id, combo, sections: mock.build(COMBOS[combo]), ends_at: new Date(Date.now() + mock.DURATION_MS).toISOString() };
+  await db.createMock(t);
+  res.json({ id: t.id });
+}));
+app.get('/api/ent/:id', auth, wrap(async (req, res) => {
+  const t = await loadMock(String(req.params.id), req.player.id);
+  if (!t) return res.status(404).json({ error: 'notfound' });
+  res.json(mockPublic(t, !!t.finished_at));
+}));
+app.put('/api/ent/:id', auth, wrap(async (req, res) => {
+  const t = await loadMock(String(req.params.id), req.player.id);
+  if (!t) return res.status(404).json({ error: 'notfound' });
+  if (t.finished_at) return res.status(409).json({ error: 'finished' });
+  await db.saveMock(t.id, mock.cleanAnswers(t.sections, req.body?.answers));
+  res.json({ ok: true, now: Date.now() });
+}));
+app.post('/api/ent/:id/finish', auth, wrap(async (req, res) => {
+  let t = await loadMock(String(req.params.id), req.player.id);
+  if (!t) return res.status(404).json({ error: 'notfound' });
+  if (!t.finished_at) t = await finishMock(t, req.body?.answers);
+  res.json(mockPublic(t, true));
+}));
+
 // ---------- комнаты ----------
 const rooms = new Map();
 const queue = new Map(); // topic -> socket
@@ -227,8 +285,10 @@ function shuffle(a) {
   return a;
 }
 
+// В баттлах — только задания с одним ответом и без общего текста: на них хватает 20 секунд.
+const QUICK = Object.fromEntries(Object.entries(BANK).map(([k, v]) => [k, v.q.filter(q => !q.type && !q.c)]));
 function take(subject, n) {
-  return shuffle(BANK[subject].q.slice()).slice(0, n).map(q => ({ ...q, k: subject, s: BANK[subject].name }));
+  return shuffle(QUICK[subject].slice()).slice(0, n).map(q => ({ ...q, k: subject, s: BANK[subject].name }));
 }
 
 function pickQuestions(topic) {

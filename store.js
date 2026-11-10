@@ -73,6 +73,12 @@ function memoryStore() {
         cities: group(p => p.city).map(({ city, ...c }) => c)
       };
     },
+    async createMock(t) { (db.mocks ||= {})[t.id] = { ...t, answers: {}, finished_at: null, score: null, result: null }; save(); },
+    async getMock(id, pid) { const t = db.mocks?.[id]; return t && t.player_id === pid ? t : null; },
+    async activeMock(pid) { return Object.values(db.mocks || {}).find(t => t.player_id === pid && !t.finished_at) || null; },
+    async saveMock(id, answers) { const t = db.mocks?.[id]; if (t && !t.finished_at) { t.answers = answers; save(); } },
+    async finishMock(id, answers, result) { const t = db.mocks?.[id]; if (t && !t.finished_at) { Object.assign(t, { answers, result, score: result.total, finished_at: new Date().toISOString() }); save(); } return t; },
+    async listMocks(pid) { return Object.values(db.mocks || {}).filter(t => t.player_id === pid && t.finished_at).sort((a, b) => b.finished_at.localeCompare(a.finished_at)).slice(0, 30).map(t => ({ id: t.id, combo: t.combo, score: t.score, result: t.result, finished_at: t.finished_at })); },
     async schoolsOf(city) {
       const m = {};
       for (const p of Object.values(db.players)) if (p.city === city && p.school) m[p.school] = (m[p.school] || 0) + 1;
@@ -120,6 +126,11 @@ function pgStore(url) {
         game_id bigint not null references games(id) on delete cascade, player_id text not null references players(id) on delete cascade,
         score int not null, correct int not null, total int not null, rating_delta int not null, won boolean not null,
         primary key (game_id, player_id))`);
+      await q(`create table if not exists mock_tests (
+        id text primary key, player_id text not null references players(id) on delete cascade, combo text not null,
+        sections jsonb not null, answers jsonb not null default '{}', started_at timestamptz not null default now(),
+        ends_at timestamptz not null, finished_at timestamptz, score int, result jsonb)`);
+      await q(`create index if not exists mock_tests_player on mock_tests (player_id, finished_at)`);
       await q(`create table if not exists subject_stats (
         player_id text not null references players(id) on delete cascade, subject text not null,
         answered int not null default 0, correct int not null default 0, primary key (player_id, subject))`);
@@ -177,6 +188,19 @@ function pgStore(url) {
       const cities = (await q(`select city as name, round(avg(rating))::int as rating, count(*)::int as players
         from players where games>0 and city<>'' group by city order by rating desc limit 50`)).rows;
       return { players, schools, cities };
+    },
+    async createMock(t) {
+      await q('insert into mock_tests (id, player_id, combo, sections, ends_at) values ($1,$2,$3,$4,$5)', [t.id, t.player_id, t.combo, JSON.stringify(t.sections), t.ends_at]);
+    },
+    async getMock(id, pid) { return (await q('select * from mock_tests where id=$1 and player_id=$2', [id, pid])).rows[0] || null; },
+    async activeMock(pid) { return (await q('select * from mock_tests where player_id=$1 and finished_at is null order by started_at desc limit 1', [pid])).rows[0] || null; },
+    async saveMock(id, answers) { await q('update mock_tests set answers=$2 where id=$1 and finished_at is null', [id, JSON.stringify(answers)]); },
+    async finishMock(id, answers, result) {
+      return (await q('update mock_tests set answers=$2, result=$3, score=$4, finished_at=now() where id=$1 and finished_at is null returning *',
+        [id, JSON.stringify(answers), JSON.stringify(result), result.total])).rows[0] || null;
+    },
+    async listMocks(pid) {
+      return (await q('select id, combo, score, result, finished_at from mock_tests where player_id=$1 and finished_at is not null order by finished_at desc limit 30', [pid])).rows;
     },
     async schoolsOf(city) {
       return (await q(`select school from players where city=$1 and school<>'' group by school

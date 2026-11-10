@@ -69,7 +69,7 @@
     document.body.classList.toggle('guest', !me);
     if (!me) { chip.hidden = true; return; }
     chip.hidden = false;
-    chip.innerHTML = `${esc(me.name)}<b class="num">${me.rating}</b>`;
+    chip.innerHTML = `<span class="chip-name">${esc(me.name)}</span><b class="num">${me.rating}</b>`;
     chip.title = L.meTitle;
   }
 
@@ -145,8 +145,14 @@
     if (path === '/rating') return viewRating();
     if (path === '/me') return viewMe();
     if (path === '/about') return viewAbout();
+    if (path === '/ent' || path.startsWith('/ent/')) return ENT.view(entCtx, path);
     viewHome();
   }
+
+  const entCtx = {
+    app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, meta: () => meta, go, setTitle, toast, footer,
+    onCleanup: f => cleanup.push(f)
+  };
 
   // ---------- главная ----------
   function viewHome() {
@@ -159,7 +165,7 @@
           <p class="hero__lead">${L.heroLead}</p>
           <div class="hero__cta">
             <a href="/play" data-link class="btn">${L.heroDuel}</a>
-            <a href="/play?mode=solo" data-link class="btn btn--ghost">${L.heroSolo}</a>
+            <a href="/ent" data-link class="btn btn--ghost">${L.navEnt}</a>
           </div>
           <div class="hero__facts">
             <div><b class="num">${Object.keys(meta.combos).length}</b>${L.factCombos}</div>
