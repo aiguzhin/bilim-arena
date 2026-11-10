@@ -1,5 +1,6 @@
 // Собирает банк: базовые вопросы (questions.js) + файлы предметов в этой папке.
 const crypto = require('crypto');
+const fs = require('fs');
 const BASE = require('../questions');
 const NAMES = {
   informatics: { ru: 'Информатика', kk: 'Информатика' },
@@ -15,8 +16,8 @@ const ORDER = ['history', 'mathlit', 'reading', 'math', 'physics', 'informatics'
   'worldhistory', 'law', 'english', 'kazlang', 'kazlit', 'ruslang', 'ruslit'];
 const BANK = {};
 for (const k of ORDER) {
-  let extra = [];
-  try { extra = require('./' + k); } catch (e) { if (e.code !== 'MODULE_NOT_FOUND') throw e; }
+  // Файлы предмета: math.js, math2.js, math3.js…
+  const extra = fs.readdirSync(__dirname).filter(f => new RegExp(`^${k}\\d*\\.js$`).test(f)).sort().flatMap(f => require('./' + f));
   const name = BASE[k]?.name || NAMES[k];
   const q = [...(BASE[k]?.q || []), ...extra].map(x => ({
     ...x, id: k + ':' + crypto.createHash('sha1').update(JSON.stringify([x.t, x.o, x.l || null])).digest('hex').slice(0, 10)

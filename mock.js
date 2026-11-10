@@ -5,19 +5,24 @@ const DURATION_MS = 240 * 60 * 1000;
 const GRACE_MS = 2 * 60 * 1000;
 // Обязательные предметы: число заданий и порог. Профильные: 25 с одним ответом, 5 по контексту,
 // 5 с одним или несколькими ответами, 5 на соответствие — 40 заданий, 50 баллов, порог 5.
-const MANDATORY = { history: { n: 20, min: 5 }, mathlit: { n: 10, min: 3 }, reading: { n: 10, min: 3 } };
+// История: 10 заданий с одним ответом + 10 по двум историческим источникам; грамотности — задания к текстам и таблицам.
+const MANDATORY = { history: { n: 20, c: 10, min: 5 }, mathlit: { n: 10, c: 10, min: 3 }, reading: { n: 10, c: 10, min: 3 } };
 const PROFILE = { s: 25, c: 5, m: 5, p: 5, min: 5 };
 
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const byId = new Map(Object.values(BANK).flatMap(s => s.q.map(q => [q.id, q])));
 const kindOf = q => (q.type === 'm' ? 'm' : q.type === 'p' ? 'p' : q.c ? 'c' : 's');
 
+// Сначала то, чего ученик ещё не видел в прошлых пробных: так варианты не повторяются, пока хватает банка.
+let SEEN = new Set();
+const fresh = list => shuffle(list).sort((a, b) => a.seen - b.seen);
 // Контекстные задания берём группами (один текст — несколько вопросов).
 function takeContext(pool, n, used) {
   const groups = {};
   for (const q of pool) if (q.c && !used.has(q.id)) (groups[q.c] ||= []).push(q);
   const out = [];
-  for (const g of shuffle(Object.values(groups))) {
+  const ordered = fresh(Object.values(groups).map(g => ({ g, seen: g.some(q => SEEN.has(q.id)) ? 1 : 0 }))).map(x => x.g);
+  for (const g of ordered) {
     if (out.length >= n) break;
     const part = g.slice(0, n - out.length);
     part.forEach(q => used.add(q.id)); out.push(...part);
@@ -25,7 +30,7 @@ function takeContext(pool, n, used) {
   return out;
 }
 function takeKind(pool, kind, n, used) {
-  const list = shuffle(pool.filter(q => kindOf(q) === kind && !used.has(q.id))).slice(0, n);
+  const list = fresh(pool.filter(q => kindOf(q) === kind && !used.has(q.id)).map(q => ({ q, seen: SEEN.has(q.id) ? 1 : 0 }))).map(x => x.q).slice(0, n);
   list.forEach(q => used.add(q.id));
   return list;
 }
@@ -43,12 +48,15 @@ function item(q) {
   return { id: q.id, ord };
 }
 
-function build(pair) {
+function build(pair, seen = new Set()) {
+  SEEN = seen;
   const sections = [];
   for (const [k, cfg] of Object.entries(MANDATORY)) {
     const pool = BANK[k].q, used = new Set();
-    let list = k === 'reading' ? takeContext(pool, cfg.n, used) : k === 'mathlit' ? takeContext(pool, 5, used) : [];
-    list = fill(pool, list.concat(takeKind(pool, 's', cfg.n - list.length, used)), cfg.n, used);
+    const ctx = takeContext(pool, cfg.c, used);
+    const single = takeKind(pool, 's', cfg.n - ctx.length, used);
+    // В истории сначала задания с одним ответом, потом задания по источникам — как в настоящем варианте.
+    const list = fill(pool, k === 'history' ? single.concat(ctx) : ctx.concat(single), cfg.n, used);
     sections.push({ k, items: list.map(item) });
   }
   for (const k of pair) {

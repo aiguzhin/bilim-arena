@@ -98,6 +98,7 @@ function memoryStore() {
       const l = Object.values(db.mocks || {}).filter(t => t.player_id === pid && t.finished_at);
       return { count: l.length, best: l.length ? Math.max(...l.map(t => t.score)) : null };
     },
+    async seenIds(pid) { return Object.values(db.mocks || {}).filter(t => t.player_id === pid).sort((a, b) => String(b.ends_at).localeCompare(String(a.ends_at))).slice(0, 6).flatMap(t => t.sections.flatMap(s => s.items.map(i => i.id))); },
     async createMock(t) { (db.mocks ||= {})[t.id] = { ...t, answers: {}, finished_at: null, score: null, result: null }; save(); },
     async getMock(id, pid) { const t = db.mocks?.[id]; return t && t.player_id === pid ? t : null; },
     async activeMock(pid) { return Object.values(db.mocks || {}).find(t => t.player_id === pid && !t.finished_at) || null; },
@@ -230,6 +231,10 @@ function pgStore(url) {
     async mockSummary(pid) {
       const r = (await q('select count(*)::int as count, max(score) as best from mock_tests where player_id=$1 and finished_at is not null', [pid])).rows[0];
       return { count: r.count, best: r.best ?? null };
+    },
+    async seenIds(pid) {
+      const r = await q('select sections from mock_tests where player_id=$1 order by started_at desc limit 6', [pid]);
+      return r.rows.flatMap(x => x.sections.flatMap(s => s.items.map(i => i.id)));
     },
     async createMock(t) {
       await q('insert into mock_tests (id, player_id, combo, sections, ends_at) values ($1,$2,$3,$4,$5)', [t.id, t.player_id, t.combo, JSON.stringify(t.sections), t.ends_at]);

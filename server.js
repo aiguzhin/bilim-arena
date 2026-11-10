@@ -293,7 +293,7 @@ app.post('/api/ent', auth, wrap(async (req, res) => {
     if (req.body?.restart !== true) return res.json({ id: active.id, resumed: true });
     await finishMock(active);
   }
-  const t = { id: crypto.randomUUID(), player_id: req.player.id, combo, sections: mock.build(COMBOS[combo]), ends_at: new Date(Date.now() + mock.DURATION_MS).toISOString() };
+  const t = { id: crypto.randomUUID(), player_id: req.player.id, combo, sections: mock.build(COMBOS[combo], new Set(await db.seenIds(req.player.id).catch(() => []))), ends_at: new Date(Date.now() + mock.DURATION_MS).toISOString() };
   await db.createMock(t);
   res.json({ id: t.id });
 }));
