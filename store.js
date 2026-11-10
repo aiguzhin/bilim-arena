@@ -7,7 +7,16 @@ function clean(s, max = 40) {
   return String(s || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-const PUBLIC = p => p && ({ id: p.id, username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins, createdAt: p.created_at, google: !!p.google_sub, hasPassword: !!p.pass_hash });
+const PUBLIC = p => p && ({
+  id: p.id, username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins,
+  createdAt: p.created_at, google: !!p.google_sub, hasPassword: !!p.pass_hash,
+  bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null, settings: p.settings || {}
+});
+// То, что видят другие игроки на странице профиля.
+const OPEN = p => p && ({
+  username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins,
+  createdAt: p.created_at, bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null
+});
 
 // ---------- память ----------
 function memoryStore() {
@@ -68,10 +77,26 @@ function memoryStore() {
         return Object.values(m).map(g => ({ name: g.name, city: g.city, rating: Math.round(g.sum / g.n), players: g.n })).sort((a, b) => b.rating - a.rating).slice(0, 50);
       };
       return {
-        players: [...list].sort((a, b) => b.rating - a.rating).slice(0, 50).map(p => ({ name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins })),
+        players: [...list].sort((a, b) => b.rating - a.rating).slice(0, 50).map(p => ({ username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins })),
         schools: group(p => p.school ? `${p.school}|${p.city}` : '').map(s => ({ ...s, name: s.name.split('|')[0] })),
         cities: group(p => p.city).map(({ city, ...c }) => c)
       };
+    },
+    async updateExtra(id, x) { Object.assign(db.players[id], x); save(); return db.players[id]; },
+    async saveSettings(id, st) { db.players[id].settings = st; save(); return db.players[id]; },
+    async setPassword(id, hash) { db.players[id].pass_hash = hash; save(); },
+    async dropSessions(id, keep) { for (const [k, v] of Object.entries(db.sessions)) if (v.playerId === id && k !== keep) delete db.sessions[k]; save(); },
+    async deleteAccount(id) {
+      delete db.players[id];
+      for (const [k, v] of Object.entries(db.sessions)) if (v.playerId === id) delete db.sessions[k];
+      for (const [k, v] of Object.entries(db.subj)) if (k.startsWith(id + '|')) delete db.subj[k];
+      for (const [k, t] of Object.entries(db.mocks || {})) if (t.player_id === id) delete db.mocks[k];
+      save();
+    },
+    async byUsernamePublic(u) { return byUsername(u); },
+    async mockSummary(pid) {
+      const l = Object.values(db.mocks || {}).filter(t => t.player_id === pid && t.finished_at);
+      return { count: l.length, best: l.length ? Math.max(...l.map(t => t.score)) : null };
     },
     async createMock(t) { (db.mocks ||= {})[t.id] = { ...t, answers: {}, finished_at: null, score: null, result: null }; save(); },
     async getMock(id, pid) { const t = db.mocks?.[id]; return t && t.player_id === pid ? t : null; },
@@ -115,6 +140,11 @@ function pgStore(url) {
       await q(`alter table players add column if not exists google_sub text`);
       await q(`alter table players add column if not exists email text`);
       await q(`create unique index if not exists players_google_key on players (google_sub)`);
+      await q(`alter table players add column if not exists bio text`);
+      await q(`alter table players add column if not exists goal int`);
+      await q(`alter table players add column if not exists goal_combo text`);
+      await q(`alter table players add column if not exists avatar text`);
+      await q(`alter table players add column if not exists settings jsonb`);
       // Записи гостей из первой версии сайта: без логина в них войти нельзя, из рейтинга убираем.
       await q(`delete from players where username is null`);
       await q(`create table if not exists sessions (
@@ -182,12 +212,24 @@ function pgStore(url) {
       return { subjects, recent };
     },
     async leaders() {
-      const players = (await q('select name, school, city, rating, games, wins from players where games>0 order by rating desc limit 50')).rows;
+      const players = (await q('select username, name, school, city, rating, games, wins from players where games>0 order by rating desc limit 50')).rows;
       const schools = (await q(`select school as name, city, round(avg(rating))::int as rating, count(*)::int as players
         from players where games>0 and school<>'' group by school, city order by rating desc limit 50`)).rows;
       const cities = (await q(`select city as name, round(avg(rating))::int as rating, count(*)::int as players
         from players where games>0 and city<>'' group by city order by rating desc limit 50`)).rows;
       return { players, schools, cities };
+    },
+    async updateExtra(id, x) {
+      return (await q('update players set bio=$2, goal=$3, goal_combo=$4, avatar=$5, updated_at=now() where id=$1 returning *', [id, x.bio, x.goal, x.goal_combo, x.avatar])).rows[0];
+    },
+    async saveSettings(id, st) { return (await q('update players set settings=$2 where id=$1 returning *', [id, JSON.stringify(st)])).rows[0]; },
+    async setPassword(id, hash) { await q('update players set pass_hash=$2, updated_at=now() where id=$1', [id, hash]); },
+    async dropSessions(id, keep) { await q('delete from sessions where player_id=$1 and token<>$2', [id, keep || '']); },
+    async deleteAccount(id) { await q('delete from players where id=$1', [id]); },
+    async byUsernamePublic(u) { return (await q('select * from players where username=$1', [u])).rows[0] || null; },
+    async mockSummary(pid) {
+      const r = (await q('select count(*)::int as count, max(score) as best from mock_tests where player_id=$1 and finished_at is not null', [pid])).rows[0];
+      return { count: r.count, best: r.best ?? null };
     },
     async createMock(t) {
       await q('insert into mock_tests (id, player_id, combo, sections, ends_at) values ($1,$2,$3,$4,$5)', [t.id, t.player_id, t.combo, JSON.stringify(t.sections), t.ends_at]);
@@ -218,4 +260,4 @@ function pgStore(url) {
   };
 }
 
-module.exports = { clean, PUBLIC, create: () => process.env.DATABASE_URL ? pgStore(process.env.DATABASE_URL) : memoryStore() };
+module.exports = { clean, PUBLIC, OPEN, create: () => process.env.DATABASE_URL ? pgStore(process.env.DATABASE_URL) : memoryStore() };

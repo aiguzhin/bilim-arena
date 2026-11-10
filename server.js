@@ -42,7 +42,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
@@ -51,7 +51,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/settings', '/settings/:tab', '/u/:username'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '64kb' }));
@@ -118,8 +118,55 @@ app.post('/api/login', wrap(async (req, res) => {
 app.post('/api/logout', auth, wrap(async (req, res) => { await db.deleteSession(req.token); res.json({ ok: true }); }));
 
 app.get('/api/me', auth, wrap(async (req, res) => {
-  const stats = await db.profileStats(req.player.id);
-  res.json({ user: store.PUBLIC(req.player), ...stats });
+  const [stats, mocks] = await Promise.all([db.profileStats(req.player.id), db.mockSummary(req.player.id)]);
+  res.json({ user: store.PUBLIC(req.player), ...stats, mocks });
+}));
+
+// Дополнительные поля профиля: о себе, цель на ЕНТ, комбинация, цвет аватара.
+const AVATARS = ['blue', 'green', 'red', 'violet', 'orange', 'teal', 'pink', 'graphite'];
+app.patch('/api/me/extra', auth, wrap(async (req, res) => {
+  const b = req.body || {};
+  const goal = b.goal == null || b.goal === '' ? null : Math.round(Number(b.goal));
+  if (goal !== null && !(goal >= 50 && goal <= 140)) return res.status(400).json({ error: 'goal' });
+  const x = {
+    bio: store.clean(b.bio, 160), goal,
+    goal_combo: COMBOS[b.goalCombo] ? b.goalCombo : null,
+    avatar: AVATARS.includes(b.avatar) ? b.avatar : null
+  };
+  res.json({ user: store.PUBLIC(await db.updateExtra(req.player.id, x)) });
+}));
+
+const SETTINGS = { theme: ['system', 'light', 'dark'], accent: ['classic', 'emerald', 'garnet', 'indigo'], fs: ['md', 'lg'], lang: ['ru', 'kk'], timer: ['show', 'hide'], confirmNext: ['on', 'off'] };
+app.put('/api/me/settings', auth, wrap(async (req, res) => {
+  const b = req.body || {}, st = { ...(req.player.settings || {}) };
+  for (const [k, vals] of Object.entries(SETTINGS)) if (vals.includes(b[k])) st[k] = b[k];
+  res.json({ user: store.PUBLIC(await db.saveSettings(req.player.id, st)) });
+}));
+
+app.post('/api/me/password', auth, wrap(async (req, res) => {
+  if (limited(req)) return res.status(429).json({ error: 'limit' });
+  const next = String(req.body?.next || '');
+  if (req.player.pass_hash && !(await checkPassword(String(req.body?.current || ''), req.player.pass_hash))) return res.status(401).json({ error: 'wrongPass' });
+  if (next.length < 6 || next.length > 72) return res.status(400).json({ error: 'password' });
+  await db.setPassword(req.player.id, await hashPassword(next));
+  await db.dropSessions(req.player.id, req.token);
+  res.json({ user: store.PUBLIC(await db.get(req.player.id)) });
+}));
+
+app.post('/api/me/logout-all', auth, wrap(async (req, res) => { await db.dropSessions(req.player.id, req.token); res.json({ ok: true }); }));
+
+app.delete('/api/me', auth, wrap(async (req, res) => {
+  if (String(req.body?.confirm || '').trim().toLowerCase() !== req.player.username) return res.status(400).json({ error: 'confirm' });
+  await db.deleteAccount(req.player.id);
+  res.json({ ok: true });
+}));
+
+// Публичная страница игрока.
+app.get('/api/users/:username', auth, wrap(async (req, res) => {
+  const p = await db.byUsernamePublic(String(req.params.username || '').toLowerCase());
+  if (!p) return res.status(404).json({ error: 'notfound' });
+  const [stats, mocks] = await Promise.all([db.profileStats(p.id), db.mockSummary(p.id)]);
+  res.json({ user: store.OPEN(p), subjects: stats.subjects, mocks, me: p.id === req.player.id });
 }));
 
 app.patch('/api/me', auth, wrap(async (req, res) => {

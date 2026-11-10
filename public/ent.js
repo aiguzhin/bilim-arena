@@ -92,7 +92,7 @@ window.ENT = (() => {
       if (!r.tests.length) { box.textContent = E().pastEmpty; return; }
       box.classList.remove('muted');
       box.innerHTML = `<table class="table"><tbody>${r.tests.map(t => `<tr>
-        <td>${new Date(t.finished_at).toLocaleDateString(X.lang() === 'kk' ? 'kk-KZ' : 'ru-RU', { day: 'numeric', month: 'long' })}</td>
+        <td>${fmtDate(t.finished_at, X.lang())}</td>
         <td>${X.esc(comboName(t.combo))}</td>
         <td class="num"><b>${t.score}</b> / ${t.result?.max ?? 140}</td>
         <td><a href="/ent/${t.id}" data-link>${E().open}</a></td></tr>`).join('')}</tbody></table>`;
@@ -184,7 +184,8 @@ window.ENT = (() => {
     const el = $('#exTimer'); if (!el) return;
     if (left <= 0) { el.textContent = '00:00:00'; clearInterval(tickT); X.toast(E().timeUp); finish(); return; }
     const s = Math.floor(left / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60;
-    el.textContent = [h, m, ss].map(n => String(n).padStart(2, '0')).join(':');
+    let hide = false; try { hide = localStorage.getItem('ba_timer') === 'hide'; } catch {}
+    el.textContent = hide && left >= 5 * 60 * 1000 ? '••:••' : [h, m, ss].map(n => String(n).padStart(2, '0')).join(':');
     el.classList.toggle('is-low', left < 5 * 60 * 1000);
     if (left < 5 * 60 * 1000 && !warned5) { warned5 = true; X.toast(E().last5); }
   }

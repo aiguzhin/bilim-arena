@@ -8,6 +8,15 @@
 <meta property="og:title" content="Bilim Arena — баттл по ЕНТ">
 <meta property="og:description" content="Тебя вызвали на дуэль по ЕНТ. 10 вопросов, 20 секунд на ответ.">
 <meta name="theme-color" content="#0E2552">
+<script>
+  // Тема и оформление применяются до отрисовки, чтобы страница не мигала.
+  (function () {
+    var d = document.documentElement, g = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    d.dataset.theme = g('ba_theme') || 'system';
+    d.dataset.accent = g('ba_accent') || 'classic';
+    d.dataset.fs = g('ba_fs') || 'md';
+  })();
+</script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,10 +40,22 @@
         <button type="button" role="radio" data-lang="ru">Рус</button>
       </div>
       <button class="profile-chip" id="profileChip" hidden></button>
+      <button class="menu-btn auth-only" id="menuBtn" aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel" data-i18n-aria="menu">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <a href="/play" data-link class="btn btn--sm auth-only" data-i18n="navPlay">Играть</a>
     </nav>
   </div>
 </header>
+
+<div class="menu" id="menuPanel" hidden>
+  <div class="menu__scrim" data-close></div>
+  <nav class="menu__panel" aria-label="Меню">
+    <div class="menu__user" id="menuUser"></div>
+    <div class="menu__list" id="menuList"></div>
+    <div class="menu__theme" id="menuTheme"></div>
+  </nav>
+</div>
 
 <main id="app"></main>
 
@@ -58,6 +79,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="/i18n.js"></script>
 <script src="/ent.js"></script>
+<script src="/account.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

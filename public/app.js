@@ -74,7 +74,7 @@
   }
 
   function signIn(token, user) {
-    setToken(token); me = user; renderChip();
+    setToken(token); me = user; useSettings(user.settings); renderChip();
     socket.connect();
   }
   function signOut() {
@@ -113,7 +113,7 @@
   let toastT;
   function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
   function go(path) { history.pushState({}, '', path); route(); }
-  function reset() { cleanup.forEach(f => f()); cleanup = []; clearInterval(tick); tick = null; }
+  function reset() { closeMenu?.(); cleanup.forEach(f => f()); cleanup = []; clearInterval(tick); tick = null; }
   function setTitle(t) { document.title = t ? `${t} — Bilim Arena` : L.titleDefault; }
 
   document.addEventListener('click', e => {
@@ -135,7 +135,7 @@
     window.scrollTo(0, 0);
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
     if (!me && getToken()) {
-      try { const r = await api('/api/me'); me = r.user; renderChip(); socket.connect(); } catch {}
+      try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); } catch {}
     }
     if (path === '/privacy') return viewPrivacy();
     if (!me) return viewAuth();
@@ -143,12 +143,28 @@
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
     if (path === '/rating') return viewRating();
-    if (path === '/me') return viewMe();
+    if (path === '/me' || path.startsWith('/me/') || path === '/settings' || path.startsWith('/settings/') || path.startsWith('/u/')) return ACC.view(accCtx, path);
     if (path === '/about') return viewAbout();
     if (path === '/ent' || path.startsWith('/ent/')) return ENT.view(entCtx, path);
     viewHome();
   }
 
+  // Настройки аккаунта: тема и оформление сразу, язык — без лишней перерисовки.
+  function useSettings(st) {
+    if (!st) return;
+    ACC.applySettings(st);
+    if (st.lang && st.lang !== lang) { lang = st.lang; L = I18N[lang]; store.set('ba_lang', lang); applyStatic(); }
+  }
+  const accCtx = {
+    app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, setLang: v => setLang(v), meta: () => meta, go, setTitle, toast, footer,
+    cityName: c => cityName(c), topicName: t => topicName(t), route: () => route(),
+    me: () => me, setMe: u => { me = { ...me, ...u }; renderChip(); },
+    profileUpdated: () => socket.emit('profile_updated'),
+    attachSchoolSuggest: (i, c) => attachSchoolSuggest(i, c), googleButton: (el, cb) => googleButton(el, cb),
+    logout: async () => { try { await api('/api/logout', { method: 'POST' }); } catch {} signOut(); },
+    forget: () => signOut()
+  };
+  const closeMenu = ACC.init(accCtx);
   const entCtx = {
     app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, meta: () => meta, go, setTitle, toast, footer,
     onCleanup: f => cleanup.push(f)
@@ -820,8 +836,8 @@
     const answered = d.subjects.reduce((n, x) => n + x.answered, 0), right = d.subjects.reduce((n, x) => n + x.correct, 0);
     const acc = answered ? Math.round(right / answered * 100) : null;
     const subs = d.subjects.filter(x => x.answered > 0).map(x => ({ ...x, pct: Math.round(x.correct / x.answered * 100) })).sort((a, b) => a.pct - b.pct);
-    const since = u.createdAt ? new Date(u.createdAt).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : 'ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-    const fmt = iso => new Date(iso).toLocaleDateString(lang === 'kk' ? 'kk-KZ' : 'ru-RU', { day: 'numeric', month: 'short' });
+    const since = u.createdAt ? fmtDate(u.createdAt, lang, true) : '';
+    const fmt = iso => fmtDate(iso, lang);
     app.innerHTML = `
     <div class="page"><div class="wrap narrow">
       <div class="me__head">
@@ -926,7 +942,7 @@
       if (!rows.length) { $('#rTable').innerHTML = `<div class="empty">${L.ratingEmpty}<br><a href="/play" data-link class="btn">${L.play}</a></div>`; return; }
       if (tab === 'schools') $('#rTable').innerHTML = schoolTable(rows);
       else if (tab === 'players') $('#rTable').innerHTML = `<table class="table"><thead><tr><th></th><th>${L.thPlayer}</th><th class="hide-sm">${L.thWins}</th><th class="r">${L.thRating}</th></tr></thead><tbody>
-        ${rows.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(p.name)}<div class="sub">${esc(p.school)}${p.city ? ', ' + esc(cityName(p.city)) : ''}</div></td><td class="hide-sm num">${L.winsOf(p.wins, p.games)}</td><td class="r">${p.rating}</td></tr>`).join('')}</tbody></table>`;
+        ${rows.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${p.username ? `<a class="plink" href="/u/${esc(p.username)}" data-link>${esc(p.name)}</a>` : esc(p.name)}<div class="sub">${esc(p.school)}${p.city ? ', ' + esc(cityName(p.city)) : ''}</div></td><td class="hide-sm num">${L.winsOf(p.wins, p.games)}</td><td class="r">${p.rating}</td></tr>`).join('')}</tbody></table>`;
       else $('#rTable').innerHTML = `<table class="table"><thead><tr><th></th><th>${L.thCity}</th><th class="hide-sm">${L.thPlayers}</th><th class="r">${L.thRating}</th></tr></thead><tbody>
         ${rows.map((c, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(cityName(c.name))}</td><td class="hide-sm num">${c.players}</td><td class="r">${c.rating}</td></tr>`).join('')}</tbody></table>`;
     };

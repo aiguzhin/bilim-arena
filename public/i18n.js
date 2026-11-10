@@ -186,7 +186,7 @@ window.I18N = {
     fPassword: 'Құпиясөз', fPasswordHint: 'Кемінде 6 таңба',
     loginBtn: 'Кіру', registerBtn: 'Аккаунт ашу',
     meTitle: 'Жеке кабинет', tRating: 'Рейтинг', tGames: 'Ойын', tWins: 'Жеңіс', tAcc: 'Дәлдік',
-    memberSince: d => `Сайтта ${d} бастап`,
+    memberSince: d => `Тіркелген күні: ${d}`,
     subjectsTitle: 'Пәндер бойынша дәлдік', subjectsLead: 'Алдымен ең әлсіз тақырыптар — солардан бастаған жөн.',
     subjectsEmpty: 'Алғашқы баттлды ойна — мұнда әр пән бойынша дәлдік пайда болады.',
     train: 'Жаттығу', weak: 'Әлсіз тақырып', rightOf: (c, n) => `Дұрыс: ${c} / ${n}`,
@@ -280,4 +280,66 @@ window.I18N.kk.ent = {
   colScore: 'Балл', colRight: 'Дұрыс', review: 'Тапсырмаларды талдау', your: 'Сіздің жауабыңыз', correct: 'Дұрыс жауап', noAnswer: 'жауап жоқ',
   again: 'Жаңа нұсқаны тапсыру', toList: 'Барлық нәтижелер', gone: 'Бұл тапсырма банкте жаңартылған, есептелмейді.',
   min: n => `шегі ${n}`, dur: (s) => s, notFound: 'Тест табылмады.'
+};
+
+// Профиль, настройки, меню
+Object.assign(window.I18N.ru.err, { wrongPass: 'Текущий пароль неверный', goal: 'Цель — от 50 до 140 баллов', confirm: 'Введите свой логин точно, чтобы подтвердить удаление' });
+Object.assign(window.I18N.kk.err, { wrongPass: 'Қазіргі құпиясөз қате', goal: 'Мақсат — 50-ден 140 балға дейін', confirm: 'Жоюды растау үшін логиніңізді дәл енгізіңіз' });
+window.I18N.ru.acc = {
+  menu: 'Меню', tabProfile: 'Профиль', tabResults: 'Результаты ЕНТ', tabGames: 'Игры', tabSettings: 'Настройки',
+  edit: 'Редактировать', logout: 'Выйти', noBio: 'Расскажите о себе: класс, куда поступаете, любимые предметы.',
+  goalTitle: 'Цель на ЕНТ', goalNone: 'Поставьте цель — и сайт покажет, сколько баллов осталось добрать.', goalSet: 'Поставить цель',
+  goalBest: n => `Лучший пробный: ${n}`, goalNoMock: 'Пробный ЕНТ ещё не сдавали', goalLeft: n => `До цели: ${n} ${plural(n, 'балл', 'балла', 'баллов')}`, goalDone: 'Цель достигнута',
+  takeMock: 'Сдать пробный ЕНТ', tMocks: 'пробных ЕНТ', tBest: 'лучший результат',
+  resultsTitle: 'Пробные ЕНТ', resultsEmpty: 'Вы ещё не сдавали пробный ЕНТ.', chartTitle: 'Последние результаты', goalLine: 'цель',
+  gamesTitle: 'Последние игры',
+  fName: 'Имя', fCity: 'Город', fSchool: 'Школа', fBio: 'О себе', fBioPh: 'Например: 11 класс, хочу в медицинский', fGoal: 'Цель на ЕНТ, баллов', fGoalPh: 'от 50 до 140',
+  fCombo: 'Моя комбинация', fComboNone: 'Не выбрана', fAvatar: 'Цвет аватара', save: 'Сохранить', cancel: 'Отмена', saved: 'Сохранено',
+  sTheme: 'Оформление', sExam: 'Пробный ЕНТ', sAccount: 'Аккаунт',
+  themeTitle: 'Тема', themeSystem: 'Как в системе', themeLight: 'Светлая', themeDark: 'Тёмная',
+  accentTitle: 'Цвет оформления', accents: { classic: 'Классический синий', emerald: 'Изумрудный', garnet: 'Гранатовый', indigo: 'Индиго' },
+  fsTitle: 'Размер текста', fsMd: 'Обычный', fsLg: 'Крупный', langTitle: 'Язык сайта',
+  timerTitle: 'Таймер во время теста', timerShow: 'Показывать', timerHide: 'Скрывать (появится за 5 минут до конца)',
+  comboTitle: 'Комбинация по умолчанию', comboHint: 'Будет выбрана сразу на странице пробного ЕНТ.',
+  syncNote: 'Настройки сохраняются в аккаунте и применяются на всех устройствах.',
+  passTitle: 'Пароль', passCurrent: 'Текущий пароль', passNew: 'Новый пароль', passNewHint: 'Не короче 6 символов', passSave: 'Сменить пароль', passDone: 'Пароль изменён. На других устройствах нужно войти заново.',
+  passGoogle: 'Вы входите через Google. Можно задать пароль, чтобы входить и по логину.', passSet: 'Задать пароль',
+  sessionsTitle: 'Устройства', sessionsText: 'Выйти на всех устройствах, кроме этого.', sessionsBtn: 'Выйти на других устройствах', sessionsDone: 'Готово: другие устройства отключены',
+  deleteTitle: 'Удалить аккаунт', deleteText: 'Удалятся профиль, рейтинг, история игр и пробных тестов. Отменить это нельзя.', deleteLabel: u => `Чтобы подтвердить, введите логин ${u}`, deleteBtn: 'Удалить навсегда',
+  userNotFound: 'Игрок не найден.', compareTitle: 'Сравнение с вами', you: 'Вы', duel: 'Вызвать на дуэль', share: 'Скопировать ссылку', copied: 'Ссылка скопирована',
+  cRating: 'Рейтинг', cGames: 'Игр', cWinrate: 'Побед', cBest: 'Лучший пробный ЕНТ', cAcc: 'Точность ответов',
+  menuSections: 'Разделы', quickTheme: 'Тема'
+};
+window.I18N.kk.acc = {
+  menu: 'Мәзір', tabProfile: 'Профиль', tabResults: 'ҰБТ нәтижелері', tabGames: 'Ойындар', tabSettings: 'Баптаулар',
+  edit: 'Өңдеу', logout: 'Шығу', noBio: 'Өзіңіз туралы жазыңыз: сынып, қайда түспексіз, сүйікті пәндер.',
+  goalTitle: 'ҰБТ мақсаты', goalNone: 'Мақсат қойыңыз — сайт тағы қанша балл жинау керегін көрсетеді.', goalSet: 'Мақсат қою',
+  goalBest: n => `Ең жақсы сынақ: ${n}`, goalNoMock: 'Сынақ ҰБТ әлі тапсырылмаған', goalLeft: n => `Мақсатқа дейін: ${n} балл`, goalDone: 'Мақсатқа жеттіңіз',
+  takeMock: 'Сынақ ҰБТ тапсыру', tMocks: 'сынақ ҰБТ', tBest: 'ең жақсы нәтиже',
+  resultsTitle: 'Сынақ ҰБТ', resultsEmpty: 'Сіз әлі сынақ ҰБТ тапсырған жоқсыз.', chartTitle: 'Соңғы нәтижелер', goalLine: 'мақсат',
+  gamesTitle: 'Соңғы ойындар',
+  fName: 'Аты', fCity: 'Қала', fSchool: 'Мектеп', fBio: 'Өзім туралы', fBioPh: 'Мысалы: 11-сынып, медицинаға түскім келеді', fGoal: 'ҰБТ мақсаты, балл', fGoalPh: '50-ден 140-қа дейін',
+  fCombo: 'Менің комбинациям', fComboNone: 'Таңдалмаған', fAvatar: 'Аватар түсі', save: 'Сақтау', cancel: 'Бас тарту', saved: 'Сақталды',
+  sTheme: 'Безендіру', sExam: 'Сынақ ҰБТ', sAccount: 'Аккаунт',
+  themeTitle: 'Тақырып', themeSystem: 'Жүйедегідей', themeLight: 'Ашық', themeDark: 'Қараңғы',
+  accentTitle: 'Безендіру түсі', accents: { classic: 'Классикалық көк', emerald: 'Зүмірет', garnet: 'Анар', indigo: 'Индиго' },
+  fsTitle: 'Мәтін өлшемі', fsMd: 'Қалыпты', fsLg: 'Ірі', langTitle: 'Сайт тілі',
+  timerTitle: 'Тест кезіндегі таймер', timerShow: 'Көрсету', timerHide: 'Жасыру (соңына 5 минут қалғанда шығады)',
+  comboTitle: 'Әдепкі комбинация', comboHint: 'Сынақ ҰБТ бетінде бірден таңдалады.',
+  syncNote: 'Баптаулар аккаунтта сақталып, барлық құрылғыда қолданылады.',
+  passTitle: 'Құпиясөз', passCurrent: 'Қазіргі құпиясөз', passNew: 'Жаңа құпиясөз', passNewHint: 'Кемінде 6 таңба', passSave: 'Құпиясөзді ауыстыру', passDone: 'Құпиясөз өзгертілді. Басқа құрылғыларда қайта кіру керек.',
+  passGoogle: 'Сіз Google арқылы кіресіз. Логинмен де кіру үшін құпиясөз қоюға болады.', passSet: 'Құпиясөз қою',
+  sessionsTitle: 'Құрылғылар', sessionsText: 'Осыдан басқа барлық құрылғыдан шығу.', sessionsBtn: 'Басқа құрылғылардан шығу', sessionsDone: 'Дайын: басқа құрылғылар ажыратылды',
+  deleteTitle: 'Аккаунтты жою', deleteText: 'Профиль, рейтинг, ойындар мен сынақ тесттерінің тарихы жойылады. Мұны қайтару мүмкін емес.', deleteLabel: u => `Растау үшін ${u} логинін енгізіңіз`, deleteBtn: 'Біржола жою',
+  userNotFound: 'Ойыншы табылмады.', compareTitle: 'Сізбен салыстыру', you: 'Сіз', duel: 'Жекпе-жекке шақыру', share: 'Сілтемені көшіру', copied: 'Сілтеме көшірілді',
+  cRating: 'Рейтинг', cGames: 'Ойын', cWinrate: 'Жеңіс', cBest: 'Ең жақсы сынақ ҰБТ', cAcc: 'Жауап дәлдігі',
+  menuSections: 'Бөлімдер', quickTheme: 'Тақырып'
+};
+
+// Даты: в казахском браузеры часто выводят «2026 M11 10», поэтому месяцы задаём сами.
+const KK_MONTHS = ['қаңтар', 'ақпан', 'наурыз', 'сәуір', 'мамыр', 'маусым', 'шілде', 'тамыз', 'қыркүйек', 'қазан', 'қараша', 'желтоқсан'];
+window.fmtDate = (iso, lang, withYear) => {
+  const d = new Date(iso);
+  if (lang === 'kk') return withYear ? `${d.getFullYear()} жылғы ${d.getDate()} ${KK_MONTHS[d.getMonth()]}` : `${d.getDate()} ${KK_MONTHS[d.getMonth()]}`;
+  return d.toLocaleDateString('ru-RU', withYear ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short' });
 };
