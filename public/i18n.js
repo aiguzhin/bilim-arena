@@ -343,3 +343,41 @@ window.fmtDate = (iso, lang, withYear) => {
   if (lang === 'kk') return withYear ? `${d.getFullYear()} жылғы ${d.getDate()} ${KK_MONTHS[d.getMonth()]}` : `${d.getDate()} ${KK_MONTHS[d.getMonth()]}`;
   return d.toLocaleDateString('ru-RU', withYear ? { day: 'numeric', month: 'long', year: 'numeric' } : { day: 'numeric', month: 'short' });
 };
+
+// Выбор языка сдачи
+Object.assign(window.I18N.ru, { qlangTitle: 'На каком языке сдавать?', qlangHint: 'Задания и варианты ответов будут на выбранном языке. Язык сайта не изменится.',
+  qlangSub: { kk: 'казахская версия ЕНТ', ru: 'русская версия ЕНТ', en: 'английская версия ЕНТ' } });
+Object.assign(window.I18N.kk, { qlangTitle: 'Қай тілде тапсырасыз?', qlangHint: 'Тапсырмалар мен жауап нұсқалары таңдалған тілде болады. Сайт тілі өзгермейді.',
+  qlangSub: { kk: 'ҰБТ-ның қазақша нұсқасы', ru: 'ҰБТ-ның орысша нұсқасы', en: 'ҰБТ-ның ағылшынша нұсқасы' } });
+
+// Экран пробного ЕНТ на английском (английская версия экзамена)
+window.I18N.en = { ent: {
+  title: 'Mock UNT', lead: '',
+  structure: 'Test structure', colSubject: 'Subject', colTasks: 'Tasks', colPoints: 'Points', colMin: 'Threshold',
+  history: 'History of Kazakhstan', mathlit: 'Mathematical literacy', reading: 'Reading literacy', profile1: 'Profile subject 1', profile2: 'Profile subject 2', total: 'Total',
+  profileNote: '', pick: '', start: 'Start', starting: 'Preparing…', active: '', activeText: '', resume: 'Continue', restart: 'Start again', restartConfirm: '',
+  past: 'My results', pastEmpty: '', open: 'Review',
+  finish: 'Finish test', finishTitle: 'Finish the test?', finishLeft: n => `Unanswered: ${n} ${n === 1 ? 'task' : 'tasks'}.`, finishAll: 'You have answered every task.',
+  finishYes: 'Finish', finishNo: 'Back to the test',
+  task: (i, n) => `Task ${i} of ${n}`, prev: 'Back', next: 'Next', mark: 'Mark', marked: 'Marked',
+  tSingle: 'Choose one correct answer', tContext: 'Read the text and choose one correct answer', tMulti: 'Choose one or more correct answers',
+  tMatch: 'Match the items', points: n => `${n} ${n === 1 ? 'point' : 'points'}`,
+  sheet: 'Answer sheet', lAnswered: 'Answered', lMarked: 'Marked', lEmpty: 'No answer',
+  saved: 'Saved', saving: 'Saving…', offline: 'No connection — answers saved on this device',
+  timeUp: 'Time is up. The test is finished.', last5: '5 minutes left',
+  resultTitle: 'Mock UNT result', of: 'of', passAll: 'All thresholds passed', failAll: 'Threshold not reached',
+  passNote: 'To compete for a state grant you need at least 50 points and the threshold in every subject. National universities — from 65, medicine — from 70, teaching and law — from 75.',
+  colScore: 'Points', colRight: 'Correct', review: 'Task review', your: 'Your answer', correct: 'Correct answer', noAnswer: 'no answer',
+  again: 'Take a new variant', toList: 'All results', gone: 'This task was updated in the bank and is not counted.',
+  min: n => `threshold ${n}`, dur: s => s, notFound: 'Test not found.'
+} };
+
+// Аккаунты и фото
+Object.assign(window.I18N.ru.acc, { switchAcc: 'Сменить аккаунт', switchTitle: 'Аккаунты на этом устройстве', current: 'сейчас', addLogin: 'Войти в другой аккаунт', addNew: 'Создать новый аккаунт',
+  addingNote: 'Добавляете ещё один аккаунт — текущий останется в списке.', fPhoto: 'Фото профиля', photoUpload: 'Загрузить фото', photoDelete: 'Убрать фото',
+  photoHint: 'Квадрат по центру снимка, до 256×256.', photoBad: 'Не получилось открыть это изображение.' });
+Object.assign(window.I18N.kk.acc, { switchAcc: 'Аккаунтты ауыстыру', switchTitle: 'Осы құрылғыдағы аккаунттар', current: 'қазір', addLogin: 'Басқа аккаунтқа кіру', addNew: 'Жаңа аккаунт ашу',
+  addingNote: 'Тағы бір аккаунт қосып жатырсыз — қазіргісі тізімде қалады.', fPhoto: 'Профиль суреті', photoUpload: 'Сурет жүктеу', photoDelete: 'Суретті алып тастау',
+  photoHint: 'Суреттің ортасынан шаршы, 256×256-ға дейін.', photoBad: 'Бұл суретті ашу мүмкін болмады.' });
+Object.assign(window.I18N.ru.err, { photo: 'Фото не подошло. Попробуйте другое изображение.' });
+Object.assign(window.I18N.kk.err, { photo: 'Сурет жарамады. Басқа суретті көріңіз.' });

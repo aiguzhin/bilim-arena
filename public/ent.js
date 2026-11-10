@@ -9,8 +9,9 @@ window.ENT = (() => {
   let reviewSec = 0;
 
   const $ = (s, el = document) => el.querySelector(s);
-  const E = () => X.L().ent;
-  const pk = o => X.pick(o);
+  // Экран теста — на языке сдачи (test.lang), страница выбора — на языке сайта.
+  const E = () => (test && window.I18N[test.lang]?.ent) || X.L().ent;
+  const pk = o => (test && o && typeof o === 'object' ? (o[test.lang] ?? o.ru) : X.pick(o));
   const key = (s, i) => `${test.sections[s].k}.${i}`;
   const lsKey = id => `ba_ent_${id}`;
   const lsGet = id => { try { return JSON.parse(localStorage.getItem(lsKey(id)) || 'null'); } catch { return null; } };
@@ -93,17 +94,19 @@ window.ENT = (() => {
       box.classList.remove('muted');
       box.innerHTML = `<table class="table"><tbody>${r.tests.map(t => `<tr>
         <td>${fmtDate(t.finished_at, X.lang())}</td>
-        <td>${X.esc(comboName(t.combo))}</td>
+        <td>${X.esc(comboName(t.combo))}${t.lang ? ` <span class="chip">${(t.lang || '').toUpperCase()}</span>` : ''}</td>
         <td class="num"><b>${t.score}</b> / ${t.result?.max ?? 140}</td>
         <td><a href="/ent/${t.id}" data-link>${E().open}</a></td></tr>`).join('')}</tbody></table>`;
     }).catch(() => { const b = $('#entPast'); if (b) b.textContent = ''; });
   }
 
   async function create(combo, restart) {
+    const lang = await X.chooseLang();
+    if (!lang) return;
     const btn = $('#entGo'), err = $('#entErr');
     btn.disabled = true; btn.textContent = E().starting; err.textContent = '';
     try {
-      const r = await X.api('/api/ent', { method: 'POST', body: { combo, restart } });
+      const r = await X.api('/api/ent', { method: 'POST', body: { combo, restart, lang } });
       test = null; X.go(`/ent/${r.id}`);
     } catch (x) { err.textContent = X.L().err[x.code] || X.L().err.server; btn.disabled = false; btn.textContent = E().start; }
   }
@@ -134,7 +137,7 @@ window.ENT = (() => {
     X.app.innerHTML = `
     <div class="exam">
       <div class="exam__bar"><div class="wrap exam__bar-in">
-        <div class="exam__combo">${X.esc(comboName(test.combo))}</div>
+        <div class="exam__combo">${X.esc(comboName(test.combo))} <span class="exam__lang">${X.LANGN[test.lang] || ''}</span></div>
         <div class="exam__right">
           <span class="exam__save" id="exSave"></span>
           <span class="exam__timer num" id="exTimer" role="timer">--:--:--</span>
@@ -332,7 +335,7 @@ window.ENT = (() => {
     <div class="page"><div class="wrap">
       <div class="eres">
         <div class="eres__main">
-          <p class="eres__combo">${X.esc(comboName(test.combo))}</p>
+          <p class="eres__combo">${X.esc(comboName(test.combo))} · ${X.LANGN[test.lang] || ''}</p>
           <h1>${E().resultTitle}</h1>
           <div class="eres__score"><b class="num">${r.total}</b><span>${E().of} ${r.max}</span></div>
           <p class="eres__verdict ${r.pass ? 'is-ok' : 'is-bad'}">${r.pass ? E().passAll : E().failAll}</p>

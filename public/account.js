@@ -31,8 +31,9 @@ window.ACC = (() => {
   function hashColor(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return Object.keys(COLORS)[h % 8]; }
   function initials(name) { return String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase(); }
   function avatar(u, size = 'md') {
+    if (u.photo) return `<img class="ava ava--${size}" src="${u.photo}" alt="" aria-hidden="true">`;
     const c = COLORS[u.avatar] || COLORS[hashColor(u.username)];
-    return `<span class="ava ava--${size}" style="background:${c}" aria-hidden="true">${X.esc(initials(u.name))}</span>`;
+    return `<span class="ava ava--${size}" style="background:${c}" aria-hidden="true">${(String(u.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()).replace(/[<>&"]/g, '')}</span>`;
   }
 
   // ---------- меню ----------
@@ -46,6 +47,7 @@ window.ACC = (() => {
       const t = e.target.closest('[data-qtheme]');
       if (t) { saveSetting({ theme: t.dataset.qtheme }); renderMenu(); }
       if (e.target.closest('#menuLogout')) { close(); X.logout(); }
+      if (e.target.closest('#menuSwitch')) { close(); switchAccount(); }
     });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !panel.hidden) { close(); btn.focus(); } });
     return close;
@@ -61,6 +63,7 @@ window.ACC = (() => {
       <hr>
       ${item('/ent', L.navEnt)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
       <hr>
+      <button type="button" id="menuSwitch">${A().switchAcc}</button>
       <button type="button" id="menuLogout">${A().logout}</button>`;
     const t = current().theme;
     $('#menuTheme').innerHTML = `<span>${A().quickTheme}</span><div class="seg3">${[['light', A().themeLight], ['dark', A().themeDark], ['system', A().themeSystem]]
@@ -81,7 +84,11 @@ window.ACC = (() => {
           <p class="phead__bio ${u.bio ? '' : 'is-empty'}">${u.bio ? X.esc(u.bio) : A().noBio}</p>
           ${since ? `<p class="phead__since">${X.L().memberSince(since)}</p>` : ''}
         </div>
-        <button class="btn btn--ghost btn--sm phead__edit" id="pEdit">${A().edit}</button>
+        <div class="phead__actions">
+          <button class="btn btn--ghost btn--sm" id="pEdit">${A().edit}</button>
+          <button class="btn btn--ghost btn--sm" id="pSwitch">${A().switchAcc}</button>
+          <button class="btn btn--ghost btn--sm phead__out" id="pOut">${A().logout}</button>
+        </div>
       </header>
       <nav class="ptabs" role="tablist">${tabs.map(([h, k, n]) => `<a href="${h}" data-link role="tab" aria-selected="${k === tab}">${n}</a>`).join('')}</nav>
       <div class="pbody">${body}</div>
@@ -89,6 +96,8 @@ window.ACC = (() => {
   }
   function bindShell() {
     const b = $('#pEdit'); if (b) b.onclick = () => editProfile();
+    const sw = $('#pSwitch'); if (sw) sw.onclick = () => switchAccount();
+    const out = $('#pOut'); if (out) out.onclick = () => X.logout();
     $('.ptabs [aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
@@ -186,6 +195,46 @@ window.ACC = (() => {
     bindShell();
   }
 
+  // ---------- смена аккаунта ----------
+  function switchAccount() {
+    const cur = X.currentToken(), list = X.accounts();
+    const dlg = document.createElement('dialog');
+    dlg.className = 'dlg';
+    dlg.innerHTML = `<div class="dlg__body">
+      <h2>${A().switchTitle}</h2>
+      <ul class="acclist">${list.map(a => `<li><button type="button" data-t="${X.esc(a.token)}" ${a.token === cur ? 'aria-current="true"' : ''}>
+        ${avatar(a, 'md')}<span><b>${X.esc(a.name)}</b><small>@${X.esc(a.username)}${a.rating ? ' · ' + a.rating : ''}</small></span>
+        ${a.token === cur ? `<em>${A().current}</em>` : ''}</button></li>`).join('')}</ul>
+      <div class="accadd">
+        <a class="btn btn--sm" href="/login?mode=login" data-link>${A().addLogin}</a>
+        <a class="btn btn--ghost btn--sm" href="/login?mode=register" data-link>${A().addNew}</a>
+      </div>
+      <div class="dlg__actions"><button class="btn btn--ghost" type="button" data-x>${A().cancel}</button></div>
+    </div>`;
+    document.body.appendChild(dlg);
+    dlg.addEventListener('close', () => dlg.remove());
+    dlg.addEventListener('click', e => {
+      if (e.target.closest('[data-x]') || e.target.closest('a[data-link]')) dlg.close();
+      const b = e.target.closest('[data-t]');
+      if (b && b.dataset.t !== cur) { dlg.close(); X.switchTo(b.dataset.t); }
+    });
+    dlg.showModal();
+  }
+
+  // Фото: обрезаем по центру в квадрат 256×256 и сжимаем в JPEG прямо в браузере.
+  async function squarePhoto(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const side = Math.min(img.naturalWidth, img.naturalHeight), size = 256;
+      const c = document.createElement('canvas'); c.width = c.height = size;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, size, size);
+      let q = 0.86, data = c.toDataURL('image/jpeg', q);
+      while (data.length > 150000 && q > 0.4) { q -= 0.12; data = c.toDataURL('image/jpeg', q); }
+      return data;
+    } finally { URL.revokeObjectURL(url); }
+  }
+
   // ---------- редактирование профиля ----------
   function editProfile(focus) {
     const u = X.me(), L = X.L();
@@ -194,6 +243,13 @@ window.ACC = (() => {
     const combos = Object.keys(X.meta().combos);
     dlg.innerHTML = `<form class="dlg__body" id="peForm">
       <h2>${A().edit}</h2>
+      <div class="pe__photo">
+        <span id="pePrev">${avatar(u, 'lg')}</span>
+        <div><span class="field__l">${A().fPhoto}</span>
+          <div class="pe__pbtns"><label class="btn btn--ghost btn--sm"><input type="file" accept="image/*" id="peFile" hidden>${A().photoUpload}</label>
+          <button type="button" class="btn btn--ghost btn--sm" id="peDel" ${u.photo ? '' : 'hidden'}>${A().photoDelete}</button></div>
+          <small class="muted">${A().photoHint}</small></div>
+      </div>
       <div class="pe__ava"><span class="field__l">${A().fAvatar}</span><div class="swatches">${Object.entries(COLORS).map(([k, c]) =>
         `<label><input type="radio" name="avatar" value="${k}" ${(u.avatar || hashColor(u.username)) === k ? 'checked' : ''}><span style="background:${c}"></span></label>`).join('')}</div></div>
       <label class="field"><span>${A().fName}</span><input name="name" maxlength="24" required minlength="2" value="${X.esc(u.name)}"></label>
@@ -216,12 +272,21 @@ window.ACC = (() => {
     const done = () => { dlg.close(); dlg.remove(); };
     dlg.addEventListener('close', () => dlg.remove());
     dlg.querySelector('#peCancel').onclick = done;
+    let photo = u.photo || null, photoChanged = false;
+    const prev = () => { dlg.querySelector('#pePrev').innerHTML = avatar({ ...u, photo, avatar: f.avatar.value }, 'lg'); dlg.querySelector('#peDel').hidden = !photo; };
+    dlg.querySelector('#peFile').onchange = async e => {
+      const file = e.target.files[0]; if (!file) return;
+      try { photo = await squarePhoto(file); photoChanged = true; prev(); } catch { dlg.querySelector('#peErr').textContent = A().photoBad; }
+    };
+    dlg.querySelector('#peDel').onclick = () => { photo = null; photoChanged = true; prev(); };
+    dlg.querySelectorAll('input[name=avatar]').forEach(i => i.onchange = prev);
     dlg.querySelector('form').onsubmit = async e => {
       e.preventDefault();
       const err = dlg.querySelector('#peErr'); err.textContent = '';
       try {
         await X.api('/api/me', { method: 'PATCH', body: { name: f.name.value, school: f.school.value, city: f.city.value } });
-        const r = await X.api('/api/me/extra', { method: 'PATCH', body: { bio: f.bio.value, goal: f.goal.value, goalCombo: f.goalCombo.value, avatar: f.avatar.value } });
+        let r = await X.api('/api/me/extra', { method: 'PATCH', body: { bio: f.bio.value, goal: f.goal.value, goalCombo: f.goalCombo.value, avatar: f.avatar.value } });
+        if (photoChanged) r = await X.api('/api/me/photo', { method: 'PUT', body: { photo } });
         X.setMe(r.user); X.profileUpdated();
         if (r.user.goalCombo) ls.set('ba_ent_combo', r.user.goalCombo);
         done(); X.toast(A().saved); X.route();
@@ -356,7 +421,7 @@ window.ACC = (() => {
 
   return {
     init(ctx) { X = ctx; return initMenu(); },
-    applySettings, avatar, renderMenu,
+    applySettings, avatar, renderMenu, switchAccount,
     view(ctx, path) {
       X = ctx;
       const u = path.match(/^\/u\/([a-z0-9_.]{3,20})$/i);

@@ -7,6 +7,16 @@
   // ---------- сессия ----------
   const getToken = () => { try { return localStorage.getItem('ba_token') || ''; } catch { return ''; } };
   const setToken = t => { try { t ? localStorage.setItem('ba_token', t) : localStorage.removeItem('ba_token'); } catch {} };
+  // Несколько аккаунтов на одном устройстве: токены хранятся списком, активный — в ba_token.
+  const getAccounts = () => { try { return JSON.parse(localStorage.getItem('ba_accounts') || '[]'); } catch { return []; } };
+  const setAccounts = list => { try { localStorage.setItem('ba_accounts', JSON.stringify(list)); } catch {} };
+  const rememberAccount = (token, u) => {
+    if (!token || !u) return;
+    const list = getAccounts().filter(a => a.token !== token && a.id !== u.id);
+    list.unshift({ token, id: u.id, username: u.username, name: u.name, avatar: u.avatar || null, photo: u.photo || null, rating: u.rating });
+    setAccounts(list.slice(0, 6));
+  };
+  const forgetAccount = token => setAccounts(getAccounts().filter(a => a.token !== token));
   const socket = io({ autoConnect: false, transports: ['websocket', 'polling'], auth: cb => cb({ token: getToken() }) });
   async function api(path, opts = {}) {
     const r = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}`, ...(opts.headers || {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -24,6 +34,9 @@
   let lang = store.get('ba_lang') || (/^kk/i.test(navigator.language) ? 'kk' : 'ru');
   let L = I18N[lang];
   const pick = obj => (obj && typeof obj === 'object' ? obj[lang] ?? obj.ru : obj);
+  const LANGN = { kk: 'Қазақша', ru: 'Русский', en: 'English' };
+  // Язык вопросов баттла: если хост выбрал язык, все видят задания на нём.
+  const qp = o => (room?.lang && o && typeof o === 'object' ? (o[room.lang] ?? o.ru) : pick(o));
   const cityName = c => (lang === 'kk' ? (CITIES.find(x => x[0] === c)?.[1] || (c === 'Другой город' ? L.otherCity : c)) : c);
 
   function applyStatic() {
@@ -69,8 +82,10 @@
     document.body.classList.toggle('guest', !me);
     if (!me) { chip.hidden = true; return; }
     chip.hidden = false;
-    chip.innerHTML = `<span class="chip-name">${esc(me.name)}</span><b class="num">${me.rating}</b>`;
-    chip.title = L.meTitle;
+    chip.innerHTML = ACC.avatar(me, 'sm');
+    chip.title = `${me.name} · ${L.meTitle}`;
+    chip.setAttribute('aria-label', chip.title);
+    rememberAccount(getToken(), me);
   }
 
   function signIn(token, user) {
@@ -78,9 +93,18 @@
     socket.connect();
   }
   function signOut() {
-    setToken(''); me = null; room = null; current = null; lastEnd = null;
+    forgetAccount(getToken());
+    const next = getAccounts()[0];
+    setToken(next ? next.token : ''); me = null; room = null; current = null; lastEnd = null;
     socket.disconnect(); renderChip();
+    if (next) { history.replaceState({}, '', '/me'); }
     route();
+  }
+  function switchTo(token) {
+    leaveRoom();
+    setToken(token); me = null;
+    socket.disconnect(); renderChip();
+    go('/me');
   }
 
   function openProfile() {
@@ -138,6 +162,7 @@
       try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); } catch {}
     }
     if (path === '/privacy') return viewPrivacy();
+    if (path === '/login') return viewAuth(true);
     if (!me) return viewAuth();
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
@@ -159,6 +184,7 @@
     app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, setLang: v => setLang(v), meta: () => meta, go, setTitle, toast, footer,
     cityName: c => cityName(c), topicName: t => topicName(t), route: () => route(),
     me: () => me, setMe: u => { me = { ...me, ...u }; renderChip(); },
+    accounts: () => getAccounts(), currentToken: () => getToken(), switchTo: t => switchTo(t),
     profileUpdated: () => socket.emit('profile_updated'),
     attachSchoolSuggest: (i, c) => attachSchoolSuggest(i, c), googleButton: (el, cb) => googleButton(el, cb),
     logout: async () => { try { await api('/api/logout', { method: 'POST' }); } catch {} signOut(); },
@@ -166,6 +192,7 @@
   };
   const closeMenu = ACC.init(accCtx);
   const entCtx = {
+    chooseLang, LANGN,
     app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, meta: () => meta, go, setTitle, toast, footer,
     onCleanup: f => cleanup.push(f)
   };
@@ -303,6 +330,26 @@
     step();
   }
 
+  // ---------- выбор языка сдачи ----------
+  function chooseLang() {
+    return new Promise(resolve => {
+      const dlg = document.createElement('dialog');
+      dlg.className = 'dlg';
+      const last = store.get('ba_qlang') || lang;
+      dlg.innerHTML = `<form method="dialog" class="dlg__body">
+        <h2>${L.qlangTitle}</h2><p class="muted">${L.qlangHint}</p>
+        <div class="qlang">${['kk', 'ru', 'en'].map(l => `<button type="button" class="qlang__opt" data-l="${l}" ${l === last ? 'autofocus' : ''}>
+          <b>${LANGN[l]}</b><span>${L.qlangSub[l]}</span></button>`).join('')}</div>
+        <div class="dlg__actions"><button class="btn btn--ghost" value="cancel">${L.cancel}</button></div>
+      </form>`;
+      document.body.appendChild(dlg);
+      let chosen = null;
+      dlg.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { chosen = b.dataset.l; store.set('ba_qlang', chosen); dlg.close(); });
+      dlg.addEventListener('close', () => { dlg.remove(); resolve(chosen); });
+      dlg.showModal();
+    });
+  }
+
   // ---------- выбор режима ----------
   function viewSetup() {
     setTitle(L.setupTitle);
@@ -378,7 +425,8 @@
     form.onsubmit = async e => {
       e.preventDefault();
       const t = topic(); store.set('ba_topic', t);
-      socket.emit('create', { mode: form.mode.value, subject: t }, r => {
+      const ql = await chooseLang(); if (!ql) return;
+      socket.emit('create', { mode: form.mode.value, subject: t, lang: ql }, r => {
         if (r?.error) { $('#setupError').textContent = L.err[r.error] || r.error; return; }
         history.replaceState({}, '', `/b/${r.code}`);
       });
@@ -386,8 +434,9 @@
 
     $('#quickBtn').onclick = async () => {
       const t = topic(); store.set('ba_topic', t);
-      $('#qwText').textContent = L.quickWait(topicName(t));
-      socket.emit('quick', { subject: t }, r => {
+      const ql = await chooseLang(); if (!ql) return;
+      $('#qwText').textContent = L.quickWait(`${topicName(t)} · ${LANGN[ql]}`);
+      socket.emit('quick', { subject: t, lang: ql }, r => {
         if (r?.error) { $('#setupError').textContent = L.err[r.error] || r.error; return; }
         if (r.code) return joinFlow(r.code, true);
         form.hidden = true; $('#quickWait').hidden = false;
@@ -435,7 +484,7 @@
 
   function viewLobby() {
     reset();
-    const topic = pick(room.subjectName);
+    const topic = pick(room.subjectName) + (room.lang ? ` · ${LANGN[room.lang]}` : '');
     const titleMode = room.mode === 'class' ? L.lobbyClass : room.mode === 'solo' ? L.lobbySolo : L.lobbyDuel;
     setTitle(titleMode);
     const link = `${location.origin}/b/${room.code}`;
@@ -527,11 +576,11 @@
     <div class="game">
       <div class="gbar" id="gbar">${gameBarHTML()}</div>
       <div class="qcard">
-        <div class="qcard__meta"><span>${L.qOf(q.i + 1, q.total)} · ${esc(pick(q.s))}</span><span class="num" id="qSec"></span></div>
-        <div class="qcard__text">${esc(pick(q.t))}</div>
+        <div class="qcard__meta"><span>${L.qOf(q.i + 1, q.total)} · ${esc(qp(q.s))}</span><span class="num" id="qSec"></span></div>
+        <div class="qcard__text">${esc(qp(q.t))}</div>
         <div class="qtimer" id="qTimer"><i id="qBar"></i></div>
         <div class="answers" id="answers">
-          ${pick(q.o).map((o, i) => `<button class="answer${keepState && picked === i ? ' picked' : ''}" data-i="${i}" ${keepState && picked !== null ? 'disabled' : ''}><span class="k">${LETTERS[i]}</span><span>${esc(o)}</span></button>`).join('')}
+          ${qp(q.o).map((o, i) => `<button class="answer${keepState && picked === i ? ' picked' : ''}" data-i="${i}" ${keepState && picked !== null ? 'disabled' : ''}><span class="k">${LETTERS[i]}</span><span>${esc(o)}</span></button>`).join('')}
         </div>
         <div id="explain"></div>
       </div>
@@ -563,7 +612,7 @@
     clearInterval(tick);
     app.querySelectorAll('.answer').forEach(b => { b.disabled = true; const i = +b.dataset.i; if (i === d.a) b.classList.add('right'); else if (i === picked) b.classList.add('wrong'); });
     const mine = d.picks[socket.id];
-    $('#explain').innerHTML = `<div class="explain">${mine?.gained ? `<span class="gained">+${mine.gained}</span> ` : picked === null ? `<b>${L.timeUp}</b> ` : `<b>${L.wrong}</b> `}${esc(pick(d.e))}</div>`;
+    $('#explain').innerHTML = `<div class="explain">${mine?.gained ? `<span class="gained">+${mine.gained}</span> ` : picked === null ? `<b>${L.timeUp}</b> ` : `<b>${L.wrong}</b> `}${esc(qp(d.e))}</div>`;
     updateGameBar();
   }
 
@@ -602,15 +651,15 @@
       const only = $('#onlyMiss').checked;
       const items = d.review.map((q, i) => ({ q, i, my: d.mine[i] })).filter(x => !only || x.my !== x.q.a);
       $('#review').innerHTML = items.length ? items.map(({ q, i, my }) => {
-        const o = pick(q.o);
+        const o = qp(q.o);
         return `<div class="review__item ${my === q.a ? 'hit' : 'miss'}">
-          <div class="muted" style="font-size:13px;margin-bottom:4px">${i + 1}. ${esc(pick(q.s))}</div>
-          <h3>${esc(pick(q.t))}</h3>
+          <div class="muted" style="font-size:13px;margin-bottom:4px">${i + 1}. ${esc(qp(q.s))}</div>
+          <h3>${esc(qp(q.t))}</h3>
           <div class="review__ans">
             ${my !== q.a ? `<span class="y">${L.yourAns}: ${my === null ? L.noAns : esc(o[my])}</span>` : ''}
             <span class="c">${L.rightAns}: ${esc(o[q.a])}</span>
           </div>
-          <p class="e">${esc(pick(q.e))}</p>
+          <p class="e">${esc(qp(q.e))}</p>
         </div>`;
       }).join('') : `<div class="empty">${L.noMistakes}</div>`;
     };
@@ -619,7 +668,7 @@
     $('#rematch')?.addEventListener('click', () => {
       const subject = room.subject, from = room.code;
       room = null; lastEnd = null;
-      socket.emit('create', { mode: 'duel', subject }, r => {
+      socket.emit('create', { mode: 'duel', subject, lang: lastEnd?.room?.lang || room?.lang }, r => {
         if (!r?.code) return;
         history.replaceState({}, '', `/b/${r.code}`);
         socket.emit('invite', { from, code: r.code });
@@ -754,10 +803,11 @@
   }
 
   // ---------- вход и регистрация ----------
-  function viewAuth() {
+  function viewAuth(adding) {
     setTitle(L.tabLogin);
     const invite = /^\/b\/[A-Z0-9]{5}$/i.test(location.pathname);
-    let tab = sessionStorage.getItem('ba_authtab') || 'register';
+    const qmode = new URLSearchParams(location.search).get('mode');
+    let tab = (adding && ['login', 'register'].includes(qmode) ? qmode : null) || sessionStorage.getItem('ba_authtab') || 'register';
     app.innerHTML = `
     <section class="auth">
       <div class="wrap auth__grid">
@@ -772,6 +822,7 @@
             <div class="or"><span>${L.or}</span></div>
           </div>
           <p class="form-error" id="gAuthError" role="alert"></p>
+          ${adding && me ? `<div class="addacc"><span>${L.acc.addingNote}</span><a href="/me" data-link>${L.cancel}</a></div>` : ''}
           <div class="tabs-sm" role="tablist">
             <button type="button" role="tab" data-auth="register">${L.tabRegister}</button>
             <button type="button" role="tab" data-auth="login">${L.tabLogin}</button>
@@ -810,7 +861,9 @@
           ? { username: f.username.value, password: f.password.value, name: f.name.value, city: f.city.value, school: f.school.value, consent: f.consent.checked }
           : { username: f.username.value, password: f.password.value };
         const r = await api(tab === 'register' ? '/api/register' : '/api/login', { method: 'POST', body });
+        leaveRoom(); socket.disconnect();
         signIn(r.token, r.user);
+        if (adding) history.replaceState({}, '', '/me');
         route();
       } catch (x) { $('#authError').textContent = L.err[x.code] || L.err.server; btn.disabled = false; }
     };
@@ -820,7 +873,9 @@
       try {
         const r = await api('/api/google', { method: 'POST', body: { credential } });
         if (r.needProfile) return viewGoogleProfile(r.pending, r.name);
-        signIn(r.token, r.user); route();
+        socket.disconnect(); signIn(r.token, r.user);
+        if (adding) history.replaceState({}, '', '/me');
+        route();
       } catch (x) { $('#gAuthError').textContent = L.err[x.code] || L.err.server; }
     });
   }

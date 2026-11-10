@@ -11,6 +11,9 @@ const PROFILE = { s: 25, c: 5, m: 5, p: 5, min: 5 };
 
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const byId = new Map(Object.values(BANK).flatMap(s => s.q.map(q => [q.id, q])));
+// Языковые предметы одинаковы во всех версиях; остальные идут на английском, если есть перевод.
+const NEUTRAL = new Set(['english', 'kazlang', 'kazlit', 'ruslang', 'ruslit']);
+const hasEn = q => NEUTRAL.has(q.id.split(':')[0]) || !!q.t.en;
 const kindOf = q => (q.type === 'm' ? 'm' : q.type === 'p' ? 'p' : q.c ? 'c' : 's');
 
 // Сначала то, чего ученик ещё не видел в прошлых пробных: так варианты не повторяются, пока хватает банка.
@@ -48,11 +51,12 @@ function item(q) {
   return { id: q.id, ord };
 }
 
-function build(pair, seen = new Set()) {
+function build(pair, seen = new Set(), lang = 'ru') {
   SEEN = seen;
+  const poolOf = (k, need) => { const all = BANK[k].q; if (lang !== 'en') return all; const en = all.filter(hasEn); return en.length >= need ? en : all; };
   const sections = [];
   for (const [k, cfg] of Object.entries(MANDATORY)) {
-    const pool = BANK[k].q, used = new Set();
+    const pool = poolOf(k, cfg.n), used = new Set();
     const ctx = takeContext(pool, cfg.c, used);
     const single = takeKind(pool, 's', cfg.n - ctx.length, used);
     // В истории сначала задания с одним ответом, потом задания по источникам — как в настоящем варианте.
@@ -60,7 +64,7 @@ function build(pair, seen = new Set()) {
     sections.push({ k, items: list.map(item) });
   }
   for (const k of pair) {
-    const pool = BANK[k].q, used = new Set();
+    const pool = poolOf(k, 40), used = new Set();
     const s = takeKind(pool, 's', PROFILE.s, used);
     const c = takeContext(pool, PROFILE.c, used);
     const m = takeKind(pool, 'm', PROFILE.m, used);
@@ -119,7 +123,7 @@ function score(sections, answers = {}) {
 function view(it, withKey, answer) {
   const q = byId.get(it.id);
   if (!q) return { gone: true };
-  const reorder = arr => ({ ru: it.ord.map(i => arr.ru[i]), kk: it.ord.map(i => arr.kk[i]) });
+  const reorder = arr => Object.fromEntries(Object.entries(arr).map(([l, a]) => [l, it.ord.map(i => a[i])]));
   const v = { type: kindOf(q), t: q.t, o: reorder(q.o) };
   if (q.l) v.l = q.l;
   if (q.ctx) { v.ctx = q.ctx; v.c = q.c; }
@@ -147,4 +151,4 @@ function cleanAnswers(sections, raw) {
 }
 
 const names = k => BANK[k]?.name;
-module.exports = { build, score, view, cleanAnswers, names, DURATION_MS, GRACE_MS };
+module.exports = { hasEn, build, score, view, cleanAnswers, names, DURATION_MS, GRACE_MS };

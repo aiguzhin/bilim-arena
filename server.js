@@ -19,6 +19,8 @@ const ROUND = 10;
 
 const SUBJECTS = Object.fromEntries(Object.entries(BANK).map(([k, v]) => [k, v.name]));
 const MANDATORY = ['history', 'mathlit', 'reading'];
+const LANGS = ['kk', 'ru', 'en'];
+const hasLang = (q, lang) => lang !== 'en' || mock.hasEn(q);
 // Комбинации профильных предметов ЕНТ (все, кроме творческого экзамена).
 const COMBOS = Object.fromEntries([
   ['math', 'physics'], ['math', 'informatics'], ['math', 'geography'], ['biology', 'chemistry'], ['biology', 'geography'],
@@ -51,10 +53,10 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/settings', '/settings/:tab', '/u/:username'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username'], sendIndex);
 
 // ---------- аккаунты ----------
-app.use(express.json({ limit: '64kb' }));
+app.use(express.json({ limit: '300kb' }));
 
 const scrypt = (pw, salt) => new Promise((res, rej) => crypto.scrypt(pw, salt, 64, (e, k) => (e ? rej(e) : res(k))));
 async function hashPassword(pw) { const salt = crypto.randomBytes(16); return `${salt.toString('hex')}:${(await scrypt(pw, salt)).toString('hex')}`; }
@@ -136,7 +138,14 @@ app.patch('/api/me/extra', auth, wrap(async (req, res) => {
   res.json({ user: store.PUBLIC(await db.updateExtra(req.player.id, x)) });
 }));
 
-const SETTINGS = { theme: ['system', 'light', 'dark'], accent: ['classic', 'emerald', 'garnet', 'indigo'], fs: ['md', 'lg'], lang: ['ru', 'kk'], timer: ['show', 'hide'], confirmNext: ['on', 'off'] };
+// Фото профиля: квадратный JPEG, ужатый в браузере до 256×256.
+app.put('/api/me/photo', auth, wrap(async (req, res) => {
+  const ph = req.body?.photo;
+  if (ph !== null && !(typeof ph === 'string' && /^data:image\/(jpeg|webp|png);base64,[A-Za-z0-9+/=]+$/.test(ph) && ph.length <= 200000)) return res.status(400).json({ error: 'photo' });
+  res.json({ user: store.PUBLIC(await db.setPhoto(req.player.id, ph)) });
+}));
+
+const SETTINGS = { theme: ['system', 'light', 'dark'], accent: ['classic', 'emerald', 'garnet', 'indigo'], fs: ['md', 'lg'], lang: ['ru', 'kk'], examLang: ['kk', 'ru', 'en'], timer: ['show', 'hide'], confirmNext: ['on', 'off'] };
 app.put('/api/me/settings', auth, wrap(async (req, res) => {
   const b = req.body || {}, st = { ...(req.player.settings || {}) };
   for (const [k, vals] of Object.entries(SETTINGS)) if (vals.includes(b[k])) st[k] = b[k];
@@ -261,7 +270,7 @@ app.get('/api/site', wrap(async (req, res) => {
 const mockPublic = (t, withKey) => {
   const answers = t.answers || {};
   return {
-    id: t.id, combo: t.combo, done: !!t.finished_at, endsAt: new Date(t.ends_at).getTime(), now: Date.now(),
+    id: t.id, combo: t.combo, lang: t.lang || 'ru', done: !!t.finished_at, endsAt: new Date(t.ends_at).getTime(), now: Date.now(),
     startedAt: new Date(t.started_at).getTime(), finishedAt: t.finished_at ? new Date(t.finished_at).getTime() : null,
     answers, result: t.result || null,
     sections: t.sections.map(sec => ({ k: sec.k, name: mock.names(sec.k), items: sec.items.map((it, i) => mock.view(it, withKey, answers[`${sec.k}.${i}`])) }))
@@ -287,13 +296,14 @@ app.get('/api/ent/active', auth, wrap(async (req, res) => {
 app.get('/api/ent', auth, wrap(async (req, res) => res.json({ tests: await db.listMocks(req.player.id) })));
 app.post('/api/ent', auth, wrap(async (req, res) => {
   const combo = String(req.body?.combo || '');
+  const lang = LANGS.includes(req.body?.lang) ? req.body.lang : 'ru';
   if (!COMBOS[combo]) return res.status(400).json({ error: 'pick' });
   const active = await db.activeMock(req.player.id);
   if (active && Date.now() <= new Date(active.ends_at).getTime() + mock.GRACE_MS) {
     if (req.body?.restart !== true) return res.json({ id: active.id, resumed: true });
     await finishMock(active);
   }
-  const t = { id: crypto.randomUUID(), player_id: req.player.id, combo, sections: mock.build(COMBOS[combo], new Set(await db.seenIds(req.player.id).catch(() => []))), ends_at: new Date(Date.now() + mock.DURATION_MS).toISOString() };
+  const t = { id: crypto.randomUUID(), player_id: req.player.id, combo, lang, sections: mock.build(COMBOS[combo], new Set(await db.seenIds(req.player.id).catch(() => [])), lang), ends_at: new Date(Date.now() + mock.DURATION_MS).toISOString() };
   await db.createMock(t);
   res.json({ id: t.id });
 }));
@@ -334,25 +344,33 @@ function shuffle(a) {
 
 // В баттлах — только задания с одним ответом и без общего текста: на них хватает 20 секунд.
 const QUICK = Object.fromEntries(Object.entries(BANK).map(([k, v]) => [k, v.q.filter(q => !q.type && !q.c)]));
-function take(subject, n) {
-  return shuffle(QUICK[subject].slice()).slice(0, n).map(q => ({ ...q, k: subject, s: BANK[subject].name }));
+// Для английских баттлов, где одиночных заданий мало, берём задания к текстам (текст ставим перед вопросом).
+const withCtx = q => ({ ...q, t: Object.fromEntries(Object.entries(q.t).map(([l, v]) => [l, `${q.ctx[l] ?? q.ctx.ru}\n\n${v}`])) });
+const QUICK_EN = Object.fromEntries(Object.entries(BANK).map(([k, v]) => {
+  const single = v.q.filter(q => !q.type && !q.c && mock.hasEn(q));
+  return [k, single.length >= 10 ? single : single.concat(v.q.filter(q => !q.type && q.c && mock.hasEn(q)).map(withCtx))];
+}));
+function take(subject, n, lang) {
+  const pool = lang === 'en' ? QUICK_EN[subject] : QUICK[subject];
+  return shuffle((pool.length >= n ? pool : QUICK[subject]).slice()).slice(0, n).map(q => ({ ...q, k: subject, s: BANK[subject].name }));
 }
 
-function pickQuestions(topic) {
+function pickQuestions(topic, lang) {
   let list;
   if (topic.startsWith('combo:')) {
     const pair = COMBOS[topic.slice(6)];
-    list = COMBO_PLAN.flatMap(([sub, n]) => take(typeof sub === 'number' ? pair[sub] : sub, n));
-  } else list = take(topic, ROUND);
+    list = COMBO_PLAN.flatMap(([sub, n]) => take(typeof sub === 'number' ? pair[sub] : sub, n, lang));
+  } else list = take(topic, ROUND, lang);
   return list.map(q => {
     const order = shuffle([0, 1, 2, 3]);
-    return { k: q.k, t: q.t, s: q.s, o: { ru: order.map(i => q.o.ru[i]), kk: order.map(i => q.o.kk[i]) }, a: order.indexOf(q.a), e: q.e };
+    const o = Object.fromEntries(Object.entries(q.o).map(([l, arr]) => [l, order.map(i => arr[i])]));
+    return { k: q.k, t: q.t, s: q.s, o, a: order.indexOf(q.a), e: q.e };
   });
 }
 
-function makeRoom(mode, subject, hostSid) {
+function makeRoom(mode, subject, hostSid, lang) {
   const r = {
-    code: code(), mode, subject, hostSid, state: 'lobby', players: new Map(),
+    code: code(), mode, subject, hostSid, lang: LANGS.includes(lang) ? lang : null, state: 'lobby', players: new Map(),
     questions: [], i: -1, endsAt: 0, timer: null, touched: Date.now()
   };
   rooms.set(r.code, r);
@@ -365,7 +383,7 @@ function publicRoom(r) {
     score: p.score, connected: p.connected, answered: r.state === 'playing' && p.answers[r.i] !== undefined
   }));
   return {
-    code: r.code, mode: r.mode, subject: r.subject, subjectName: topicName(r.subject), state: r.state,
+    code: r.code, mode: r.mode, subject: r.subject, lang: r.lang, subjectName: topicName(r.subject), state: r.state,
     hostSid: r.hostSid, players, teams: teamScores(r), total: ROUND
   };
 }
@@ -384,7 +402,7 @@ const emitRoom = r => io.to(r.code).emit('room', publicRoom(r));
 function startGame(r) {
   if (r.state !== 'lobby') return;
   r.state = 'countdown';
-  r.questions = pickQuestions(r.subject);
+  r.questions = pickQuestions(r.subject, r.lang);
   for (const p of r.players.values()) { p.score = 0; p.answers = []; }
   emitRoom(r);
   io.to(r.code).emit('countdown', { seconds: COUNTDOWN_S });
@@ -501,10 +519,10 @@ io.on('connection', socket => {
     return true;
   };
 
-  socket.on('create', ({ mode, subject } = {}, ack) => {
+  socket.on('create', ({ mode, subject, lang } = {}, ack) => {
     if (!profile) return ack?.({ error: 'profile' });
     if (!['duel', 'class', 'solo'].includes(mode) || !validTopic(subject)) return ack?.({ error: 'pick' });
-    const r = makeRoom(mode, subject, socket.id);
+    const r = makeRoom(mode, subject, socket.id, lang);
     join(r);
     ack?.({ code: r.code });
     emitRoom(r);
@@ -551,17 +569,19 @@ io.on('connection', socket => {
     maybeEarlyReveal(r);
   });
 
-  socket.on('quick', ({ subject } = {}, ack) => {
+  socket.on('quick', ({ subject, lang } = {}, ack) => {
     if (!profile || !validTopic(subject)) return ack?.({ error: 'pick' });
-    const other = queue.get(subject);
+    const ql = LANGS.includes(lang) ? lang : 'ru';
+    const key = `${subject}|${ql}`;
+    const other = queue.get(key);
     if (other && other.connected && other.id !== socket.id && other.data.pid !== profile.id) {
-      queue.delete(subject);
-      const r = makeRoom('duel', subject, other.id);
+      queue.delete(key);
+      const r = makeRoom('duel', subject, other.id, ql);
       other.emit('matched', { code: r.code });
       ack?.({ code: r.code });
     } else {
       socket.data.pid = profile.id;
-      queue.set(subject, socket);
+      queue.set(key, socket);
       ack?.({ waiting: true });
     }
   });
