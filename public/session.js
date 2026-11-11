@@ -15,7 +15,7 @@ window.SES = (() => {
       s5lead: 'Проверьте запись и подтвердите правила.',
       rules: ['Тест начинается у всех одновременно. Зал ожидания открывается за 15 минут до начала.', 'Опоздавшие могут войти в течение 30 минут после начала, но закончить придётся вместе со всеми.', 'Длительность — 4 часа, 120 заданий, максимум 140 баллов.', 'Переходы на другие вкладки фиксируются; подозрительные результаты не попадают в рейтинг.'],
       agree: 'С правилами ознакомлен(а)', sumSession: 'Дата и время', sumCombo: 'Профильные предметы', sumLang: 'Язык',
-      ticket: 'Пропуск на пробный ЕНТ', ikt: 'ИКТ', iktHint: 'Индивидуальный код тестируемого', start: 'Начало', roomOpens: t => `Зал ожидания откроется в ${t}`, duration: '4 часа · 120 заданий · 140 баллов',
+      ticket: 'Пропуск на пробный ЕНТ', yourTicket: 'Ваш пропуск', statusOk: 'Вы записаны', tDate: 'Дата', tTime: 'Время', tPlace: 'Место', tRoom: 'Вход в зал ожидания', untilStart: 'До начала теста', units: ['дн', 'ч', 'мин', 'сек'], ikt: 'ИКТ', iktHint: 'Индивидуальный код тестируемого', start: 'Начало', roomOpens: t => `Зал ожидания откроется в ${t}`, duration: '4 часа · 120 заданий · 140 баллов',
       print: 'Распечатать', ics: 'В календарь', change: 'Изменить запись', cancel: 'Отменить запись', cancelAsk: 'Отменить запись на пробный ЕНТ? Пропуск станет недействительным.',
       already: 'Вы уже записаны', newReg: 'Записаться', toTicket: 'Мой пропуск', startsIn: s => `До начала: ${s}`,
       room: 'Зал ожидания', roomLead: 'Тест начнётся автоматически для всех в одно время. Не закрывайте страницу.', startNow: 'Начать тест', startSoon: 'Кнопка станет активной в момент старта',
@@ -56,7 +56,7 @@ window.SES = (() => {
       s5lead: 'Тіркелуді тексеріп, ережелерді растаңыз.',
       rules: ['Тест барлығында бір уақытта басталады. Күту залы басталуға 15 минут қалғанда ашылады.', 'Кешіккендер басталғаннан кейін 30 минут ішінде кіре алады, бірақ барлығымен бірге аяқтайды.', 'Ұзақтығы — 4 сағат, 120 тапсырма, ең көбі 140 балл.', 'Басқа беттерге өту белгіленеді; күдікті нәтижелер рейтингке кірмейді.'],
       agree: 'Ережелермен таныстым', sumSession: 'Күні мен уақыты', sumCombo: 'Бейіндік пәндер', sumLang: 'Тіл',
-      ticket: 'Сынақ ҰБТ-ға рұқсатнама', ikt: 'ТЖК', iktHint: 'Тестіленушінің жеке коды', start: 'Басталуы', roomOpens: t => `Күту залы ${t}-де ашылады`, duration: '4 сағат · 120 тапсырма · 140 балл',
+      ticket: 'Сынақ ҰБТ-ға рұқсатнама', yourTicket: 'Сіздің рұқсатнамаңыз', statusOk: 'Тіркелдіңіз', tDate: 'Күні', tTime: 'Уақыты', tPlace: 'Орны', tRoom: 'Күту залына кіру', untilStart: 'Тест басталуына', units: ['күн', 'сағ', 'мин', 'сек'], ikt: 'ТЖК', iktHint: 'Тестіленушінің жеке коды', start: 'Басталуы', roomOpens: t => `Күту залы ${t}-де ашылады`, duration: '4 сағат · 120 тапсырма · 140 балл',
       print: 'Басып шығару', ics: 'Күнтізбеге', change: 'Тіркелуді өзгерту', cancel: 'Тіркелуден бас тарту', cancelAsk: 'Сынақ ҰБТ-ға тіркелуден бас тартасыз ба? Рұқсатнама жарамсыз болады.',
       already: 'Сіз тіркелгенсіз', newReg: 'Тіркелу', toTicket: 'Рұқсатнамам', startsIn: s => `Басталуына: ${s}`,
       room: 'Күту залы', roomLead: 'Тест барлығы үшін бір уақытта өздігінен басталады. Бетті жаппаңыз.', startNow: 'Тестті бастау', startSoon: 'Батырма басталу сәтінде белсенді болады',
@@ -110,18 +110,49 @@ window.SES = (() => {
   };
 
   // ---------- пропуск ----------
+  // Декоративный штрихкод из цифр ИКТ (для вида пропуска; это не машиночитаемый код).
+  function barcode(code) {
+    let x = 0, bars = '';
+    const add = (w, on) => { if (on) bars += `<rect x="${x}" y="0" width="${w}" height="44"/>`; x += w; };
+    add(2, 1); add(1, 0); add(1, 1); add(2, 0);
+    for (const ch of String(code)) { const d = +ch; add(1 + (d % 3), 1); add(1 + ((d + 1) % 2), 0); add(1 + ((d + 2) % 3), 1); add(2, 0); }
+    add(1, 1); add(1, 0); add(2, 1);
+    return `<svg class="tk__bar" viewBox="0 0 ${x} 44" preserveAspectRatio="none" aria-hidden="true"><g fill="currentColor">${bars}</g></svg>`;
+  }
+  const ikt3 = v => String(v).replace(/(\d{3})(?=\d)/g, '$1 ');
   function ticketHtml(s, reg, prof) {
-    return `<article class="ticket" id="ticket">
-      <header class="ticket__head"><span class="ticket__logo" aria-hidden="true">A</span><div><span class="ticket__k">Bilim Arena</span><h2>${t().ticket}</h2></div></header>
-      <div class="ticket__ikt"><span>${t().ikt}</span><b class="num">${esc(reg.ikt)}</b><small>${t().iktHint}</small></div>
-      <dl class="ticket__grid">
-        <div><dt>${t().fio}</dt><dd>${esc(prof?.name || X.me().name)}</dd></div>
-        <div><dt>${t().start}</dt><dd>${day(s.startsAt)}, <b>${hm(s.startsAt)}</b></dd></div>
-        <div><dt>${t().sumCombo}</dt><dd>${esc(comboName(reg.combo))}</dd></div>
-        <div><dt>${t().sumLang}</dt><dd>${t().langs[reg.lang]}</dd></div>
-        <div class="ticket__wide"><dt>${t().online}</dt><dd>${t().roomOpens(hm(s.roomAt))} · ${t().duration}</dd></div>
-      </dl>
+    const L = t(), d = new Date(s.startsAt);
+    const dateLong = `${(DOW[X.lang()] || DOW.ru)[d.getDay()]}, ${fmtDate(d.toISOString(), X.lang(), true)}`;
+    return `<article class="tk" id="ticket">
+      <div class="tk__main">
+        <header class="tk__head">${window.LOGO_MARK ? LOGO_MARK(36) : ''}<div><span>Bilim Arena</span><b>${L.ticket}</b></div><span class="tk__ok">${L.statusOk}</span></header>
+        <div class="tk__body">
+          <span class="tk__lbl">${L.fio}</span>
+          <div class="tk__name">${esc(prof?.name || X.me().name)}</div>
+          <dl class="tk__grid">
+            <div><dt>${L.tDate}</dt><dd>${dateLong}</dd></div>
+            <div><dt>${L.tTime}</dt><dd class="num">${hm(s.startsAt)} – ${hm(s.endsAt)}</dd></div>
+            <div><dt>${L.sumCombo}</dt><dd>${esc(comboName(reg.combo))}</dd></div>
+            <div><dt>${L.sumLang}</dt><dd>${L.langs[reg.lang]}</dd></div>
+            <div><dt>${L.tPlace}</dt><dd>${s.kind === 'weekly' ? L.online : L.forSchool}</dd></div>
+            <div><dt>${L.tRoom}</dt><dd class="num">${hm(s.roomAt)}</dd></div>
+          </dl>
+        </div>
+      </div>
+      <div class="tk__stub">
+        <span class="tk__lbl">${L.ikt}</span>
+        <div class="tk__ikt num">${ikt3(reg.ikt)}</div>
+        <small>${L.iktHint}</small>
+        ${barcode(reg.ikt)}
+        <div class="tk__fmt">${L.duration}</div>
+      </div>
     </article>`;
+  }
+  // Обратный отсчёт плитками: дни / часы / минуты / секунды.
+  function countdown(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000)), dd = Math.floor(s / 86400), hh = Math.floor(s % 86400 / 3600), mm = Math.floor(s % 3600 / 60), ss = s % 60;
+    const U = t().units, cell = (v, u) => `<div><b class="num">${String(v).padStart(2, '0')}</b><span>${u}</span></div>`;
+    return (dd ? cell(dd, U[0]) : '') + cell(hh, U[1]) + cell(mm, U[2]) + (dd ? '' : cell(ss, U[3]));
   }
   function ics(s, reg) {
     const f = ms => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -245,9 +276,16 @@ window.SES = (() => {
     if (!reg && ph !== 'done') {
       main = ph === 'reg' ? `<div class="tbig"><p>${day(s.startsAt)}, <b>${hm(s.startsAt)}</b></p><a class="btn btn--lg" href="/ent/register?s=${s.id}" data-link>${t().newReg}</a></div>` : `<div class="empty">${t().notReg}</div>`;
     } else if (reg && (ph === 'reg' || ph === 'closed')) {
-      main = `${ticketHtml(s, reg)}<div class="tbig tbig--slim"><span class="muted">${t().startsIn('')}</span><div class="tbig__clock num" id="sClock">${longIn(s.startsAt - now())}</div></div>
-        <div class="ticket__actions"><button class="btn btn--ghost" id="sPrint">${t().print}</button><button class="btn btn--ghost" id="sIcs">${t().ics}</button>
-        ${ph === 'reg' ? `<a class="btn btn--ghost" href="/ent/register?edit=1" data-link>${t().change}</a>` : ''}<button class="btn btn--ghost" id="sCancel">${t().cancel}</button></div>${memo(s.kind)}`;
+      const ic = p => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+      main = `${ticketHtml(s, reg)}
+        <section class="tcount"><span class="tcount__k">${t().untilStart}</span><div class="tcount__cells" id="sClock">${countdown(s.startsAt - now())}</div>
+          <p class="tcount__note">${t().roomOpens(hm(s.roomAt))}</p></section>
+        <div class="tk__actions">
+          <button class="btn btn--ghost" id="sPrint">${ic('<path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/>')}${t().print}</button>
+          <button class="btn btn--ghost" id="sIcs">${ic('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4M12 13v4M10 15h4"/>')}${t().ics}</button>
+          ${ph === 'reg' ? `<a class="btn btn--ghost" href="/ent/register?edit=1" data-link>${ic('<path d="M4 20l4.5-1 10-10-3.5-3.5-10 10z"/>')}${t().change}</a>` : ''}
+          <button class="linkbtn tk__cancel" id="sCancel">${t().cancel}</button>
+        </div>${memo(s.kind)}`;
     } else if (reg && ph === 'room') {
       main = `<section class="sroom"><span class="live-dot"></span><h2>${t().room}</h2><p class="muted">${t().roomLead}</p>
         <div class="tbig__clock num" id="sClock">${clock(s.startsAt - now())}</div><button class="btn btn--lg" disabled>${t().startNow}</button><p class="fsmall muted">${t().startSoon}</p></section>${memo(s.kind)}${ticketHtml(s, reg)}`;
@@ -269,7 +307,7 @@ window.SES = (() => {
       </section>`;
     }
     X.app.innerHTML = page(`<p class="ps__top"><a href="/ent/register" data-link class="ps__back">← ${t().title}</a></p>
-      <h1>${s.kind === 'school' ? esc(s.title || t().forSchool) : t().banner}</h1><p class="page__lead">${day(s.startsAt)}, ${hm(s.startsAt)}–${hm(s.endsAt)} · ${t().online}</p>
+      <h1>${reg && ph !== 'done' && !d.my?.done ? t().yourTicket : s.kind === 'school' ? esc(s.title || t().forSchool) : t().banner}</h1><p class="page__lead">${day(s.startsAt)}, ${hm(s.startsAt)}–${hm(s.endsAt)} · ${s.kind === 'weekly' ? t().online : t().forSchool}</p>
       <div style="margin-top:22px">${main}</div>${res}`);
     const on = (sel, f) => { const el = $(sel); if (el) el.onclick = f; };
     on('#sPrint', () => window.print());
@@ -281,7 +319,7 @@ window.SES = (() => {
     const iv = setInterval(() => {
       if (location.pathname !== `/ent/s/${id}`) return clearInterval(iv);
       const el = $('#sClock'); const left = s.startsAt - now();
-      if (el) el.textContent = ph === 'room' ? clock(left) : longIn(left);
+      if (el) { if (ph === 'room') el.textContent = clock(left); else el.innerHTML = countdown(left); }
       if (nextAt && now() >= nextAt) { clearInterval(iv); viewSession(id); }
     }, 1000);
     X.onCleanup(() => clearInterval(iv));

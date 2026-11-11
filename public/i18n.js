@@ -450,3 +450,6 @@ Object.assign(window.I18N.kk.ent, { refs: 'Анықтамалық материа
 Object.assign(window.I18N.en.ent, { refs: 'Reference materials: periodic table and solubility table', refsShort: 'Tables', fontSize: 'Font size' });
 
 window.I18N.ru.ent.nowTitle = 'Сдать сейчас'; window.I18N.kk.ent.nowTitle = 'Қазір тапсыру'; window.I18N.en.ent.nowTitle = 'Take it now';
+
+// Знак Bilim Arena для пропуска и сертификата.
+window.LOGO_MARK = (w = 40) => `<svg viewBox="0 0 48 48" width="${w}" height="${w}" aria-hidden="true"><defs><linearGradient id="lg${Math.random().toString(36).slice(2, 7)}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B3C86"/><stop offset="1" stop-color="#0B1D45"/></linearGradient></defs><rect width="48" height="48" rx="13" fill="url(#lg${Math.random().toString(36).slice(2, 7)})"/><path d="M9.5 33.5 A14.5 5 0 0 1 38.5 33.5" fill="none" stroke="#4C7BE0" stroke-width="2.6" stroke-linecap="round"/><path d="M14.5 34 L24 11.5 L33.5 34" fill="none" stroke="#fff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.7 25.6 H29.3" stroke="#F2B600" stroke-width="4" stroke-linecap="round"/><path d="M9.5 33.5 A14.5 5 0 0 0 38.5 33.5" fill="none" stroke="#4C7BE0" stroke-width="2.6" stroke-linecap="round"/><path d="M37 7.5 l1.3 3 3 1.3 -3 1.3 -1.3 3 -1.3 -3 -3 -1.3 3 -1.3z" fill="#F2B600"/></svg>`;

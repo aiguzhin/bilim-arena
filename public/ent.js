@@ -401,7 +401,7 @@ window.ENT = (() => {
     const d = new Date(test.session.startsAt);
     const profile = test.sections.slice(3).map(sec => pk(sec.name)).join(', ');
     return `<section class="cert">
-      <header class="cert__head"><span class="cert__logo" aria-hidden="true">A</span><div><span class="cert__kicker">${c.kicker}</span><h1>${c.title}</h1></div>
+      <header class="cert__head">${window.LOGO_MARK ? LOGO_MARK(44) : ''}<div><span class="cert__kicker">${c.kicker}</span><h1>${c.title}</h1></div>
         <div class="cert__ikt"><span>${c.ikt}</span><b class="num">${X.esc(test.session.ikt || '—')}</b></div></header>
       <dl class="cert__grid">
         <div><dt>${c.fio}</dt><dd>${X.esc(w.name || '')}</dd></div>
