@@ -11,7 +11,9 @@ const PUBLIC = p => p && ({
   id: p.id, username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins,
   createdAt: p.created_at, google: !!p.google_sub, hasPassword: !!p.pass_hash,
   bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null, photo: p.photo || null, settings: p.settings || {},
-  role: p.role || 'student', classId: p.class_id || null
+  role: p.role || 'student', classId: p.class_id || null,
+  birthDate: p.birth_date ? String(p.birth_date instanceof Date ? p.birth_date.toISOString() : p.birth_date).slice(0, 10) : null, phone: p.phone || null,
+  needsProfile: !p.birth_date || !p.phone, canRename: !!p.google_sub && !p.birth_date
 });
 // То, что видят другие игроки на странице профиля.
 const OPEN = p => p && ({
@@ -87,6 +89,7 @@ function memoryStore() {
       };
     },
     async updateExtra(id, x) { Object.assign(db.players[id], x); save(); return db.players[id]; },
+    async setRequired(id, x) { const o = byUsername(x.username); if (o && o.id !== id) return null; Object.assign(db.players[id], x); save(); return db.players[id]; },
     async setPhoto(id, photo) { db.players[id].photo = photo; save(); return db.players[id]; },
     async saveSettings(id, st) { db.players[id].settings = st; save(); return db.players[id]; },
     async setPassword(id, hash) { db.players[id].pass_hash = hash; save(); },
@@ -155,6 +158,8 @@ function pgStore(url) {
       await q(`alter table players add column if not exists avatar text`);
       await q(`alter table players add column if not exists settings jsonb`);
       await q(`alter table players add column if not exists photo text`);
+      await q(`alter table players add column if not exists birth_date date`);
+      await q(`alter table players add column if not exists phone text`);
       // Записи гостей из первой версии сайта: без логина в них войти нельзя, из рейтинга убираем.
       await q(`delete from players where username is null`);
       await q(`create table if not exists sessions (
@@ -179,8 +184,8 @@ function pgStore(url) {
     },
     async createAccount(a) {
       const r = await q(
-        `insert into players (id, username, pass_hash, name, school, city, google_sub, email) values ($1,$2,$3,$4,$5,$6,$7,$8)
-         on conflict do nothing returning *`, [a.id, a.username, a.pass_hash || null, a.name, a.school, a.city, a.google_sub || null, a.email || null]);
+        `insert into players (id, username, pass_hash, name, school, city, google_sub, email, birth_date, phone) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         on conflict do nothing returning *`, [a.id, a.username, a.pass_hash || null, a.name, a.school, a.city, a.google_sub || null, a.email || null, a.birth_date || null, a.phone || null]);
       return r.rows[0] || null;
     },
     async findByUsername(u) { return (await q('select * from players where username=$1', [u])).rows[0] || null; },
@@ -233,6 +238,10 @@ function pgStore(url) {
     },
     async updateExtra(id, x) {
       return (await q('update players set bio=$2, goal=$3, goal_combo=$4, avatar=$5, updated_at=now() where id=$1 returning *', [id, x.bio, x.goal, x.goal_combo, x.avatar])).rows[0];
+    },
+    async setRequired(id, x) {
+      try { return (await q('update players set username=$2, birth_date=$3, phone=$4, updated_at=now() where id=$1 returning *', [id, x.username, x.birth_date, x.phone])).rows[0]; }
+      catch (e) { if (e.code === '23505') return null; throw e; }
     },
     async setPhoto(id, photo) { return (await q('update players set photo=$2, updated_at=now() where id=$1 returning *', [id, photo])).rows[0]; },
     async saveSettings(id, st) { return (await q('update players set settings=$2 where id=$1 returning *', [id, JSON.stringify(st)])).rows[0]; },

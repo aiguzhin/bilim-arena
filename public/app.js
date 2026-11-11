@@ -166,6 +166,7 @@
     if (path === '/privacy') return viewPrivacy();
     if (path === '/login') return viewAuth(true);
     if (!me) return viewAuth();
+    if (me.needsProfile) return viewRequired();
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
@@ -848,14 +849,17 @@
     return true;
   }
 
-  function viewGoogleProfile(pending, name) {
+  function viewGoogleProfile(pending, name, uname = '') {
     setTitle(L.gTitle);
     app.innerHTML = `
     <div class="page"><div class="wrap narrow" style="max-width:480px">
       <h1>${L.gTitle}</h1>
       <p class="page__lead">${L.gLead}</p>
       <form id="gForm" class="auth__form panel" style="margin-top:24px" novalidate>
+        <label class="field"><span>${L.fUsername}</span><input name="username" maxlength="20" autocapitalize="none" spellcheck="false" value="${esc(uname)}"><small>${L.fUsernameHint}</small></label>
         <label class="field"><span>${L.fName}</span><input name="name" maxlength="24" value="${esc(name)}" placeholder="${L.fNamePh}"></label>
+            <label class="field"><span>${L.fBirth}</span><input name="birth" type="date" min="1926-01-01" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
+            <label class="field"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"><small>${L.fPhoneHint}</small></label>
         <label class="field"><span>${L.fCity}</span><select name="city">${$('#citySelect').innerHTML}</select></label>
         <label class="field"><span>${L.fSchool}</span><input name="school" maxlength="60" placeholder="${L.fSchoolPh}"></label>
         <label class="check"><input type="checkbox" name="consent"> <span>${L.consent}</span></label>
@@ -869,14 +873,43 @@
       e.preventDefault();
       $('#gBtn').disabled = true; $('#gError').textContent = '';
       try {
-        const r = await api('/api/google/complete', { method: 'POST', body: { pending, name: f.name.value, city: f.city.value, school: f.school.value, consent: f.consent.checked } });
+        const r = await api('/api/google/complete', { method: 'POST', body: { pending, username: f.username.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked } });
         signIn(r.token, r.user); route();
       } catch (x) {
         if (x.code === 'expired') return viewAuth();
         $('#gError').textContent = L.err[x.code] || L.err.server; $('#gBtn').disabled = false;
       }
     };
-    (f.name.value ? f.city : f.name).focus();
+    (f.username.value ? f.name.value ? f.birth : f.name : f.username).focus();
+  }
+
+  // Обязательные данные профиля: если их нет (аккаунт создан раньше), без них дальше не пускаем.
+  function viewRequired() {
+    setTitle(L.reqTitle);
+    app.innerHTML = `
+    <div class="page"><div class="wrap narrow" style="max-width:480px">
+      <h1>${L.reqTitle}</h1>
+      <p class="page__lead">${L.reqLead}</p>
+      <form id="rForm" class="auth__form panel" style="margin-top:24px" novalidate>
+        ${me.canRename ? `<label class="field"><span>${L.fUsername}</span><input name="username" maxlength="20" autocapitalize="none" spellcheck="false" value="${esc(me.username)}"><small>${L.fUsernameHint}</small></label>` : ''}
+            <label class="field"><span>${L.fBirth}</span><input name="birth" type="date" min="1926-01-01" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
+            <label class="field"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"><small>${L.fPhoneHint}</small></label>
+        <p class="form-error" id="rError" role="alert"></p>
+        <button class="btn btn--block" id="rBtn">${L.save}</button>
+        <button type="button" class="linkbtn" id="rOut" style="justify-self:center">${L.logout}</button>
+      </form>
+    </div></div>`;
+    const f = $('#rForm').elements;
+    $('#rOut').onclick = async () => { try { await api('/api/logout', { method: 'POST' }); } catch {} signOut(); };
+    $('#rForm').onsubmit = async e => {
+      e.preventDefault();
+      $('#rBtn').disabled = true; $('#rError').textContent = '';
+      try {
+        const r = await api('/api/me/required', { method: 'POST', body: { username: f.username?.value, birth: f.birth.value, phone: f.phone.value } });
+        me = { ...me, ...r.user }; rememberAccount(getToken(), me); renderChip(); route();
+      } catch (x) { $('#rError').textContent = L.err[x.code] || L.err.server; $('#rBtn').disabled = false; }
+    };
+    (f.username || f.birth).focus();
   }
 
   // ---------- вход и регистрация ----------
@@ -908,6 +941,8 @@
             <label class="field"><span>${L.fUsername}</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required><small class="reg">${L.fUsernameHint}</small></label>
             <label class="field"><span>${L.fPassword}</span><input name="password" type="password" maxlength="72" required><small class="reg">${L.fPasswordHint}</small></label>
             <label class="field reg"><span>${L.fName}</span><input name="name" maxlength="24" autocomplete="nickname" placeholder="${L.fNamePh}"></label>
+            <label class="field reg"><span>${L.fBirth}</span><input name="birth" type="date" min="1926-01-01" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
+            <label class="field reg"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"><small>${L.fPhoneHint}</small></label>
             <label class="field reg"><span>${L.fCity}</span><select name="city">${$('#citySelect').innerHTML}</select></label>
             <label class="field reg"><span>${L.fSchool}</span><input name="school" maxlength="60" placeholder="${L.fSchoolPh}"></label>
             <label class="check reg"><input type="checkbox" name="consent"> <span>${L.consent}</span></label>
@@ -935,7 +970,7 @@
       const btn = $('#authBtn'); btn.disabled = true; $('#authError').textContent = '';
       try {
         const body = tab === 'register'
-          ? { username: f.username.value, password: f.password.value, name: f.name.value, city: f.city.value, school: f.school.value, consent: f.consent.checked }
+          ? { username: f.username.value, password: f.password.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked }
           : { username: f.username.value, password: f.password.value };
         const r = await api(tab === 'register' ? '/api/register' : '/api/login', { method: 'POST', body });
         leaveRoom(); socket.disconnect();
@@ -949,7 +984,7 @@
       $('#gAuthError').textContent = '';
       try {
         const r = await api('/api/google', { method: 'POST', body: { credential } });
-        if (r.needProfile) return viewGoogleProfile(r.pending, r.name);
+        if (r.needProfile) return viewGoogleProfile(r.pending, r.name, r.username);
         socket.disconnect(); signIn(r.token, r.user);
         if (adding) history.replaceState({}, '', '/me');
         route();

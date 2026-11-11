@@ -258,6 +258,10 @@ window.ACC = (() => {
         <label class="field"><span>${A().fCity}</span><select name="city" required>${[...CITIES.map(([ru, kk]) => `<option value="${ru}">${X.lang() === 'kk' ? kk : ru}</option>`), `<option value="Другой город">${L.otherCity}</option>`].join('')}</select></label>
         <label class="field"><span>${A().fSchool}</span><input name="school" maxlength="60" required value="${X.esc(u.school)}"></label>
       </div>
+      <div class="pe__row">
+        <label class="field"><span>${X.L().fBirth}</span><input name="birth" type="date" required value="${u.birthDate || ''}" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
+        <label class="field"><span>${X.L().fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="+7 7__ ___ __ __" value="${X.esc(u.phone || '')}"></label>
+      </div>
       <label class="field"><span>${A().fBio}</span><textarea name="bio" maxlength="160" rows="2" placeholder="${A().fBioPh}">${X.esc(u.bio)}</textarea></label>
       <div class="pe__row">
         <label class="field"><span>${A().fGoal}</span><input name="goal" type="number" min="50" max="140" inputmode="numeric" placeholder="${A().fGoalPh}" value="${u.goal ?? ''}"></label>
@@ -286,6 +290,7 @@ window.ACC = (() => {
       const err = dlg.querySelector('#peErr'); err.textContent = '';
       try {
         await X.api('/api/me', { method: 'PATCH', body: { name: f.name.value, school: f.school.value, city: f.city.value } });
+        await X.api('/api/me/required', { method: 'POST', body: { birth: f.birth.value, phone: f.phone.value } });
         let r = await X.api('/api/me/extra', { method: 'PATCH', body: { bio: f.bio.value, goal: f.goal.value, goalCombo: f.goalCombo.value, avatar: f.avatar.value } });
         if (photoChanged) r = await X.api('/api/me/photo', { method: 'PUT', body: { photo } });
         X.setMe(r.user); X.profileUpdated();

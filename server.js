@@ -106,6 +106,21 @@ function readProfile(b) {
   return { name, school, city };
 }
 
+// Дата рождения (возраст 10–100 лет) и телефон в международном формате; казахстанское «8…» превращаем в «+7…».
+function readRequired(b) {
+  const birth = String(b.birth || '').trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birth);
+  const d = m && new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  const age = d && (Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000);
+  if (!d || d.getUTCDate() !== +m[3] || !(age >= 10 && age <= 100)) return { error: 'birth' };
+  let digits = String(b.phone || '').replace(/\D/g, '');
+  if (digits.length === 11 && digits[0] === '8') digits = '7' + digits.slice(1);
+  if (digits.length === 10 && digits[0] === '7') digits = '7' + digits;
+  if (!(digits.length >= 10 && digits.length <= 15)) return { error: 'phone' };
+  return { birth_date: birth, phone: '+' + digits };
+}
+const validUsername = u => /^[a-z0-9_.]{3,20}$/.test(u);
+
 app.post('/api/register', wrap(async (req, res) => {
   if (limited(req)) return res.status(429).json({ error: 'limit' });
   const b = req.body || {};
@@ -116,7 +131,9 @@ app.post('/api/register', wrap(async (req, res) => {
   if (b.consent !== true) return res.status(400).json({ error: 'consent' });
   const prof = readProfile(b);
   if (prof.error) return res.status(400).json(prof);
-  const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: await hashPassword(password), ...prof });
+  const reqd = readRequired(b);
+  if (reqd.error) return res.status(400).json(reqd);
+  const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: await hashPassword(password), ...prof, ...reqd });
   if (!row) return res.status(409).json({ error: 'taken' });
   await newSession(row, res);
 }));
@@ -256,7 +273,8 @@ app.post('/api/google', wrap(async (req, res) => {
   if (row) return newSession(row, res);
   const pending = crypto.randomBytes(24).toString('hex');
   pendingGoogle.set(pending, { ...g, at: Date.now() });
-  res.json({ needProfile: true, pending, name: store.clean(g.name, 24) });
+  const base = (g.email.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 16);
+  res.json({ needProfile: true, pending, name: store.clean(g.name, 24), username: base.length >= 3 && !(await db.findByUsername(base)) ? base : '' });
 }));
 
 app.post('/api/google/complete', wrap(async (req, res) => {
@@ -268,15 +286,33 @@ app.post('/api/google/complete', wrap(async (req, res) => {
   if (prof.error) return res.status(400).json(prof);
   const existing = await db.findByGoogle(g.sub);
   if (existing) { pendingGoogle.delete(b.pending); return newSession(existing, res); }
-  const base = (g.email.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_.]/g, '').slice(0, 14).padEnd(3, '0');
-  let row = null;
-  for (let i = 0; i < 6 && !row; i++) {
-    const username = i === 0 ? base : `${base}${crypto.randomInt(10, 9999)}`;
-    row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: null, google_sub: g.sub, email: g.email, ...prof });
-  }
-  if (!row) return res.status(409).json({ error: 'server' });
+  const username = String(b.username || '').trim().toLowerCase();
+  if (!validUsername(username)) return res.status(400).json({ error: 'username' });
+  const reqd = readRequired(b);
+  if (reqd.error) return res.status(400).json(reqd);
+  const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: null, google_sub: g.sub, email: g.email, ...prof, ...reqd });
+  if (!row) return res.status(409).json({ error: 'taken' });
   pendingGoogle.delete(b.pending);
   newSession(row, res);
+}));
+
+// Аккаунты, созданные до появления обязательных полей: дописать дату рождения и телефон.
+// Тем, кто вошёл через Google и ещё не выбирал ник, можно один раз сменить логин.
+app.post('/api/me/required', auth, wrap(async (req, res) => {
+  const b = req.body || {}, p = req.player;
+  const reqd = readRequired(b);
+  if (reqd.error) return res.status(400).json(reqd);
+  let username = p.username;
+  if (b.username != null && String(b.username).trim().toLowerCase() !== p.username) {
+    if (!(p.google_sub && !p.birth_date)) return res.status(400).json({ error: 'username' });
+    username = String(b.username).trim().toLowerCase();
+    if (!validUsername(username)) return res.status(400).json({ error: 'username' });
+    const other = await db.findByUsername(username);
+    if (other && other.id !== p.id) return res.status(409).json({ error: 'taken' });
+  }
+  const row = await db.setRequired(p.id, { username, ...reqd });
+  if (!row) return res.status(409).json({ error: 'taken' });
+  res.json({ user: store.PUBLIC(row) });
 }));
 
 app.post('/api/google/link', auth, wrap(async (req, res) => {
