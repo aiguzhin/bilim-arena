@@ -26,6 +26,22 @@ window.SES = (() => {
       my: 'Мои записи', past: 'Прошедшие', scoreOf: s => `${s} из 140`, inProgress: 'идёт', missed: 'не сдавал(а)',
       teacher: 'Назначить пробный ЕНТ для школы', teacherLead: 'Ученики вашей школы увидят эту дату при записи. Тест длится 4 часа, начало — в выбранное время.', tStart: 'Начало', tTitle: 'Название (необязательно)', tCreate: 'Назначить', tMine: 'Назначено вами', tDel: 'Удалить',
       banner: 'Пробный ЕНТ в одно время для всех', chooseReg: 'Записаться на пробный ЕНТ', chooseRegText: 'Как на настоящем ЕНТ: выберите день и время, сдавайте вместе со всеми и получите сертификат с ИКТ.', chooseNow: 'Сдать пробный ЕНТ сейчас', chooseNowText: 'Тренировочный вариант в любое время: 120 заданий, 4 часа, разбор ошибок сразу после теста.', chooseNowBtn: 'Выбрать предметы', bannerNext: (d, t) => `Ближайшая дата: ${d}, ${t}`, bannerMine: (d, t) => `Вы записаны: ${d}, ${t}`,
+      memoTitle: 'Памятка участника',
+      memoOnline: [
+        ['clock', 'Приходите заранее', 'Откройте сайт и войдите в зал ожидания за 15 минут до начала. Опоздание больше чем на 30 минут — вход закрыт.'],
+        ['id', 'Держите под рукой пропуск', 'Запомните или запишите свой ИКТ — он указан в пропуске и в сертификате.'],
+        ['wifi', 'Проверьте связь и зарядку', 'Нужен стабильный интернет и заряженное устройство (лучше — компьютер или ноутбук) на все 4 часа.'],
+        ['pen', 'Подготовьте черновик', 'Возьмите чистые листы и ручку для расчётов. Калькулятор на ЕНТ не разрешён.'],
+        ['ban', 'Не переключайтесь на другие вкладки', 'Уходы со страницы фиксируются; такой результат не попадёт в рейтинг, пока его не проверит учитель.'],
+        ['water', 'Позаботьтесь о себе', 'Выспитесь, поешьте заранее, поставьте рядом воду. Время идёт, даже если вы отошли.']
+      ],
+      memoSchool: [
+        ['clock', 'Приходите заранее', 'Будьте в школе за 30 минут до начала: проверка, рассадка и вход в систему занимают время.'],
+        ['id', 'Возьмите документы', 'Удостоверение личности (или свидетельство о рождении) и пропуск с ИКТ — распечатанный или на телефоне.'],
+        ['pen', 'Только разрешённые вещи', 'Ручка и черновик выдаются на месте. Телефоны, шпаргалки, калькуляторы и смарт-часы сдайте до начала.'],
+        ['ban', 'Не переключайтесь на другие вкладки', 'Уходы со страницы фиксируются, учитель видит их в отчёте.'],
+        ['water', 'Позаботьтесь о себе', 'Выспитесь, поешьте заранее, возьмите воду в прозрачной бутылке.']
+      ],
       err: { regClosed: 'Запись на эту дату уже закрыта', regExists: 'У вас уже есть запись. Отмените её, чтобы выбрать другую дату', profileNeeded: 'Заполните дату рождения и телефон в профиле', notRegistered: 'Вы не записаны на эту дату', sessSoon: 'Тест ещё не начался', sessLate: 'Вход уже закрыт', regStarted: 'Тест уже начат — запись нельзя отменить', sessStart: 'Начало — не раньше чем через 15 минут' }
     },
     kk: {
@@ -51,6 +67,22 @@ window.SES = (() => {
       my: 'Менің тіркелулерім', past: 'Өткендер', scoreOf: s => `140-тан ${s}`, inProgress: 'жүріп жатыр', missed: 'тапсырмады',
       teacher: 'Мектепке сынақ ҰБТ тағайындау', teacherLead: 'Мектебіңіздің оқушылары бұл күнді тіркелу кезінде көреді. Тест 4 сағат, басталуы — таңдалған уақытта.', tStart: 'Басталуы', tTitle: 'Атауы (міндетті емес)', tCreate: 'Тағайындау', tMine: 'Сіз тағайындаған', tDel: 'Жою',
       banner: 'Барлығына бір уақытта сынақ ҰБТ', chooseReg: 'Сынақ ҰБТ-ға тіркелу', chooseRegText: 'Нағыз ҰБТ сияқты: күн мен уақытты таңдап, барлығымен бірге тапсырыңыз және ТЖК бар сертификат алыңыз.', chooseNow: 'Сынақ ҰБТ-ны қазір тапсыру', chooseNowText: 'Кез келген уақытта жаттығу нұсқасы: 120 тапсырма, 4 сағат, тесттен кейін бірден қателерді талдау.', chooseNowBtn: 'Пәндерді таңдау', bannerNext: (d, t) => `Жақын күн: ${d}, ${t}`, bannerMine: (d, t) => `Сіз тіркелдіңіз: ${d}, ${t}`,
+      memoTitle: 'Қатысушы жадынамасы',
+      memoOnline: [
+        ['clock', 'Ертерек келіңіз', 'Басталуға 15 минут қалғанда сайтты ашып, күту залына кіріңіз. 30 минуттан артық кешіксеңіз — кіру жабылады.'],
+        ['id', 'Рұқсатнаманы жаныңызда ұстаңыз', 'ТЖК-ны есте сақтаңыз немесе жазып алыңыз — ол рұқсатнамада және сертификатта көрсетілген.'],
+        ['wifi', 'Интернет пен зарядты тексеріңіз', 'Барлық 4 сағатқа тұрақты интернет пен зарядталған құрылғы (жақсысы — компьютер немесе ноутбук) керек.'],
+        ['pen', 'Жоба қағазын дайындаңыз', 'Есептеулерге таза парақ пен қалам алыңыз. ҰБТ-да калькуляторға рұқсат жоқ.'],
+        ['ban', 'Басқа беттерге ауыспаңыз', 'Беттен кету белгіленеді; мұндай нәтиже мұғалім тексермейінше рейтингке кірмейді.'],
+        ['water', 'Өзіңізді күтіңіз', 'Жақсылап ұйықтаңыз, алдын ала тамақтаныңыз, жаныңызға су қойыңыз. Сіз тұрып кетсеңіз де уақыт жүреді.']
+      ],
+      memoSchool: [
+        ['clock', 'Ертерек келіңіз', 'Басталуға 30 минут қалғанда мектепте болыңыз: тексеру, отырғызу және жүйеге кіру уақыт алады.'],
+        ['id', 'Құжаттарды алыңыз', 'Жеке куәлік (немесе туу туралы куәлік) және ТЖК бар рұқсатнама — басып шығарылған немесе телефонда.'],
+        ['pen', 'Тек рұқсат етілген заттар', 'Қалам мен жоба қағазы орнында беріледі. Телефон, шпаргалка, калькулятор мен смарт-сағатты басталғанға дейін тапсырыңыз.'],
+        ['ban', 'Басқа беттерге ауыспаңыз', 'Беттен кету белгіленеді, мұғалім оны есептен көреді.'],
+        ['water', 'Өзіңізді күтіңіз', 'Жақсылап ұйықтаңыз, алдын ала тамақтаныңыз, мөлдір бөтелкеде су алыңыз.']
+      ],
       err: { regClosed: 'Бұл күнге тіркелу жабылды', regExists: 'Сізде тіркелу бар. Басқа күнді таңдау үшін оны болдырмаңыз', profileNeeded: 'Профильде туған күн мен телефонды толтырыңыз', notRegistered: 'Сіз бұл күнге тіркелмегенсіз', sessSoon: 'Тест әлі басталған жоқ', sessLate: 'Кіру жабылды', regStarted: 'Тест басталды — тіркелуді болдырмау мүмкін емес', sessStart: 'Басталуы — кемінде 15 минуттан кейін' }
     }
   };
@@ -65,6 +97,17 @@ window.SES = (() => {
   const clock = ms => { const s = Math.max(0, Math.floor(ms / 1000)); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), ss = s % 60; return `${h ? h + ':' : ''}${String(m).padStart(h ? 2 : 1, '0')}:${String(ss).padStart(2, '0')}`; };
   const longIn = ms => { const m = Math.max(1, Math.ceil(ms / 60000)); const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60); return X.lang() === 'kk' ? `${d ? d + ' күн ' : ''}${d || h ? h + ' сағ ' : ''}${m % 60} мин` : `${d ? d + ' д ' : ''}${d || h ? h + ' ч ' : ''}${m % 60} мин`; };
   const page = body => `<div class="page"><div class="wrap narrow">${body}</div></div>${X.footer()}`;
+
+  // ---------- памятка участника ----------
+  const MI = {
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>', id: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16c.6-1.6 1.8-2.4 3.2-2.4s2.6.8 3.2 2.4M14.5 10h4M14.5 13h3"/>',
+    wifi: '<path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.3a9.5 9.5 0 0 1 13 0M8.6 15.6a5 5 0 0 1 6.8 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/>', pen: '<path d="M4 20l4.5-1 10-10-3.5-3.5-10 10z"/><path d="M13.5 6.5l3.5 3.5"/>',
+    ban: '<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', water: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>'
+  };
+  const memo = (kind, open = true) => {
+    const list = kind === 'school' ? t().memoSchool : t().memoOnline;
+    return `<details class="memo" ${open ? 'open' : ''}><summary><span class="memo__badge" aria-hidden="true">!</span>${t().memoTitle}</summary><ul>${list.map(([ic, h, tx]) => `<li><span class="memo__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MI[ic]}</svg></span><div><b>${h}</b><p>${tx}</p></div></li>`).join('')}</ul></details>`;
+  };
 
   // ---------- пропуск ----------
   function ticketHtml(s, reg, prof) {
@@ -97,7 +140,7 @@ window.SES = (() => {
     const editing = params.get('edit') === '1' && active ? active : null;
     if (active && !editing) {
       X.app.innerHTML = page(`<h1>${t().already}</h1><p class="page__lead">${t().lead}</p><div style="margin-top:24px">${ticketHtml(active.session, active, d.profile)}</div>
-        <div class="ticket__actions"><a class="btn" href="/ent/s/${active.session.id}" data-link>${t().toTicket}</a></div>${myList(d)}${teacherBox(d)}`);
+        <div class="ticket__actions"><a class="btn" href="/ent/s/${active.session.id}" data-link>${t().toTicket}</a></div>${memo(active.session.kind, false)}${myList(d)}${teacherBox(d)}`);
       bindTeacher();
       return;
     }
@@ -136,6 +179,7 @@ window.SES = (() => {
         body = `<p class="muted">${t().s5lead}</p><dl class="rdata">
           <div><dt>${t().fio}</dt><dd>${esc(p.name)}</dd></div><div><dt>${t().sumSession}</dt><dd>${s ? `${day(s.startsAt)}, <b>${hm(s.startsAt)}</b>` : '—'}</dd></div>
           <div><dt>${t().sumCombo}</dt><dd>${esc(comboName(st.combo))}</dd></div><div><dt>${t().sumLang}</dt><dd>${t().langs[st.lang]}</dd></div></dl>
+          ${memo(s?.kind === 'school' ? 'school' : 'online')}
           <ul class="rrules">${t().rules.map(r => `<li>${r}</li>`).join('')}</ul>
           <label class="check"><input type="checkbox" id="rAgree" ${st.agree ? 'checked' : ''}> <span>${t().agree}</span></label>`;
       }
@@ -203,10 +247,10 @@ window.SES = (() => {
     } else if (reg && (ph === 'reg' || ph === 'closed')) {
       main = `${ticketHtml(s, reg)}<div class="tbig tbig--slim"><span class="muted">${t().startsIn('')}</span><div class="tbig__clock num" id="sClock">${longIn(s.startsAt - now())}</div></div>
         <div class="ticket__actions"><button class="btn btn--ghost" id="sPrint">${t().print}</button><button class="btn btn--ghost" id="sIcs">${t().ics}</button>
-        ${ph === 'reg' ? `<a class="btn btn--ghost" href="/ent/register?edit=1" data-link>${t().change}</a>` : ''}<button class="btn btn--ghost" id="sCancel">${t().cancel}</button></div>`;
+        ${ph === 'reg' ? `<a class="btn btn--ghost" href="/ent/register?edit=1" data-link>${t().change}</a>` : ''}<button class="btn btn--ghost" id="sCancel">${t().cancel}</button></div>${memo(s.kind)}`;
     } else if (reg && ph === 'room') {
       main = `<section class="sroom"><span class="live-dot"></span><h2>${t().room}</h2><p class="muted">${t().roomLead}</p>
-        <div class="tbig__clock num" id="sClock">${clock(s.startsAt - now())}</div><button class="btn btn--lg" disabled>${t().startNow}</button><p class="fsmall muted">${t().startSoon}</p></section>${ticketHtml(s, reg)}`;
+        <div class="tbig__clock num" id="sClock">${clock(s.startsAt - now())}</div><button class="btn btn--lg" disabled>${t().startNow}</button><p class="fsmall muted">${t().startSoon}</p></section>${memo(s.kind)}${ticketHtml(s, reg)}`;
     } else if (reg && !d.my?.done && (ph === 'live' || (ph === 'running' && reg.mockId))) {
       main = `<section class="sroom"><span class="live-dot"></span><h2>${t().live}</h2>${!reg.mockId ? `<p class="muted">${t().lateLeft(hm(s.lateUntil))}</p>` : ''}
         <button class="btn btn--lg" id="sStart">${reg.mockId ? t().resume : t().startNow}</button><p class="form-error" id="sErr"></p></section>`;
