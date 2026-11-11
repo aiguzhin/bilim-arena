@@ -44,16 +44,25 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
+// Фото профиля отдельным файлом: в списках и рейтингах передаём только ссылку.
+app.get('/p/:username', async (req, res) => {
+  try {
+    const p = await db.byUsernamePublic(String(req.params.username || '').toLowerCase());
+    const m = p?.photo && /^data:(image\/(?:jpeg|webp|png));base64,(.+)$/.exec(p.photo);
+    if (!m) return res.status(404).end();
+    res.set('Cache-Control', 'public, max-age=86400').type(m[1]).send(Buffer.from(m[2], 'base64'));
+  } catch { res.status(404).end(); }
+});
 app.get('/api/subjects', (req, res) => res.json({ subjects: SUBJECTS, mandatory: MANDATORY, combos: COMBOS, count: Object.values(BANK).reduce((n, v) => n + v.q.length, 0) }));
 app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -266,20 +275,26 @@ app.get('/api/site', wrap(async (req, res) => {
   res.json({ ...(await db.siteStats()), questions: Object.values(BANK).reduce((n, v) => n + v.q.length, 0), combos: Object.keys(COMBOS).length });
 }));
 
+// ---------- школы, турниры, рейтинги, достижения, работа над ошибками ----------
+const edu = require('./edu')(app, { db, auth, wrap, store, COMBOS, SUBJECTS, LANGS });
+
 // ---------- пробный ЕНТ ----------
 const mockPublic = (t, withKey) => {
   const answers = t.answers || {};
   return {
     id: t.id, combo: t.combo, lang: t.lang || 'ru', done: !!t.finished_at, endsAt: new Date(t.ends_at).getTime(), now: Date.now(),
     startedAt: new Date(t.started_at).getTime(), finishedAt: t.finished_at ? new Date(t.finished_at).getTime() : null,
-    answers, result: t.result || null,
+    answers, result: t.result || null, flag: t.flag && !t.cleared ? t.flag : null,
     sections: t.sections.map(sec => ({ k: sec.k, name: mock.names(sec.k), items: sec.items.map((it, i) => mock.view(it, withKey, answers[`${sec.k}.${i}`])) }))
   };
 };
-async function finishMock(t, raw) {
+async function finishMock(t, raw, rawMeta) {
   const answers = mock.cleanAnswers(t.sections, raw ?? t.answers);
   const result = mock.score(t.sections, answers);
-  return (await db.finishMock(t.id, answers, result)) || (await db.getMock(t.id, t.player_id));
+  const meta = mock.cleanMeta(rawMeta, t.meta || {});
+  const out = (await db.finishMock(t.id, answers, result, { meta, flag: mock.flagOf(t, result, meta) })) || (await db.getMock(t.id, t.player_id));
+  edu.ratingCache.clear();
+  return out;
 }
 // Просроченный тест завершается сам — с теми ответами, что успели сохраниться.
 async function loadMock(id, pid) {
@@ -316,13 +331,13 @@ app.put('/api/ent/:id', auth, wrap(async (req, res) => {
   const t = await loadMock(String(req.params.id), req.player.id);
   if (!t) return res.status(404).json({ error: 'notfound' });
   if (t.finished_at) return res.status(409).json({ error: 'finished' });
-  await db.saveMock(t.id, mock.cleanAnswers(t.sections, req.body?.answers));
+  await db.saveMock(t.id, mock.cleanAnswers(t.sections, req.body?.answers), mock.cleanMeta(req.body?.meta, t.meta || {}));
   res.json({ ok: true, now: Date.now() });
 }));
 app.post('/api/ent/:id/finish', auth, wrap(async (req, res) => {
   let t = await loadMock(String(req.params.id), req.player.id);
   if (!t) return res.status(404).json({ error: 'notfound' });
-  if (!t.finished_at) t = await finishMock(t, req.body?.answers);
+  if (!t.finished_at) t = await finishMock(t, req.body?.answers, req.body?.meta);
   res.json(mockPublic(t, true));
 }));
 
@@ -619,5 +634,5 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
-db.init().then(() => server.listen(PORT, () => console.log(`Bilim Arena: http://localhost:${PORT}`)))
+db.init().then(() => edu.ensureWeekly()).then(() => server.listen(PORT, () => console.log(`Bilim Arena: http://localhost:${PORT}`)))
   .catch(e => { console.error('DB init failed', e); process.exit(1); });

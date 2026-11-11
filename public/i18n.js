@@ -381,3 +381,18 @@ Object.assign(window.I18N.kk.acc, { switchAcc: 'Аккаунтты ауысты�
   photoHint: 'Суреттің ортасынан шаршы, 256×256-ға дейін.', photoBad: 'Бұл суретті ашу мүмкін болмады.' });
 Object.assign(window.I18N.ru.err, { photo: 'Фото не подошло. Попробуйте другое изображение.' });
 Object.assign(window.I18N.kk.err, { photo: 'Сурет жарамады. Басқа суретті көріңіз.' });
+
+// Проверка честности результата.
+(() => {
+  const why = { ru: { fast: 'тест решён слишком быстро для такого балла', tabs: 'много переходов на другие вкладки' }, kk: { fast: 'тест мұндай балл үшін тым тез шешілді', tabs: 'басқа беттерге жиі өтулер' }, en: { fast: 'finished too quickly for this score', tabs: 'frequent switching to other tabs' } };
+  const list = (l, f) => String(f).split(',').map(k => why[l][k] || k).join('; ');
+  window.I18N.ru.ent.flagged = f => `Результат отправлен на проверку: ${list('ru', f)}. Пока учитель его не подтвердит, он не учитывается в рейтинге.`;
+  window.I18N.kk.ent.flagged = f => `Нәтиже тексеруге жіберілді: ${list('kk', f)}. Мұғалім растағанша ол рейтингке есептелмейді.`;
+  window.I18N.en.ent.flagged = f => `This result is under review: ${list('en', f)}. It won't count in the ratings until a teacher confirms it.`;
+  window.FLAG_WHY = (l, f) => list(l in why ? l : 'ru', f);
+})();
+
+Object.assign(window.I18N.ru, { navTours: 'Турниры' });
+Object.assign(window.I18N.kk, { navTours: 'Турнирлер' });
+Object.assign(window.I18N.ru.acc, { tabAch: 'Достижения', tabClass: 'Класс', menuTeacher: 'Кабинет учителя', menuPractice: 'Работа над ошибками' });
+Object.assign(window.I18N.kk.acc, { tabAch: 'Жетістіктер', tabClass: 'Сынып', menuTeacher: 'Мұғалім кабинеті', menuPractice: 'Қатемен жұмыс' });

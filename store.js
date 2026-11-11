@@ -10,12 +10,14 @@ function clean(s, max = 40) {
 const PUBLIC = p => p && ({
   id: p.id, username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins,
   createdAt: p.created_at, google: !!p.google_sub, hasPassword: !!p.pass_hash,
-  bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null, photo: p.photo || null, settings: p.settings || {}
+  bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null, photo: p.photo || null, settings: p.settings || {},
+  role: p.role || 'student', classId: p.class_id || null
 });
 // То, что видят другие игроки на странице профиля.
 const OPEN = p => p && ({
   username: p.username, name: p.name, school: p.school, city: p.city, rating: p.rating, games: p.games, wins: p.wins,
-  createdAt: p.created_at, bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null, photo: p.photo || null
+  createdAt: p.created_at, bio: p.bio || '', goal: p.goal || null, goalCombo: p.goal_combo || null, avatar: p.avatar || null, photo: p.photo || null,
+  role: p.role || 'student'
 });
 
 // ---------- память ----------
@@ -29,7 +31,9 @@ function memoryStore() {
     timer = setTimeout(() => { try { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(db)); } catch {} }, 300);
   };
   const byUsername = u => Object.values(db.players).find(p => p.username === u) || null;
+  const edu = require('./edustore').memory(db, save);
   return {
+    ...edu,
     async init() {},
     async createAccount(a) {
       if (byUsername(a.username)) return null;
@@ -70,7 +74,7 @@ function memoryStore() {
       return { subjects, recent };
     },
     async leaders() {
-      const list = Object.values(db.players).filter(p => p.games > 0);
+      const list = Object.values(db.players).filter(p => p.games > 0 && p.role !== 'teacher');
       const group = key => {
         const m = {};
         for (const p of list) { const k = key(p); if (!k) continue; (m[k] ||= { name: k, city: p.city, sum: 0, n: 0 }); m[k].sum += p.rating; m[k].n += 1; }
@@ -92,6 +96,7 @@ function memoryStore() {
       for (const [k, v] of Object.entries(db.sessions)) if (v.playerId === id) delete db.sessions[k];
       for (const [k, v] of Object.entries(db.subj)) if (k.startsWith(id + '|')) delete db.subj[k];
       for (const [k, t] of Object.entries(db.mocks || {})) if (t.player_id === id) delete db.mocks[k];
+      edu.dropPlayerEdu(id);
       save();
     },
     async byUsernamePublic(u) { return byUsername(u); },
@@ -100,12 +105,12 @@ function memoryStore() {
       return { count: l.length, best: l.length ? Math.max(...l.map(t => t.score)) : null };
     },
     async seenIds(pid) { return Object.values(db.mocks || {}).filter(t => t.player_id === pid).sort((a, b) => String(b.ends_at).localeCompare(String(a.ends_at))).slice(0, 6).flatMap(t => t.sections.flatMap(s => s.items.map(i => i.id))); },
-    async createMock(t) { (db.mocks ||= {})[t.id] = { ...t, answers: {}, finished_at: null, score: null, result: null }; save(); },
+    async createMock(t) { (db.mocks ||= {})[t.id] = { ...t, started_at: new Date().toISOString(), answers: {}, finished_at: null, score: null, result: null }; save(); },
     async getMock(id, pid) { const t = db.mocks?.[id]; return t && t.player_id === pid ? t : null; },
     async activeMock(pid) { return Object.values(db.mocks || {}).find(t => t.player_id === pid && !t.finished_at) || null; },
-    async saveMock(id, answers) { const t = db.mocks?.[id]; if (t && !t.finished_at) { t.answers = answers; save(); } },
-    async finishMock(id, answers, result) { const t = db.mocks?.[id]; if (t && !t.finished_at) { Object.assign(t, { answers, result, score: result.total, finished_at: new Date().toISOString() }); save(); } return t; },
-    async listMocks(pid) { return Object.values(db.mocks || {}).filter(t => t.player_id === pid && t.finished_at).sort((a, b) => b.finished_at.localeCompare(a.finished_at)).slice(0, 30).map(t => ({ id: t.id, combo: t.combo, lang: t.lang, score: t.score, result: t.result, finished_at: t.finished_at })); },
+    async saveMock(id, answers, meta) { const t = db.mocks?.[id]; if (t && !t.finished_at) { t.answers = answers; if (meta) t.meta = meta; save(); } },
+    async finishMock(id, answers, result, x = {}) { const t = db.mocks?.[id]; if (t && !t.finished_at) { Object.assign(t, { answers, result, score: result.total, finished_at: new Date().toISOString(), meta: x.meta || t.meta || null, flag: x.flag || null }); save(); return t; } return null; },
+    async listMocks(pid) { return Object.values(db.mocks || {}).filter(t => t.player_id === pid && t.finished_at).sort((a, b) => b.finished_at.localeCompare(a.finished_at)).slice(0, 30).map(t => ({ id: t.id, combo: t.combo, lang: t.lang, score: t.score, result: t.result, finished_at: t.finished_at, flag: t.flag || null, cleared: !!t.cleared })); },
     async schoolsOf(city) {
       const m = {};
       for (const p of Object.values(db.players)) if (p.city === city && p.school) m[p.school] = (m[p.school] || 0) + 1;
@@ -129,7 +134,9 @@ function pgStore(url) {
   const { Pool } = require('pg');
   const pool = new Pool({ connectionString: url, ssl: /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false } });
   const q = (sql, args) => pool.query(sql, args);
+  const edu = require('./edustore').pg(q);
   return {
+    ...edu,
     async init() {
       await q(`create table if not exists players (
         id text primary key, name text not null, school text, city text,
@@ -168,6 +175,7 @@ function pgStore(url) {
       await q(`create table if not exists subject_stats (
         player_id text not null references players(id) on delete cascade, subject text not null,
         answered int not null default 0, correct int not null default 0, primary key (player_id, subject))`);
+      await edu.init();
     },
     async createAccount(a) {
       const r = await q(
@@ -216,11 +224,11 @@ function pgStore(url) {
       return { subjects, recent };
     },
     async leaders() {
-      const players = (await q('select username, name, school, city, rating, games, wins from players where games>0 order by rating desc limit 50')).rows;
+      const players = (await q('select username, name, school, city, rating, games, wins from players where games>0 and role is distinct from $$teacher$$ order by rating desc limit 50')).rows;
       const schools = (await q(`select school as name, city, round(avg(rating))::int as rating, count(*)::int as players
-        from players where games>0 and school<>'' group by school, city order by rating desc limit 50`)).rows;
+        from players where games>0 and role is distinct from $$teacher$$ and school<>'' group by school, city order by rating desc limit 50`)).rows;
       const cities = (await q(`select city as name, round(avg(rating))::int as rating, count(*)::int as players
-        from players where games>0 and city<>'' group by city order by rating desc limit 50`)).rows;
+        from players where games>0 and role is distinct from $$teacher$$ and city<>'' group by city order by rating desc limit 50`)).rows;
       return { players, schools, cities };
     },
     async updateExtra(id, x) {
@@ -245,13 +253,13 @@ function pgStore(url) {
     },
     async getMock(id, pid) { return (await q('select * from mock_tests where id=$1 and player_id=$2', [id, pid])).rows[0] || null; },
     async activeMock(pid) { return (await q('select * from mock_tests where player_id=$1 and finished_at is null order by started_at desc limit 1', [pid])).rows[0] || null; },
-    async saveMock(id, answers) { await q('update mock_tests set answers=$2 where id=$1 and finished_at is null', [id, JSON.stringify(answers)]); },
-    async finishMock(id, answers, result) {
-      return (await q('update mock_tests set answers=$2, result=$3, score=$4, finished_at=now() where id=$1 and finished_at is null returning *',
-        [id, JSON.stringify(answers), JSON.stringify(result), result.total])).rows[0] || null;
+    async saveMock(id, answers, meta) { await q('update mock_tests set answers=$2, meta=coalesce($3, meta) where id=$1 and finished_at is null', [id, JSON.stringify(answers), meta ? JSON.stringify(meta) : null]); },
+    async finishMock(id, answers, result, x = {}) {
+      return (await q('update mock_tests set answers=$2, result=$3, score=$4, finished_at=now(), meta=coalesce($5, meta), flag=$6 where id=$1 and finished_at is null returning *',
+        [id, JSON.stringify(answers), JSON.stringify(result), result.total, x.meta ? JSON.stringify(x.meta) : null, x.flag || null])).rows[0] || null;
     },
     async listMocks(pid) {
-      return (await q('select id, combo, lang, score, result, finished_at from mock_tests where player_id=$1 and finished_at is not null order by finished_at desc limit 30', [pid])).rows;
+      return (await q('select id, combo, lang, score, result, finished_at, flag, cleared from mock_tests where player_id=$1 and finished_at is not null order by finished_at desc limit 30', [pid])).rows;
     },
     async schoolsOf(city) {
       return (await q(`select school from players where city=$1 and school<>'' group by school

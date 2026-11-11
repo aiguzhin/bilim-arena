@@ -59,9 +59,9 @@ window.ACC = (() => {
     $('#menuUser').innerHTML = `<a href="/me" data-link class="menu__me">${avatar(me, 'md')}<span><b>${X.esc(me.name)}</b><small>@${X.esc(me.username)} · ${me.rating}</small></span></a>`;
     const item = (href, label) => `<a href="${href}" data-link class="${path === href ? 'is-cur' : ''}">${label}</a>`;
     $('#menuList').innerHTML = `
-      ${item('/me', A().tabProfile)}${item('/me/results', A().tabResults)}${item('/me/games', A().tabGames)}${item('/settings', A().tabSettings)}
+      ${item('/me', A().tabProfile)}${item('/me/achievements', A().tabAch)}${item('/me/results', A().tabResults)}${me.role === 'teacher' ? item('/teacher', A().menuTeacher) : item('/me/class', A().tabClass)}${item('/settings', A().tabSettings)}
       <hr>
-      ${item('/ent', L.navEnt)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
+      ${item('/ent', L.navEnt)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
       <hr>
       <button type="button" id="menuSwitch">${A().switchAcc}</button>
       <button type="button" id="menuLogout">${A().logout}</button>`;
@@ -72,7 +72,8 @@ window.ACC = (() => {
 
   // ---------- общая шапка аккаунта ----------
   function shell(u, tab, body) {
-    const tabs = [['/me', 'profile', A().tabProfile], ['/me/results', 'results', A().tabResults], ['/me/games', 'games', A().tabGames], ['/settings', 'settings', A().tabSettings]];
+    const tabs = [['/me', 'profile', A().tabProfile], ['/me/achievements', 'achievements', A().tabAch], ['/me/results', 'results', A().tabResults], ['/me/games', 'games', A().tabGames],
+      u.role === 'teacher' ? ['/teacher', 'teacher', A().menuTeacher] : ['/me/class', 'class', A().tabClass], ['/settings', 'settings', A().tabSettings]];
     const since = u.createdAt ? fmtDate(u.createdAt, X.lang(), true) : '';
     return `
     <div class="page page--acc"><div class="wrap narrow">
@@ -426,6 +427,12 @@ window.ACC = (() => {
       X = ctx;
       const u = path.match(/^\/u\/([a-z0-9_.]{3,20})$/i);
       if (u) return viewUser(u[1].toLowerCase());
+      if (path === '/me/class' || path === '/me/achievements') {
+        const which = path === '/me/class' ? 'class' : 'achievements';
+        X.setTitle(which === 'class' ? A().tabClass : A().tabAch);
+        X.app.innerHTML = `<div class="page"><div class="wrap narrow"><p class="muted">${X.L().loading}</p></div></div>`;
+        return EDU.tab(X.edu, which, body => shell(X.me(), which, body)).then(bindShell);
+      }
       if (path === '/me/results') return viewResults();
       if (path === '/me/games') return viewGames();
       if (path.startsWith('/settings')) return viewSettings(path.split('/')[2]);

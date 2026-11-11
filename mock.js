@@ -151,4 +151,32 @@ function cleanAnswers(sections, raw) {
 }
 
 const names = k => BANK[k]?.name;
-module.exports = { hasEn, build, score, view, cleanAnswers, names, DURATION_MS, GRACE_MS };
+
+// Ошибки варианта: задания, на которые ученик ответил, но получил меньше максимума.
+function mistakes(sections, answers = {}) {
+  const out = [];
+  for (const sec of sections) sec.items.forEach((it, i) => {
+    const q = byId.get(it.id), a = answers[`${sec.k}.${i}`];
+    if (!q || a == null || (Array.isArray(a) && !a.some(x => x != null))) return;
+    if (scoreOne(q, it, a) < maxOf(q)) out.push({ id: it.id, k: sec.k });
+  });
+  return out;
+}
+
+// Проверка подозрительного результата пробного ЕНТ: слишком быстро для такого балла или частые уходы со страницы.
+function flagOf(t, result, meta = {}) {
+  const start = t.started_at ? new Date(t.started_at).getTime() : new Date(t.ends_at).getTime() - DURATION_MS;
+  const dur = Date.now() - start;
+  const reasons = [];
+  if ((result.total >= 60 && dur < 30 * 60 * 1000) || (result.total >= 100 && dur < 60 * 60 * 1000)) reasons.push('fast');
+  if ((meta.hidden || 0) >= 8 || (meta.hiddenMs || 0) >= 10 * 60 * 1000) reasons.push('tabs');
+  return reasons.length ? reasons.join(',') : null;
+}
+
+function cleanMeta(m, prev = {}) {
+  const n = (v, max) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+  if (!m || typeof m !== 'object') return prev || {};
+  return { hidden: Math.max(prev?.hidden || 0, n(m.hidden, 10000)), hiddenMs: Math.max(prev?.hiddenMs || 0, n(m.hiddenMs, 24 * 3600 * 1000)) };
+}
+
+module.exports = { hasEn, build, score, view, cleanAnswers, names, mistakes, flagOf, cleanMeta, scoreOne, maxOf, kindOf, byId, DURATION_MS, GRACE_MS };

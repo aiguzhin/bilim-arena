@@ -167,7 +167,7 @@
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
-    if (path === '/rating') return viewRating();
+    if (path === '/rating' || path === '/tournaments' || path.startsWith('/t/') || path === '/practice' || path === '/teacher' || path.startsWith('/teacher/') || path.startsWith('/join/')) return EDU.view(eduCtx, path);
     if (path === '/me' || path.startsWith('/me/') || path === '/settings' || path.startsWith('/settings/') || path.startsWith('/u/')) return ACC.view(accCtx, path);
     if (path === '/about') return viewAbout();
     if (path === '/ent' || path.startsWith('/ent/')) return ENT.view(entCtx, path);
@@ -196,6 +196,11 @@
     app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, meta: () => meta, go, setTitle, toast, footer,
     onCleanup: f => cleanup.push(f)
   };
+  const eduCtx = {
+    ...entCtx, token: () => getToken(), cityName: c => cityName(c), topicName: t => topicName(t),
+    me: () => me, setMe: u => { me = { ...me, ...u }; renderChip(); }
+  };
+  accCtx.edu = eduCtx;
 
   // ---------- главная ----------
   function viewHome() {
@@ -232,6 +237,8 @@
         </div>
       </div>
     </section>
+
+    <section class="block block--tour" id="homeTour" hidden></section>
 
     <section class="block block--field">
       <div class="wrap">
@@ -282,6 +289,7 @@
     ${footer()}`;
 
     loadTop();
+    EDU.homeBlock(eduCtx, $('#homeTour'));
     fetch('/api/stats').then(r => r.json()).then(s => { const el = $('#onlineNow'); if (el) el.textContent = Math.max(1, s.online); }).catch(() => {});
     demo();
   }

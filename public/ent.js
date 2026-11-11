@@ -7,6 +7,8 @@ window.ENT = (() => {
   let marks = new Set();
   let dirty = false, saveT = null, offset = 0, tickT = null, warned5 = false;
   let reviewSec = 0;
+  // Уходы со страницы во время теста: число и общее время. Учитель видит это при проверке результата.
+  let meta = { hidden: 0, hiddenMs: 0 }, hidAt = 0;
 
   const $ = (s, el = document) => el.querySelector(s);
   // Экран теста — на языке сдачи (test.lang), страница выбора — на языке сайта.
@@ -118,12 +120,13 @@ window.ENT = (() => {
       try { test = await X.api(`/api/ent/${id}`); }
       catch (x) { X.app.innerHTML = `<div class="page"><div class="wrap"><h1>${E().notFound}</h1><p style="margin-top:20px"><a class="btn" href="/ent" data-link>${E().title}</a></p></div></div>`; return; }
       offset = test.now - Date.now();
-      pos = { s: 0, i: 0 }; marks = new Set(); reviewSec = 0; warned5 = false;
+      pos = { s: 0, i: 0 }; marks = new Set(); reviewSec = 0; warned5 = false; meta = { hidden: 0, hiddenMs: 0 }; hidAt = 0;
       if (!test.done) {
         const local = lsGet(id);
         if (local) {
           test.answers = { ...test.answers, ...(local.answers || {}) };
           marks = new Set(local.marks || []);
+          if (local.meta) meta = { hidden: +local.meta.hidden || 0, hiddenMs: +local.meta.hiddenMs || 0 };
           if (local.pos && test.sections[local.pos.s]?.items[local.pos.i]) pos = local.pos;
           dirty = true;
         }
@@ -173,7 +176,11 @@ window.ENT = (() => {
       if (e.key === 'ArrowRight') step(1); else if (e.key === 'ArrowLeft') step(-1);
     };
     document.addEventListener('keydown', onKey);
-    const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+    const onHide = () => {
+      if (!test || test.done) return;
+      if (document.visibilityState === 'hidden') { hidAt = Date.now(); meta.hidden += 1; persistLocal(); dirty = true; flush(); }
+      else if (hidAt) { meta.hiddenMs += Date.now() - hidAt; hidAt = 0; persistLocal(); queueSave(); }
+    };
     document.addEventListener('visibilitychange', onHide);
     X.onCleanup(() => { document.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onHide); });
 
@@ -301,14 +308,14 @@ window.ENT = (() => {
   }
 
   function changed() { persistLocal(); renderTabs(); renderGrid(); renderQuestion(); queueSave(); }
-  function persistLocal() { if (test && !test.done) lsSet(test.id, { answers: test.answers, marks: [...marks], pos }); }
+  function persistLocal() { if (test && !test.done) lsSet(test.id, { answers: test.answers, marks: [...marks], pos, meta }); }
   function setSave(t) { const el = $('#exSave'); if (el) el.textContent = t; }
   function queueSave() { dirty = true; setSave(E().saving); clearTimeout(saveT); saveT = setTimeout(flush, 1200); }
   async function flush() {
     clearTimeout(saveT);
     if (!dirty || !test || test.done) return;
     dirty = false;
-    try { await X.api(`/api/ent/${test.id}`, { method: 'PUT', body: { answers: test.answers } }); setSave(E().saved); }
+    try { await X.api(`/api/ent/${test.id}`, { method: 'PUT', body: { answers: test.answers, meta } }); setSave(E().saved); }
     catch (x) { if (x.code === 'finished') { test = null; return; } dirty = true; setSave(E().offline); clearTimeout(saveT); saveT = setTimeout(flush, 10000); }
   }
 
@@ -317,7 +324,7 @@ window.ENT = (() => {
     clearTimeout(saveT); clearInterval(tickT);
     const id = test.id;
     try {
-      test = await X.api(`/api/ent/${id}/finish`, { method: 'POST', body: { answers: test.answers } });
+      test = await X.api(`/api/ent/${id}/finish`, { method: 'POST', body: { answers: test.answers, meta } });
       lsDel(id); reviewSec = 0;
       document.body.classList.remove('in-exam');
       window.scrollTo(0, 0);
@@ -340,6 +347,7 @@ window.ENT = (() => {
           <div class="eres__score"><b class="num">${r.total}</b><span>${E().of} ${r.max}</span></div>
           <p class="eres__verdict ${r.pass ? 'is-ok' : 'is-bad'}">${r.pass ? E().passAll : E().failAll}</p>
           <p class="hint">${E().passNote}</p>
+          ${test.flag ? `<p class="eres__flag">${E().flagged(test.flag)}</p>` : ''}
         </div>
         <table class="table eres__table">
           <thead><tr><th>${E().colSubject}</th><th>${E().colScore}</th><th>${E().colRight}</th><th>${E().colMin}</th></tr></thead>
