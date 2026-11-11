@@ -9,7 +9,8 @@ const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= [];
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= [];
+  const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
   const entryPlayer = e => { const p = db.players[e.player_id] || {}; return { ...e, username: p.username, name: p.name, school: p.school, city: p.city, photo_v: pv(p.photo), avatar: p.avatar || null, role: p.role || null }; };
@@ -70,7 +71,23 @@ function memory(db, save) {
       const entries = Object.values(db.entries).filter(e => e.player_id === pid && e.finished_at).map(e => ({ items: e.items || [], answers: e.answers || [], at: e.finished_at }));
       return { mocks, entries };
     },
+    // друзья: одна запись на пару (a < b), статус pending или accepted
+    async friendRow(x, y) { const [a, b] = pair(x, y); return db.friends.find(f => f.a === a && f.b === b) || null; },
+    async friendRows(pid) { return db.friends.filter(f => f.a === pid || f.b === pid); },
+    async setFriend(x, y, status, requester) {
+      const [a, b] = pair(x, y); let f = db.friends.find(r => r.a === a && r.b === b);
+      if (!f) { f = { a, b, created_at: new Date().toISOString() }; db.friends.push(f); }
+      Object.assign(f, { status, requester }); save(); return f;
+    },
+    async deleteFriend(x, y) { const [a, b] = pair(x, y); db.friends = db.friends.filter(f => !(f.a === a && f.b === b)); save(); },
+    async playersByIds(ids) { return ids.map(id => db.players[id]).filter(Boolean).map(p => ({ ...p, photo: undefined, photo_v: pv(p.photo) })); },
+    async searchPlayers(qs, limit = 12) {
+      const t = qs.toLowerCase();
+      return Object.values(db.players).filter(p => p.username && (p.username.startsWith(t) || String(p.name).toLowerCase().includes(t))).slice(0, limit).map(p => ({ ...p, photo: undefined, photo_v: pv(p.photo) }));
+    },
+    async setUsername(id, username) { if (Object.values(db.players).some(p => p.username === username && p.id !== id)) return null; db.players[id].username = username; save(); return db.players[id]; },
     async dropPlayerEdu(id) {
+      db.friends = db.friends.filter(f => f.a !== id && f.b !== id);
       for (const k of Object.keys(db.entries)) if (k.endsWith('|' + id)) delete db.entries[k];
       delete db.fixed[id]; db.practice = db.practice.filter(x => x.player_id !== id);
       for (const c of Object.values(db.classes)) if (c.teacher_id === id) { for (const p of members(c.id)) p.class_id = null; delete db.classes[c.id]; }
@@ -107,6 +124,10 @@ function pg(q) {
       await q(`create table if not exists practice_fixed (player_id text not null references players(id) on delete cascade, qid text not null, primary key (player_id, qid))`);
       await q(`create table if not exists practice_log (id bigserial primary key, player_id text not null references players(id) on delete cascade, n int not null, correct int not null, created_at timestamptz not null default now())`);
       await q(`create index if not exists practice_log_player on practice_log (player_id)`);
+      await q(`create table if not exists friends (
+        a text not null references players(id) on delete cascade, b text not null references players(id) on delete cascade,
+        requester text not null, status text not null, created_at timestamptz not null default now(), primary key (a, b))`);
+      await q(`create index if not exists friends_b on friends (b)`);
     },
     async setRole(id, role) { return (await q('update players set role=$2, updated_at=now() where id=$1 returning *', [id, role])).rows[0]; },
     async setClass(id, cid) { return (await q('update players set class_id=$2, updated_at=now() where id=$1 returning *', [id, cid])).rows[0]; },
@@ -186,6 +207,27 @@ function pg(q) {
         q('select items, answers, finished_at from tour_entries where player_id=$1 and finished_at is not null order by finished_at desc limit 30', [pid])
       ]);
       return { mocks: m.rows.map(r => ({ sections: r.sections, answers: r.answers || {}, at: iso(r.finished_at) })), entries: e.rows.map(r => ({ items: r.items || [], answers: r.answers || [], at: iso(r.finished_at) })) };
+    },
+    async friendRow(x, y) { const [a, b] = x < y ? [x, y] : [y, x]; return (await q('select * from friends where a=$1 and b=$2', [a, b])).rows[0] || null; },
+    async friendRows(pid) { return (await q('select * from friends where a=$1 or b=$1', [pid])).rows; },
+    async setFriend(x, y, status, requester) {
+      const [a, b] = x < y ? [x, y] : [y, x];
+      return (await q(`insert into friends (a, b, requester, status) values ($1,$2,$3,$4)
+        on conflict (a, b) do update set status=$4, requester=$3 returning *`, [a, b, requester, status])).rows[0];
+    },
+    async deleteFriend(x, y) { const [a, b] = x < y ? [x, y] : [y, x]; await q('delete from friends where a=$1 and b=$2', [a, b]); },
+    async playersByIds(ids) {
+      if (!ids.length) return [];
+      return (await q('select id, username, name, school, city, rating, games, wins, avatar, role, md5(photo) as photo_v from players where id = any($1)', [ids])).rows;
+    },
+    async searchPlayers(qs, limit = 12) {
+      return (await q(`select id, username, name, school, city, rating, games, wins, avatar, role, md5(photo) as photo_v from players
+        where username is not null and (username like $1 || '%' or lower(name) like '%' || $1 || '%') order by (username like $1 || '%') desc, rating desc limit $2`,
+      [qs.toLowerCase().replace(/[%_\\]/g, ''), limit])).rows;
+    },
+    async setUsername(id, username) {
+      try { return (await q('update players set username=$2, updated_at=now() where id=$1 returning *', [id, username])).rows[0]; }
+      catch (e) { if (e.code === '23505') return null; throw e; }
     },
     async dropPlayerEdu() {}
   };

@@ -161,12 +161,13 @@
     window.scrollTo(0, 0);
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
     if (!me && getToken()) {
-      try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); } catch {}
+      try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); SOC.refreshBadge(); } catch {}
     }
     if (path === '/privacy') return viewPrivacy();
     if (path === '/login') return viewAuth(true);
     if (!me) return viewAuth();
     if (me.needsProfile) return viewRequired();
+    if (path === '/friends') return SOC.view();
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
@@ -204,6 +205,8 @@
     me: () => me, setMe: u => { me = { ...me, ...u }; renderChip(); }
   };
   accCtx.edu = eduCtx;
+  const socCtx = { ...eduCtx, socket, joinRoom: code => { if (room) leaveRoom(); reset(); joinFlow(code, true); } };
+  SOC.init(socCtx);
 
   // ---------- главная ----------
   function viewHome() {
@@ -570,10 +573,12 @@
           `}
         </div>
       </div>
+      ${(room.mode === 'class' || (room.mode === 'duel' && players.length < 2)) ? '<div id="lobbyInvite" class="lobby__invite"></div>' : ''}
       <div class="lobby__leave"><button class="btn btn--ghost" id="leaveBtn">${L.leaveLobby}</button></div>
     </div></div>`;
 
     $('#leaveBtn').onclick = () => { leaveRoom(); go('/play'); };
+    if ($('#lobbyInvite')) SOC.lobbyBox($('#lobbyInvite'), room);
     $('#copyBtn').onclick = async () => {
       try { await navigator.clipboard.writeText(link); } catch { $('#linkInput').select(); document.execCommand('copy'); }
       toast(L.copied);

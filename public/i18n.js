@@ -437,3 +437,8 @@ Object.assign(window.I18N.kk.err, { birth: 'Нақты туған күніңіз
   const ps = window.I18N.kk.privSections; ps[0][1] = ps[0][1].replace('аты немесе лақап аты, қала және мектеп.', 'аты немесе лақап аты, туған күні, телефон нөмірі, қала және мектеп.');
   ps[2][1] = ps[2][1].replace('Пошта, құпиясөз', 'Пошта, телефон, туған күн, құпиясөз');
 })();
+
+Object.assign(window.I18N.ru.acc, { menuFriends: 'Друзья', usernameHint: 'Ник для входа и ссылки на профиль. Менять можно раз в сутки.' });
+Object.assign(window.I18N.kk.acc, { menuFriends: 'Достар', usernameHint: 'Кіруге және профиль сілтемесіне арналған ник. Тәулігіне бір рет өзгертуге болады.' });
+Object.assign(window.I18N.ru.err, { usernameSoon: 'Ник можно менять раз в сутки', friendsLimit: 'Слишком много друзей и заявок' });
+Object.assign(window.I18N.kk.err, { usernameSoon: 'Никті тәулігіне бір рет өзгертуге болады', friendsLimit: 'Достар мен өтінімдер тым көп' });

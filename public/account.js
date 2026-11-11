@@ -61,7 +61,7 @@ window.ACC = (() => {
     $('#menuList').innerHTML = `
       ${item('/me', A().tabProfile)}${item('/me/achievements', A().tabAch)}${item('/me/results', A().tabResults)}${me.role === 'teacher' ? item('/teacher', A().menuTeacher) : item('/me/class', A().tabClass)}${item('/settings', A().tabSettings)}
       <hr>
-      ${item('/ent', L.navEnt)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
+      ${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
       <hr>
       <button type="button" id="menuSwitch">${A().switchAcc}</button>
       <button type="button" id="menuLogout">${A().logout}</button>`;
@@ -97,6 +97,7 @@ window.ACC = (() => {
   }
   function bindShell() {
     const b = $('#pEdit'); if (b) b.onclick = () => editProfile();
+    const pa = $('.phead > .ava'); if (pa && b) { pa.classList.add('ava--edit'); pa.title = A().edit; pa.onclick = () => editProfile(); }
     const sw = $('#pSwitch'); if (sw) sw.onclick = () => switchAccount();
     const out = $('#pOut'); if (out) out.onclick = () => X.logout();
     $('.ptabs [aria-selected="true"]')?.scrollIntoView({ block: 'nearest', inline: 'center' });
@@ -253,6 +254,7 @@ window.ACC = (() => {
       </div>
       <div class="pe__ava"><span class="field__l">${A().fAvatar}</span><div class="swatches">${Object.entries(COLORS).map(([k, c]) =>
         `<label><input type="radio" name="avatar" value="${k}" ${(u.avatar || hashColor(u.username)) === k ? 'checked' : ''}><span style="background:${c}"></span></label>`).join('')}</div></div>
+      <label class="field"><span>${X.L().fUsername}</span><input name="username" maxlength="20" autocapitalize="none" spellcheck="false" value="${X.esc(u.username)}"><small>${A().usernameHint}</small></label>
       <label class="field"><span>${A().fName}</span><input name="name" maxlength="24" required minlength="2" value="${X.esc(u.name)}"></label>
       <div class="pe__row">
         <label class="field"><span>${A().fCity}</span><select name="city" required>${[...CITIES.map(([ru, kk]) => `<option value="${ru}">${X.lang() === 'kk' ? kk : ru}</option>`), `<option value="Другой город">${L.otherCity}</option>`].join('')}</select></label>
@@ -290,6 +292,7 @@ window.ACC = (() => {
       const err = dlg.querySelector('#peErr'); err.textContent = '';
       try {
         await X.api('/api/me', { method: 'PATCH', body: { name: f.name.value, school: f.school.value, city: f.city.value } });
+        if (f.username.value.trim().toLowerCase() !== u.username) await X.api('/api/me/username', { method: 'POST', body: { username: f.username.value } });
         await X.api('/api/me/required', { method: 'POST', body: { birth: f.birth.value, phone: f.phone.value } });
         let r = await X.api('/api/me/extra', { method: 'PATCH', body: { bio: f.bio.value, goal: f.goal.value, goalCombo: f.goalCombo.value, avatar: f.avatar.value } });
         if (photoChanged) r = await X.api('/api/me/photo', { method: 'PUT', body: { photo } });
@@ -413,7 +416,7 @@ window.ACC = (() => {
           ${since ? `<p class="phead__since">${L.memberSince(since)}</p>` : ''}
         </div>
       </header>
-      <div class="uactions"><a class="btn" href="/play?mode=duel" data-link>${A().duel}</a><button class="btn btn--ghost" id="uShare">${A().share}</button></div>
+      <div class="uactions"><span id="uFriend"></span><a class="btn" href="/play?mode=duel" data-link id="uDuel">${A().duel}</a><button class="btn btn--ghost" id="uShare">${A().share}</button></div>
       ${u.goal ? `<p class="ugoal">${A().goalTitle}: <b>${u.goal}</b>${u.goalCombo ? ` · ${X.esc(X.topicName('combo:' + u.goalCombo))}` : ''}</p>` : ''}
       <h2 class="me__h2">${A().compareTitle}</h2>
       <table class="table cmp"><thead><tr><th></th><th class="num">${X.esc(u.name)}</th><th class="num">${A().you}</th></tr></thead>
@@ -422,6 +425,8 @@ window.ACC = (() => {
         <li><div class="acc__top"><span>${X.esc(X.pick(X.meta().subjects[x.subject]) || x.subject)}</span><span class="num"><b>${x.pct}%</b></span></div>
         <div class="acc__bar"><i style="width:${x.pct}%" class="${x.pct < 50 ? 'low' : x.pct < 75 ? 'mid' : ''}"></i></div></li>`).join('')}</ul>` : ''}
     </div></div>${X.footer()}`;
+    SOC.userButton($('#uFriend'), u.username);
+    $('#uDuel').onclick = () => { try { sessionStorage.setItem('ba_invite', u.username); } catch {} };
     $('#uShare').onclick = async () => { try { await navigator.clipboard.writeText(location.href); X.toast(A().copied); } catch { X.toast(location.href); } };
   }
 

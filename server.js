@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
@@ -65,7 +65,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -587,6 +587,11 @@ async function finish(r) {
 const card = p => ({ id: p.id, name: p.name, school: p.school, city: p.city, username: p.username, avatar: p.avatar || null,
   photo: p.photo ? `/p/${p.username}?v=${crypto.createHash('md5').update(p.photo).digest('hex').slice(0, 8)}` : null });
 
+// Кто сейчас на сайте: игрок -> его открытые вкладки (сокеты).
+const online = new Map();
+const emitTo = (pid, ev, data) => { for (const sid of online.get(pid) || []) io.to(sid).emit(ev, data); };
+const social = require('./social')(app, { db, auth, wrap, store, online, emitTo, cardOf: p => { const c = card(p); delete c.id; return c; } });
+
 // ---------- сокеты ----------
 io.use(async (socket, next) => {
   const t = String(socket.handshake.auth?.token || '');
@@ -598,6 +603,8 @@ io.use(async (socket, next) => {
 io.on('connection', socket => {
   const pl = socket.data.player;
   let profile = card(pl);
+  if (!online.has(pl.id)) online.set(pl.id, new Set());
+  online.get(pl.id).add(socket.id);
   socket.on('profile_updated', async () => {
     const p = await db.get(profile.id).catch(() => null);
     if (p) profile = card(p);
@@ -710,7 +717,24 @@ io.on('connection', socket => {
     if (r.state === 'playing') maybeEarlyReveal(r);
   }
 
+  // Приглашение друга в свою комнату (дуэль или класс) прямо на сайте.
+  socket.on('invite_friend', async ({ code, username } = {}, ack) => {
+    const r = rooms.get(code);
+    if (!r || !r.players.has(socket.id) || r.state !== 'lobby') return ack?.({ error: 'notfound' });
+    const f = await db.findByUsername(String(username || '').toLowerCase()).catch(() => null);
+    if (!f || !(await social.isFriend(profile.id, f.id).catch(() => false))) return ack?.({ error: 'notFriend' });
+    if (!online.has(f.id)) return ack?.({ error: 'offline' });
+    const from = card(await db.get(profile.id).catch(() => null) || profile); delete from.id;
+    emitTo(f.id, 'battle_invite', { code: r.code, mode: r.mode, topic: topicName(r.subject), lang: r.lang, from });
+    ack?.({ ok: true });
+  });
+  socket.on('invite_decline', ({ code } = {}) => {
+    const r = rooms.get(code);
+    if (r) for (const p of r.players.values()) if (p.sid === r.hostSid) io.to(p.sid).emit('invite_declined', { name: profile.name });
+  });
+
   socket.on('disconnect', () => {
+    const set = online.get(profile.id); if (set) { set.delete(socket.id); if (!set.size) online.delete(profile.id); }
     leaveQueues(socket);
     for (const r of rooms.values()) if (r.players.has(socket.id)) leaveRoom(r.code);
   });
