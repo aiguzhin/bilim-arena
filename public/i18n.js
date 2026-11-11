@@ -442,3 +442,5 @@ Object.assign(window.I18N.ru.acc, { menuFriends: 'Друзья', usernameHint: '
 Object.assign(window.I18N.kk.acc, { menuFriends: 'Достар', usernameHint: 'Кіруге және профиль сілтемесіне арналған ник. Тәулігіне бір рет өзгертуге болады.' });
 Object.assign(window.I18N.ru.err, { usernameSoon: 'Ник можно менять раз в сутки', friendsLimit: 'Слишком много друзей и заявок' });
 Object.assign(window.I18N.kk.err, { usernameSoon: 'Никті тәулігіне бір рет өзгертуге болады', friendsLimit: 'Достар мен өтінімдер тым көп' });
+
+window.I18N.ru.acc.menuEntReg = 'Запись на пробный ЕНТ'; window.I18N.kk.acc.menuEntReg = 'Сынақ ҰБТ-ға тіркелу';

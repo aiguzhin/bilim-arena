@@ -5,11 +5,12 @@ const ENTRY_KEYS = ['registered_at', 'started_at', 'finished_at', 'items', 'answ
 const ENTRY_JSON = new Set(['items', 'answers', 'times', 'meta']);
 const crypto = require('crypto');
 const pv = ph => (ph ? crypto.createHash('md5').update(ph).digest('hex') : null);
+const sess = r => r && ({ ...r, starts_at: iso(r.starts_at), ends_at: iso(r.ends_at), reg_until: iso(r.reg_until), created_at: iso(r.created_at) });
 const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= [];
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {};
   const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
@@ -86,7 +87,29 @@ function memory(db, save) {
       return Object.values(db.players).filter(p => p.username && (p.username.startsWith(t) || String(p.name).toLowerCase().includes(t))).slice(0, limit).map(p => ({ ...p, photo: undefined, photo_v: pv(p.photo) }));
     },
     async setUsername(id, username) { if (Object.values(db.players).some(p => p.username === username && p.id !== id)) return null; db.players[id].username = username; save(); return db.players[id]; },
+    // сессии пробного ЕНТ и записи на них
+    async createEntSession(x) { if (!db.sessions[x.id]) { db.sessions[x.id] = { ...x, created_at: new Date().toISOString() }; save(); } return db.sessions[x.id]; },
+    async getEntSession(id) { return db.sessions[id] || null; },
+    async deleteEntSession(id) { delete db.sessions[id]; for (const k of Object.keys(db.regs)) if (k.startsWith(id + '|')) delete db.regs[k]; save(); },
+    async listEntSessions({ since, school = null, city = null }) {
+      return Object.values(db.sessions).filter(x => new Date(x.ends_at) > new Date(since) && (x.kind === 'weekly' || (x.school === school && x.city === city)))
+        .map(x => ({ ...x, count: Object.values(db.regs).filter(r => r.session_id === x.id).length })).sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    },
+    async getReg(sid, pid) { return db.regs[`${sid}|${pid}`] || null; },
+    async regsOf(pid) { return Object.values(db.regs).filter(r => r.player_id === pid).map(r => ({ ...r, session: db.sessions[r.session_id] })).filter(r => r.session); },
+    async regByIkt(ikt) { return Object.values(db.regs).find(r => r.ikt === ikt) || null; },
+    async addReg(r) { db.regs[`${r.session_id}|${r.player_id}`] = { ...r, created_at: new Date().toISOString(), mock_id: null }; save(); return db.regs[`${r.session_id}|${r.player_id}`]; },
+    async dropReg(sid, pid) { delete db.regs[`${sid}|${pid}`]; save(); },
+    async setRegMock(sid, pid, mid) { const r = db.regs[`${sid}|${pid}`]; if (r) { r.mock_id = mid; save(); } },
+    async sessionResults(sid) {
+      return Object.values(db.regs).filter(r => r.session_id === sid).map(r => {
+        const p = db.players[r.player_id] || {}, t = r.mock_id && db.mocks?.[r.mock_id];
+        return { player_id: r.player_id, username: p.username, name: p.name, school: p.school, city: p.city, avatar: p.avatar || null, photo_v: pv(p.photo), combo: r.combo, ikt: r.ikt,
+          score: t?.finished_at ? t.score : null, pass: t?.result?.pass ?? null, flag: t?.flag && !t?.cleared ? t.flag : null, started: !!t };
+      });
+    },
     async dropPlayerEdu(id) {
+      for (const k of Object.keys(db.regs)) if (k.endsWith('|' + id)) delete db.regs[k];
       db.friends = db.friends.filter(f => f.a !== id && f.b !== id);
       for (const k of Object.keys(db.entries)) if (k.endsWith('|' + id)) delete db.entries[k];
       delete db.fixed[id]; db.practice = db.practice.filter(x => x.player_id !== id);
@@ -128,6 +151,14 @@ function pg(q) {
         a text not null references players(id) on delete cascade, b text not null references players(id) on delete cascade,
         requester text not null, status text not null, created_at timestamptz not null default now(), primary key (a, b))`);
       await q(`create index if not exists friends_b on friends (b)`);
+      await q(`alter table mock_tests add column if not exists session_id text`);
+      await q(`create table if not exists ent_sessions (
+        id text primary key, kind text not null, title text not null default '', school text, city text, created_by text,
+        starts_at timestamptz not null, ends_at timestamptz not null, reg_until timestamptz not null, created_at timestamptz not null default now())`);
+      await q(`create table if not exists ent_regs (
+        session_id text not null references ent_sessions(id) on delete cascade, player_id text not null references players(id) on delete cascade,
+        ikt text not null unique, combo text not null, lang text not null, mock_id text, created_at timestamptz not null default now(), primary key (session_id, player_id))`);
+      await q(`create index if not exists ent_regs_player on ent_regs (player_id)`);
     },
     async setRole(id, role) { return (await q('update players set role=$2, updated_at=now() where id=$1 returning *', [id, role])).rows[0]; },
     async setClass(id, cid) { return (await q('update players set class_id=$2, updated_at=now() where id=$1 returning *', [id, cid])).rows[0]; },
@@ -228,6 +259,31 @@ function pg(q) {
     async setUsername(id, username) {
       try { return (await q('update players set username=$2, updated_at=now() where id=$1 returning *', [id, username])).rows[0]; }
       catch (e) { if (e.code === '23505') return null; throw e; }
+    },
+    async createEntSession(x) {
+      await q(`insert into ent_sessions (id, kind, title, school, city, created_by, starts_at, ends_at, reg_until) values ($1,$2,$3,$4,$5,$6,$7,$8,$9) on conflict (id) do nothing`,
+        [x.id, x.kind, x.title || '', x.school || null, x.city || null, x.created_by || null, x.starts_at, x.ends_at, x.reg_until]);
+      return this.getEntSession(x.id);
+    },
+    async getEntSession(id) { return sess((await q('select * from ent_sessions where id=$1', [id])).rows[0]) || null; },
+    async deleteEntSession(id) { await q('delete from ent_sessions where id=$1', [id]); },
+    async listEntSessions({ since, school = null, city = null }) {
+      return (await q(`select s.*, (select count(*)::int from ent_regs r where r.session_id=s.id) as count from ent_sessions s
+        where s.ends_at > $1 and (s.kind='weekly' or (s.school=$2 and s.city=$3)) order by s.starts_at`, [since, school, city])).rows.map(sess);
+    },
+    async getReg(sid, pid) { return (await q('select * from ent_regs where session_id=$1 and player_id=$2', [sid, pid])).rows[0] || null; },
+    async regsOf(pid) {
+      return (await q(`select r.*, row_to_json(s.*) as session from ent_regs r join ent_sessions s on s.id=r.session_id where r.player_id=$1 order by s.starts_at desc`, [pid])).rows
+        .map(r => ({ ...r, session: sess(r.session) }));
+    },
+    async regByIkt(ikt) { return (await q('select * from ent_regs where ikt=$1', [ikt])).rows[0] || null; },
+    async addReg(r) { return (await q('insert into ent_regs (session_id, player_id, ikt, combo, lang) values ($1,$2,$3,$4,$5) returning *', [r.session_id, r.player_id, r.ikt, r.combo, r.lang])).rows[0]; },
+    async dropReg(sid, pid) { await q('delete from ent_regs where session_id=$1 and player_id=$2', [sid, pid]); },
+    async setRegMock(sid, pid, mid) { await q('update ent_regs set mock_id=$3 where session_id=$1 and player_id=$2', [sid, pid, mid]); },
+    async sessionResults(sid) {
+      return (await q(`select r.player_id, r.combo, r.ikt, p.username, p.name, p.school, p.city, p.avatar, md5(p.photo) as photo_v,
+          case when t.finished_at is not null then t.score end as score, (t.result->>'pass')::boolean as pass, case when t.flag is not null and not t.cleared then t.flag end as flag, (t.id is not null) as started
+        from ent_regs r join players p on p.id=r.player_id left join mock_tests t on t.id=r.mock_id where r.session_id=$1`, [sid])).rows;
     },
     async dropPlayerEdu() {}
   };

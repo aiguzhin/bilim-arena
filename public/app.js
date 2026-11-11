@@ -174,6 +174,7 @@
     if (path === '/rating' || path === '/tournaments' || path.startsWith('/t/') || path === '/practice' || path === '/teacher' || path.startsWith('/teacher/') || path.startsWith('/join/')) return EDU.view(eduCtx, path);
     if (path === '/me' || path.startsWith('/me/') || path === '/settings' || path.startsWith('/settings/') || path.startsWith('/u/')) return ACC.view(accCtx, path);
     if (path === '/about') return viewAbout();
+    if (path === '/ent/register' || path.startsWith('/ent/s/')) return SES.view(path);
     if (path === '/ent' || path.startsWith('/ent/')) return ENT.view(entCtx, path);
     viewHome();
   }
@@ -196,7 +197,7 @@
   };
   const closeMenu = ACC.init(accCtx);
   const entCtx = {
-    chooseLang, LANGN,
+    chooseLang, LANGN, cityName: c => cityName(c),
     app, api, esc, pick: o => pick(o), L: () => L, lang: () => lang, meta: () => meta, go, setTitle, toast, footer,
     onCleanup: f => cleanup.push(f)
   };
@@ -207,6 +208,7 @@
   accCtx.edu = eduCtx;
   const socCtx = { ...eduCtx, socket, joinRoom: code => { if (room) leaveRoom(); reset(); joinFlow(code, true); } };
   SOC.init(socCtx);
+  SES.init(eduCtx);
 
   // ---------- главная ----------
   function viewHome() {

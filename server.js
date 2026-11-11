@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
@@ -65,7 +65,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -354,6 +354,8 @@ async function loadMock(id, pid) {
   return t;
 }
 
+const sessions = require('./session')(app, { db, auth, wrap, store, mock, COMBOS, LANGS, finishMock });
+
 app.get('/api/ent/active', auth, wrap(async (req, res) => {
   let t = await db.activeMock(req.player.id);
   if (t && Date.now() > new Date(t.ends_at).getTime() + mock.GRACE_MS) { await finishMock(t); t = null; }
@@ -366,7 +368,8 @@ app.post('/api/ent', auth, wrap(async (req, res) => {
   if (!COMBOS[combo]) return res.status(400).json({ error: 'pick' });
   const active = await db.activeMock(req.player.id);
   if (active && Date.now() <= new Date(active.ends_at).getTime() + mock.GRACE_MS) {
-    if (req.body?.restart !== true) return res.json({ id: active.id, resumed: true });
+    // Тест общей сессии нельзя сбросить новым пробным — сначала его нужно завершить.
+    if (req.body?.restart !== true || active.session_id) return res.json({ id: active.id, resumed: true });
     await finishMock(active);
   }
   const t = { id: crypto.randomUUID(), player_id: req.player.id, combo, lang, sections: mock.build(COMBOS[combo], new Set(await db.seenIds(req.player.id).catch(() => [])), lang), ends_at: new Date(Date.now() + mock.DURATION_MS).toISOString() };
@@ -376,7 +379,7 @@ app.post('/api/ent', auth, wrap(async (req, res) => {
 app.get('/api/ent/:id', auth, wrap(async (req, res) => {
   const t = await loadMock(String(req.params.id), req.player.id);
   if (!t) return res.status(404).json({ error: 'notfound' });
-  res.json(mockPublic(t, !!t.finished_at));
+  res.json({ ...mockPublic(t, !!t.finished_at), session: await sessions.sessionOfMock(t), who: { name: req.player.name, school: req.player.school, city: req.player.city } });
 }));
 app.put('/api/ent/:id', auth, wrap(async (req, res) => {
   const t = await loadMock(String(req.params.id), req.player.id);
@@ -389,7 +392,7 @@ app.post('/api/ent/:id/finish', auth, wrap(async (req, res) => {
   let t = await loadMock(String(req.params.id), req.player.id);
   if (!t) return res.status(404).json({ error: 'notfound' });
   if (!t.finished_at) t = await finishMock(t, req.body?.answers, req.body?.meta);
-  res.json(mockPublic(t, true));
+  res.json({ ...mockPublic(t, true), session: await sessions.sessionOfMock(t), who: { name: req.player.name, school: req.player.school, city: req.player.city } });
 }));
 
 // ---------- комнаты ----------
@@ -746,7 +749,7 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
-db.init().then(() => edu.ensureWeekly()).then(() => server.listen(PORT, () => {
+db.init().then(() => edu.ensureWeekly()).then(() => sessions.ensureWeekly()).then(() => server.listen(PORT, () => {
   console.log(`Bilim Arena: http://localhost:${PORT}`);
   // Бесплатный тариф Render усыпляет сервис после 15 минут без запросов. Раз в 10 минут обращаемся
   // к сайту по внешнему адресу — запрос проходит через Render и считается активностью.

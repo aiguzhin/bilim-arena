@@ -35,6 +35,7 @@ window.ENT = (() => {
     const combos = Object.keys(X.meta().combos);
     let saved = null; try { saved = localStorage.getItem('ba_ent_combo'); } catch {}
     const sel = combos.includes(saved) ? saved : combos[0];
+    setTimeout(() => window.SES?.banner(document.getElementById('sesBanner')), 0);
     const row = (n, t, p, m) => `<tr><td>${n}</td><td class="num">${t}</td><td class="num">${p}</td><td class="num">${m}</td></tr>`;
     X.app.innerHTML = `
     <div class="page"><div class="wrap">
@@ -42,6 +43,7 @@ window.ENT = (() => {
         <div>
           <h1>${E().title}</h1>
           <p class="page__lead">${E().lead}</p>
+          <div id="sesBanner"></div>
           <div id="entActive"></div>
           <form id="entForm" class="ent-pick">
             <div class="choose__label">${E().pick}</div>
@@ -340,7 +342,8 @@ window.ENT = (() => {
     const sname = k => pk(test.sections.find(s => s.k === k)?.name);
     X.app.innerHTML = `
     <div class="page"><div class="wrap">
-      <div class="eres">
+      ${test.session ? certificate(r, sname) : ''}
+      <div class="eres" ${test.session ? 'hidden' : ''}>
         <div class="eres__main">
           <p class="eres__combo">${X.esc(comboName(test.combo))} · ${X.LANGN[test.lang] || ''}</p>
           <h1>${E().resultTitle}</h1>
@@ -356,15 +359,49 @@ window.ENT = (() => {
             <td class="num"><b>${s.score}</b> / ${s.max}</td><td class="num">${s.right} / ${s.count}</td><td class="num">${s.min}</td></tr>`).join('')}</tbody>
         </table>
       </div>
-      <div class="eres__actions"><a class="btn" href="/ent" data-link>${E().again}</a></div>
+      <div class="eres__actions">${test.session ? `<a class="btn" href="/ent/s/${test.session.id}" data-link>${C().sessResults}</a><button class="btn btn--ghost" id="certPrint">${C().print}</button>` : `<a class="btn" href="/ent" data-link>${E().again}</a>`}</div>
       <section class="ereview">
         <h2>${E().review}</h2>
         <div class="tabs-sm ereview__tabs" role="tablist">${test.sections.map((sec, s) => `<button role="tab" data-s="${s}" aria-selected="${s === reviewSec}">${X.esc(pk(sec.name))}</button>`).join('')}</div>
         <div id="erList"></div>
       </section>
     </div></div>${X.footer()}`;
+    const pr = $('#certPrint'); if (pr) pr.onclick = () => window.print();
     $('.ereview__tabs').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; reviewSec = +b.dataset.s; document.querySelectorAll('.ereview__tabs [data-s]').forEach(x => x.setAttribute('aria-selected', x === b)); renderReview(); };
     renderReview();
+  }
+
+  // Результат сессионного пробного ЕНТ — в виде сертификата: ИКТ, данные, таблица баллов и порогов.
+  const CT = {
+    ru: { kicker: 'Пробное Единое национальное тестирование', title: 'Сертификат участника', ikt: 'ИКТ', fio: 'Фамилия, имя', date: 'Дата тестирования', lang: 'Язык тестирования', profile: 'Профильные предметы', school: 'Школа',
+      n: '№', subj: 'Предмет', min: 'Порог', got: 'Балл', total: 'Итого', of: 'из', passed: 'Пороговый балл набран — по результатам можно участвовать в конкурсе на грант', failed: 'Пороговый балл не набран: нужно 50 баллов в сумме и не ниже порога по каждому предмету',
+      note: 'Сертификат пробного тестирования на платформе Bilim Arena. Не является официальным документом Национального центра тестирования.', sessResults: 'Результаты всех участников', print: 'Распечатать или сохранить PDF' },
+    kk: { kicker: 'Сынақ Ұлттық бірыңғай тестілеу', title: 'Қатысушы сертификаты', ikt: 'ТЖК', fio: 'Тегі, аты', date: 'Тестілеу күні', lang: 'Тестілеу тілі', profile: 'Бейіндік пәндер', school: 'Мектеп',
+      n: '№', subj: 'Пән', min: 'Шек', got: 'Балл', total: 'Барлығы', of: '/', passed: 'Шекті балл жиналды — нәтиже бойынша грант конкурсына қатысуға болады', failed: 'Шекті балл жиналмады: жалпы 50 балл және әр пән бойынша шектен төмен болмауы керек',
+      note: 'Bilim Arena платформасындағы сынақ тестілеудің сертификаты. Ұлттық тестілеу орталығының ресми құжаты емес.', sessResults: 'Барлық қатысушылардың нәтижелері', print: 'Басып шығару немесе PDF сақтау' }
+  };
+  const C = () => CT[X.lang()] || CT.ru;
+  function certificate(r, sname) {
+    const c = C(), w = test.who || {};
+    const d = new Date(test.session.startsAt);
+    const profile = test.sections.slice(3).map(sec => pk(sec.name)).join(', ');
+    return `<section class="cert">
+      <header class="cert__head"><span class="cert__logo" aria-hidden="true">A</span><div><span class="cert__kicker">${c.kicker}</span><h1>${c.title}</h1></div>
+        <div class="cert__ikt"><span>${c.ikt}</span><b class="num">${X.esc(test.session.ikt || '—')}</b></div></header>
+      <dl class="cert__grid">
+        <div><dt>${c.fio}</dt><dd>${X.esc(w.name || '')}</dd></div>
+        <div><dt>${c.date}</dt><dd>${fmtDate(d.toISOString(), X.lang(), true)}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}</dd></div>
+        <div><dt>${c.lang}</dt><dd>${X.LANGN[test.lang] || ''}</dd></div>
+        <div><dt>${c.profile}</dt><dd>${X.esc(profile)}</dd></div>
+        <div class="cert__wide"><dt>${c.school}</dt><dd>${X.esc(w.school || '')}${w.city ? ', ' + X.esc(X.cityName ? X.cityName(w.city) : w.city) : ''}</dd></div>
+      </dl>
+      <table class="cert__table"><thead><tr><th>${c.n}</th><th>${c.subj}</th><th class="r">${c.min}</th><th class="r">${c.got}</th></tr></thead>
+        <tbody>${r.subjects.map((s, i) => `<tr class="${s.pass ? '' : 'is-fail'}"><td class="num">${i + 1}</td><td>${X.esc(sname(s.k))}</td><td class="r num">${s.min}</td><td class="r num"><b>${s.score}</b> <span class="muted">${c.of} ${s.max}</span></td></tr>`).join('')}</tbody>
+        <tfoot><tr><td></td><td>${c.total}</td><td class="r num">50</td><td class="r num"><b>${r.total}</b> <span class="muted">${c.of} ${r.max}</span></td></tr></tfoot></table>
+      <p class="cert__verdict ${r.pass ? 'is-ok' : 'is-bad'}">${r.pass ? c.passed : c.failed}</p>
+      ${test.flag ? `<p class="eres__flag">${E().flagged(test.flag)}</p>` : ''}
+      <p class="cert__note">${c.note}</p>
+    </section>`;
   }
 
   function renderReview() {

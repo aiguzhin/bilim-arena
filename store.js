@@ -134,7 +134,8 @@ function memoryStore() {
 
 // ---------- Postgres ----------
 function pgStore(url) {
-  const { Pool } = require('pg');
+  const { Pool, types } = require('pg');
+  types.setTypeParser(1082, v => v); // даты (дата рождения) — строкой «ГГГГ-ММ-ДД», без сдвига часового пояса
   const pool = new Pool({ connectionString: url, ssl: /localhost|127\.0\.0\.1/.test(url) ? false : { rejectUnauthorized: false } });
   const q = (sql, args) => pool.query(sql, args);
   const edu = require('./edustore').pg(q);
@@ -258,7 +259,7 @@ function pgStore(url) {
       return r.rows.flatMap(x => x.sections.flatMap(s => s.items.map(i => i.id)));
     },
     async createMock(t) {
-      await q('insert into mock_tests (id, player_id, combo, sections, ends_at, lang) values ($1,$2,$3,$4,$5,$6)', [t.id, t.player_id, t.combo, JSON.stringify(t.sections), t.ends_at, t.lang || null]);
+      await q('insert into mock_tests (id, player_id, combo, sections, ends_at, lang, session_id) values ($1,$2,$3,$4,$5,$6,$7)', [t.id, t.player_id, t.combo, JSON.stringify(t.sections), t.ends_at, t.lang || null, t.session_id || null]);
     },
     async getMock(id, pid) { return (await q('select * from mock_tests where id=$1 and player_id=$2', [id, pid])).rows[0] || null; },
     async activeMock(pid) { return (await q('select * from mock_tests where player_id=$1 and finished_at is null order by started_at desc limit 1', [pid])).rows[0] || null; },
