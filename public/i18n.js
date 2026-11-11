@@ -396,3 +396,6 @@ Object.assign(window.I18N.ru, { navTours: 'Турниры' });
 Object.assign(window.I18N.kk, { navTours: 'Турнирлер' });
 Object.assign(window.I18N.ru.acc, { tabAch: 'Достижения', tabClass: 'Класс', menuTeacher: 'Кабинет учителя', menuPractice: 'Работа над ошибками' });
 Object.assign(window.I18N.kk.acc, { tabAch: 'Жетістіктер', tabClass: 'Сынып', menuTeacher: 'Мұғалім кабинеті', menuPractice: 'Қатемен жұмыс' });
+
+Object.assign(window.I18N.ru, { gInApp: 'Вход через Google не работает во встроенном браузере (Instagram, Telegram, TikTok). Откройте сайт в Chrome или Safari — или войдите по логину и паролю.', gCopyLink: 'Скопировать ссылку на сайт', gCopied: 'Ссылка скопирована — вставьте её в Chrome или Safari' });
+Object.assign(window.I18N.kk, { gInApp: 'Google арқылы кіру кіріктірілген браузерде (Instagram, Telegram, TikTok) жұмыс істемейді. Сайтты Chrome немесе Safari-де ашыңыз — немесе логин мен құпиясөз арқылы кіріңіз.', gCopyLink: 'Сайт сілтемесін көшіру', gCopied: 'Сілтеме көшірілді — оны Chrome немесе Safari-ге қойыңыз' });

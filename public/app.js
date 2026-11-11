@@ -769,12 +769,31 @@
     });
     return gScript;
   }
+  // Встроенные браузеры (Instagram, Facebook, TikTok, Telegram, WebView) Google не пускает ко входу.
+  const inApp = /FBAN|FBAV|Instagram|Line\/|TikTok|musical_ly|Telegram|; wv\)|WebView|GSA\//i.test(navigator.userAgent);
   // Рисует официальную кнопку Google в элементе el; onCredential получает подписанный токен.
+  // Вход идёт переходом на страницу Google и обратно (без всплывающего окна, которое на телефонах остаётся белым).
   async function googleButton(el, onCredential) {
-    if (!el || !(await googleReady()) || !window.google?.accounts?.id) return false;
-    google.accounts.id.initialize({ client_id: gConfig.googleClientId, callback: r => onCredential(r.credential), ux_mode: 'popup', cancel_on_tap_outside: true });
+    if (!el) return false;
+    // Вернулись от Google: токен уже ждёт в sessionStorage.
+    let cred = null, gerr = null;
+    try { cred = sessionStorage.getItem('ba_gcred'); gerr = sessionStorage.getItem('ba_gerr'); sessionStorage.removeItem('ba_gcred'); sessionStorage.removeItem('ba_gerr'); } catch {}
+    if (cred) setTimeout(() => onCredential(cred), 0);
+    else if (gerr) toast(L.err.google || L.err.server);
+    if (inApp) {
+      el.innerHTML = `<p class="gnote">${L.gInApp}</p><button type="button" class="btn btn--ghost btn--sm" id="gCopy">${L.gCopyLink}</button>`;
+      el.closest('.gblock')?.removeAttribute('hidden');
+      $('#gCopy').onclick = async () => { try { await navigator.clipboard.writeText(location.origin + location.pathname); toast(L.gCopied); } catch { toast(location.origin); } };
+      return false;
+    }
+    if (!(await googleReady()) || !window.google?.accounts?.id) return false;
+    google.accounts.id.initialize({ client_id: gConfig.googleClientId, ux_mode: 'redirect', login_uri: `${location.origin}/api/google/redirect`, callback: r => onCredential(r.credential), cancel_on_tap_outside: true });
     el.innerHTML = '';
-    google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'continue_with', logo_alignment: 'center', width: Math.min(el.clientWidth || 360, 400), locale: lang === 'kk' ? 'kk' : 'ru' });
+    google.accounts.id.renderButton(el, {
+      theme: 'outline', size: 'large', shape: 'rectangular', text: 'continue_with', logo_alignment: 'center', width: Math.min(el.clientWidth || 360, 400), locale: lang === 'kk' ? 'kk' : 'ru',
+      click_listener: () => { try { sessionStorage.setItem('ba_greturn', location.pathname + location.search); } catch {} }
+    });
+    try { sessionStorage.setItem('ba_greturn', location.pathname + location.search); } catch {}
     el.closest('.gblock')?.removeAttribute('hidden');
     return true;
   }

@@ -57,6 +57,7 @@ app.get('/p/:username', async (req, res) => {
     res.set('Cache-Control', 'public, max-age=86400').type(m[1]).send(Buffer.from(m[2], 'base64'));
   } catch { res.status(404).end(); }
 });
+app.get('/healthz', (req, res) => res.set('Cache-Control', 'no-store').send('ok'));
 app.get('/api/subjects', (req, res) => res.json({ subjects: SUBJECTS, mandatory: MANDATORY, combos: COMBOS, count: Object.values(BANK).reduce((n, v) => n + v.q.length, 0) }));
 app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
@@ -216,6 +217,18 @@ async function newSession(row, res) {
   await db.createSession(token, row.id);
   res.json({ token, user: store.PUBLIC(row) });
 }
+
+// Вход через Google переадресацией (без всплывающего окна): Google присылает форму сюда,
+// мы сверяем защитный токен и возвращаем ученика на ту же страницу сайта, где он нажал кнопку.
+app.post('/api/google/redirect', express.urlencoded({ extended: false, limit: '20kb' }), (req, res) => {
+  const body = req.body || {};
+  const cookie = /(?:^|;\s*)g_csrf_token=([^;]+)/.exec(req.headers.cookie || '')?.[1];
+  const cred = String(body.credential || '');
+  const ok = cookie && body.g_csrf_token && cookie === body.g_csrf_token && /^[\w-]+\.[\w-]+\.[\w-]+$/.test(cred);
+  res.set('Cache-Control', 'no-store').type('html').send(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bilim Arena</title>
+<script>try{${ok ? `sessionStorage.setItem('ba_gcred',${JSON.stringify(cred)});` : `sessionStorage.setItem('ba_gerr','google');`}}catch(e){}
+var r='/login';try{r=sessionStorage.getItem('ba_greturn')||'/login'}catch(e){}if(!/^\\/(?!\\/)/.test(r))r='/login';location.replace(r);</script>`);
+});
 
 app.get('/api/config', (req, res) => res.json({ googleClientId: GOOGLE_CLIENT_ID || null }));
 
@@ -634,5 +647,11 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 const PORT = process.env.PORT || 3000;
-db.init().then(() => edu.ensureWeekly()).then(() => server.listen(PORT, () => console.log(`Bilim Arena: http://localhost:${PORT}`)))
+db.init().then(() => edu.ensureWeekly()).then(() => server.listen(PORT, () => {
+  console.log(`Bilim Arena: http://localhost:${PORT}`);
+  // Бесплатный тариф Render усыпляет сервис после 15 минут без запросов. Раз в 10 минут обращаемся
+  // к сайту по внешнему адресу — запрос проходит через Render и считается активностью.
+  const self = process.env.RENDER_EXTERNAL_URL;
+  if (self) setInterval(() => fetch(`${self}/healthz`).catch(() => {}), 10 * 60 * 1000);
+}))
   .catch(e => { console.error('DB init failed', e); process.exit(1); });

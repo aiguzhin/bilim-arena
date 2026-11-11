@@ -913,3 +913,5 @@ img.ava { object-fit: cover; background: var(--field); }
   .chead__code b { font-size: 18px; }
   .tnew .field { max-width: none; }
 }
+
+.gnote { font-size: 14px; color: var(--ink-2); background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; text-align: left; }
