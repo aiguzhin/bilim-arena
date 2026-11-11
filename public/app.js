@@ -156,6 +156,8 @@
   async function route() {
     reset();
     const path = location.pathname;
+    const tab = path === '/' ? 'home' : path.startsWith('/ent') ? 'ent' : path === '/play' || path.startsWith('/b/') ? 'play' : path.startsWith('/tournaments') || path.startsWith('/t/') ? 'tours' : path === '/rating' ? 'rating' : '';
+    document.querySelectorAll('#tabbar [data-tab]').forEach(a => a.toggleAttribute('aria-current', a.dataset.tab === tab));
     window.scrollTo(0, 0);
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
     if (!me && getToken()) {

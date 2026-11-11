@@ -9,6 +9,8 @@ const store = require('./store');
 
 const db = store.create();
 const app = express();
+// Сжатие ответов: страница и скрипты весят в 4–5 раз меньше — быстрее на мобильном интернете.
+app.use(require('compression')());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: false } });
 

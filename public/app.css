@@ -915,3 +915,101 @@ img.ava { object-fit: cover; background: var(--field); }
 }
 
 .gnote { font-size: 14px; color: var(--ink-2); background: var(--warn-soft); border: 1px solid var(--warn-line); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; text-align: left; }
+
+/* ---------- мобильная версия ---------- */
+html { -webkit-text-size-adjust: 100%; }
+a, button, label, select, input { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.tabbar { display: none; }
+@media (max-width: 760px) {
+  /* нижняя панель разделов, как в приложении */
+  .tabbar {
+    display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: var(--header-bg); backdrop-filter: saturate(1.6) blur(14px); -webkit-backdrop-filter: saturate(1.6) blur(14px);
+    border-top: 1px solid var(--line); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  }
+  .tabbar a { display: grid; justify-items: center; gap: 2px; padding: 4px 0; color: var(--ink-3); text-decoration: none; font-size: 11px; font-weight: 600; letter-spacing: .01em; }
+  .tabbar a svg { width: 23px; height: 23px; }
+  .tabbar a[aria-current] { color: var(--link); }
+  .tabbar__main i { display: grid; place-items: center; width: 46px; height: 32px; border-radius: 12px; background: var(--blue); color: #fff; margin-top: -2px; }
+  .tabbar__main i svg { width: 20px; height: 20px; }
+  .tabbar a.tabbar__main[aria-current] { color: var(--ink); }
+  .tabbar a:active { transform: scale(.94); }
+  body:not(.guest) { padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  body.in-exam .tabbar, body.menu-open .tabbar { display: none; }
+  body.in-exam { padding-bottom: 0; }
+  .toast { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+
+  /* шапка: логотип, язык, аватар, меню */
+  .nav > a.nav__ent, .nav > a.nav__rating, .nav > a.nav__tours, .nav > a.btn { display: none !important; }
+  .logo span { display: inline !important; font-size: 16px; }
+  .top__in { min-height: 56px; }
+
+  .page { padding: 24px 0 44px; }
+  .page h1 { font-size: 27px; line-height: 1.2; }
+  .page__lead { font-size: 15px; }
+  .me__h2 { font-size: 20px; margin: 28px 0 12px; }
+  .wrap { padding-left: 16px; padding-right: 16px; }
+  footer.foot { padding: 22px 0 26px; font-size: 13px; }
+  .btn { min-height: 48px; }
+  .btn--sm { min-height: 40px; }
+
+  /* профиль */
+  .phead { grid-template-columns: 64px 1fr; gap: 14px; }
+  .phead .ava--lg { width: 64px; height: 64px; font-size: 22px; }
+  .phead h1 { font-size: 23px; }
+  .phead__meta { font-size: 14px; }
+  .phead__bio { font-size: 14px; }
+  .phead__actions { display: grid !important; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .phead__actions .btn { min-height: 38px; padding: 0 6px; font-size: 13px; white-space: nowrap; }
+  .ptabs { margin: 20px -16px 18px; padding: 0 16px; mask-image: linear-gradient(90deg, #000 85%, transparent); -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .ptabs a { padding: 10px 12px; font-size: 14px; white-space: nowrap; }
+  .tiles { gap: 8px; margin-top: 18px; }
+  .tiles > div { padding: 12px 14px; border-radius: 12px; }
+  .tiles b { font-size: 22px; }
+  .tiles span { font-size: 13px; }
+  .goal { padding: 16px; }
+
+  /* пробный ЕНТ: компактный выбор комбинации и кнопка всегда под рукой */
+  .combos--ent { display: grid; gap: 8px; }
+  .combos--ent .opt { padding: 12px 14px; font-size: 15px; min-height: 0; }
+  .ent-pick .btn { position: sticky; bottom: calc(76px + env(safe-area-inset-bottom)); width: 100%; justify-self: stretch; z-index: 5; box-shadow: 0 10px 24px -10px rgba(14,37,82,.5); }
+  .ent-spec { padding: 16px; }
+  .table--spec { font-size: 13px; }
+  .table--spec td, .table--spec th { padding: 8px 4px; }
+  .exam__bar-in { min-height: 52px; gap: 10px; }
+  .exam__combo { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .eopt { padding: 12px 13px; font-size: 15px; gap: 12px; }
+
+  /* таблицы и карточки */
+  .table { font-size: 14px; }
+  .table td { padding: 11px 8px; }
+  .table th { padding: 8px; }
+  .table td.pos { width: 30px; }
+  .tabs { display: flex; width: 100%; }
+  .tabs button { flex: 1; padding: 8px 6px; font-size: 14px; white-space: nowrap; }
+  .tcard__kicker { font-size: 11px; }
+  .tcard h3 { font-size: 17px; }
+  .tcard__meta, .tcard__when { font-size: 14px; }
+  .trules { padding: 16px; font-size: 14px; }
+  .tbig { padding: 24px 16px; }
+  .rkinds { margin: 0 -16px 12px; padding: 0 16px; }
+  .rkinds button { padding: 10px 12px; font-size: 14px; }
+  .rfilters { gap: 10px; }
+  .chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; width: calc(100% + 32px); }
+  .chipbtn { white-space: nowrap; }
+  .badges { grid-template-columns: 1fr; }
+  .streak { padding: 16px; }
+  .pstats { gap: 8px 16px; font-size: 14px; }
+  .dlg__body { padding: 22px 18px; }
+
+  /* главная */
+  .hero h1 { font-size: 30px; line-height: 1.15; }
+  .hero__cta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hero__cta .btn { width: 100%; padding: 0 10px; }
+  section.block { padding: 40px 0; }
+}
+@media (max-width: 380px) {
+  .tabbar a { font-size: 10px; }
+  .phead__actions .btn { font-size: 12px; }
+  .lang-seg button { min-width: 34px; padding: 6px; }
+}
