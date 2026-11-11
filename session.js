@@ -6,8 +6,9 @@ const DURATION = 240 * 60 * 1000;       // 4 часа, как на ЕНТ
 const REG_CLOSE = 60 * 60 * 1000;       // запись закрывается за час до начала
 const ROOM_OPEN = 15 * 60 * 1000;       // зал ожидания открывается за 15 минут
 const LATE = 30 * 60 * 1000;            // опоздавших пускаем в первые 30 минут, но конец у всех общий
-// Еженедельные сессии: среда 15:00 и воскресенье 10:00 по Астане.
-const WEEKLY = [[3, 10], [0, 5]];
+// Расписание как на ЕНТ: каждый день три смены — 10:00, 14:00 и 18:00 по Астане; запись открыта на две недели вперёд.
+const SHIFTS_UTC = [5, 9, 13];
+const DAYS_AHEAD = 14;
 
 module.exports = function mount(app, { db, auth, wrap, store, mock, COMBOS, LANGS, finishMock }) {
   const pu = p => (p.photo_v && p.username ? `/p/${p.username}?v=${p.photo_v.slice(0, 8)}` : null);
@@ -17,15 +18,13 @@ module.exports = function mount(app, { db, auth, wrap, store, mock, COMBOS, LANG
   const regCard = r => r && ({ ikt: r.ikt, combo: r.combo, lang: r.lang, mockId: r.mock_id || null, createdAt: r.created_at });
 
   async function ensureWeekly() {
-    const now = Date.now();
-    for (let w = 0; w < 3; w++) for (const [dow, hourUtc] of WEEKLY) {
-      const local = new Date(now + TZ_MS);
-      const diff = (dow - local.getUTCDay() + 7) % 7 + w * 7;
-      const d = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + diff, hourUtc));
-      if (d.getTime() - REG_CLOSE < now) continue;
-      const id = `s-${d.toISOString().slice(0, 13)}`;
+    const now = Date.now(), local = new Date(now + TZ_MS);
+    for (let d = 0; d <= DAYS_AHEAD; d++) for (const hourUtc of SHIFTS_UTC) {
+      const at = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() + d, hourUtc));
+      if (at.getTime() - REG_CLOSE < now) continue;
+      const id = `s-${at.toISOString().slice(0, 13)}`;
       if (await db.getEntSession(id)) continue;
-      await db.createEntSession({ id, kind: 'weekly', starts_at: d.toISOString(), ends_at: new Date(d.getTime() + DURATION).toISOString(), reg_until: new Date(d.getTime() - REG_CLOSE).toISOString() });
+      await db.createEntSession({ id, kind: 'weekly', starts_at: at.toISOString(), ends_at: new Date(at.getTime() + DURATION).toISOString(), reg_until: new Date(at.getTime() - REG_CLOSE).toISOString() });
     }
   }
   setInterval(() => ensureWeekly().catch(console.error), 30 * 60 * 1000);

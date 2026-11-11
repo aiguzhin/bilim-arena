@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
@@ -460,7 +460,7 @@ function pickQuestions(topic, lang) {
   return list.map(q => {
     const order = shuffle([0, 1, 2, 3]);
     const o = Object.fromEntries(Object.entries(q.o).map(([l, arr]) => [l, order.map(i => arr[i])]));
-    return { k: q.k, t: q.t, s: q.s, o, a: order.indexOf(q.a), e: q.e };
+    return { k: q.k, t: q.t, s: q.s, o, a: order.indexOf(q.a), e: q.e, img: q.img || q.cimg || null };
   });
 }
 
@@ -512,7 +512,7 @@ function nextQuestion(r) {
   r.endsAt = Date.now() + QUESTION_MS;
   r.qStart = Date.now();
   emitRoom(r);
-  io.to(r.code).emit('question', { i: r.i, total: r.questions.length, t: q.t, s: q.s, o: q.o, endsAt: r.endsAt, duration: QUESTION_MS });
+  io.to(r.code).emit('question', { i: r.i, total: r.questions.length, t: q.t, s: q.s, o: q.o, img: q.img || null, endsAt: r.endsAt, duration: QUESTION_MS });
   clearTimeout(r.timer);
   r.timer = setTimeout(() => reveal(r), QUESTION_MS + 300);
 }
@@ -651,7 +651,7 @@ io.on('connection', socket => {
     emitRoom(r);
     if (r.state === 'playing') {
       const q = r.questions[r.i];
-      socket.emit('question', { i: r.i, total: r.questions.length, t: q.t, s: q.s, o: q.o, endsAt: r.endsAt, duration: QUESTION_MS });
+      socket.emit('question', { i: r.i, total: r.questions.length, t: q.t, s: q.s, o: q.o, img: q.img || null, endsAt: r.endsAt, duration: QUESTION_MS });
     }
     if (r.mode === 'duel' && r.state === 'lobby' && r.players.size === 2) startGame(r);
     if (r.mode === 'arena' && r.state === 'lobby' && r.players.size >= r.expect) startGame(r);

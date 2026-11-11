@@ -46,6 +46,7 @@ window.ENT = (() => {
           <div id="sesBanner"></div>
           <div id="entActive"></div>
           <form id="entForm" class="ent-pick">
+            <h2 class="ent-pick__h">${E().nowTitle}</h2>
             <div class="choose__label">${E().pick}</div>
             <div class="combos combos--ent">
               ${combos.map(c => `<label><input type="radio" name="combo" value="${c}" ${c === sel ? 'checked' : ''}><div class="opt">${X.esc(comboName(c))}</div></label>`).join('')}
@@ -145,6 +146,8 @@ window.ENT = (() => {
         <div class="exam__combo">${X.esc(comboName(test.combo))} <span class="exam__lang">${X.LANGN[test.lang] || ''}</span></div>
         <div class="exam__right">
           <span class="exam__save" id="exSave"></span>
+          <button class="exam__tool" id="exRef" hidden title="${E().refs}" aria-label="${E().refs}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11M15 9v11"/></svg><span>${E().refsShort}</span></button>
+          <button class="exam__tool" id="exFont" title="${E().fontSize}" aria-label="${E().fontSize}"><b>A</b><small>A</small></button>
           <span class="exam__timer num" id="exTimer" role="timer">--:--:--</span>
           <button class="btn btn--sm btn--light" id="exFinish">${E().finish}</button>
         </div>
@@ -165,10 +168,19 @@ window.ENT = (() => {
     </div></dialog>`;
 
     $('#exFinish').onclick = () => {
-      const left = test.sections.reduce((n, sec, s) => n + sec.items.filter((_, i) => !answered(test.answers[key(s, i)])).length, 0);
-      $('#exLeft').textContent = left ? E().finishLeft(left) : E().finishAll;
+      const per = test.sections.map((sec, s) => [pk(sec.name), sec.items.filter((_, i) => !answered(test.answers[key(s, i)])).length, sec.items.length]);
+      const left = per.reduce((n, x) => n + x[1], 0);
+      $('#exLeft').innerHTML = (left ? X.esc(E().finishLeft(left)) : X.esc(E().finishAll))
+        + `<table class="exleft">${per.map(([n, l, all]) => `<tr class="${l ? 'is-left' : ''}"><td>${X.esc(n)}</td><td class="num">${all - l} / ${all}</td></tr>`).join('')}</table>`;
       $('#exDlg').showModal();
     };
+    // Размер шрифта заданий: обычный → крупный → очень крупный.
+    const FS = ['', 'lg', 'xl'];
+    let fsi = 0; try { fsi = Math.max(0, FS.indexOf(localStorage.getItem('ba_exfs') || '')); } catch {}
+    const applyFs = () => { document.querySelector('.exam').dataset.fs = FS[fsi]; };
+    applyFs();
+    $('#exFont').onclick = () => { fsi = (fsi + 1) % FS.length; applyFs(); try { localStorage.setItem('ba_exfs', FS[fsi]); } catch {} };
+    $('#exRef').onclick = () => window.REFS?.open(test.lang);
     $('#exNo').onclick = () => $('#exDlg').close();
     $('#exYes').onclick = () => { $('#exDlg').close(); finish(); };
     $('#exTabs').onclick = e => { const b = e.target.closest('[data-s]'); if (b) goTo(+b.dataset.s, 0); };
@@ -229,6 +241,8 @@ window.ENT = (() => {
   function renderQuestion() {
     const sec = test.sections[pos.s], q = sec.items[pos.i], k = key(pos.s, pos.i), v = test.answers[k];
     const main = $('#exMain');
+    // Таблицы Менделеева и растворимости — как на ЕНТ, на предмете «Химия».
+    const ref = $('#exRef'); if (ref) ref.hidden = sec.k !== 'chemistry';
     if (q.gone) { main.innerHTML = `<p class="muted">${E().gone}</p>${navHtml(sec)}`; bindNav(); return; }
     const [tl, pts] = typeLabel(q);
     const opts = pk(q.o);
@@ -255,8 +269,9 @@ window.ENT = (() => {
         <span class="eq__type">${tl} · ${pts}</span>
         <button class="eq__mark" id="exMark" aria-pressed="${marks.has(k)}">${marks.has(k) ? E().marked : E().mark}</button>
       </div>
-      ${q.ctx ? `<div class="eq__ctx">${fmt(pk(q.ctx))}</div>` : ''}
+      ${q.ctx ? `<div class="eq__ctx">${fmt(pk(q.ctx))}${q.cimg ? `<figure class="qfig">${q.cimg}</figure>` : ''}</div>` : ''}
       <div class="eq__text">${fmt(pk(q.t))}</div>
+      ${q.img ? `<figure class="qfig">${q.img}</figure>` : ''}
       ${body}
       ${navHtml(sec)}`;
 
@@ -420,8 +435,9 @@ window.ENT = (() => {
       const right = q.type === 'p' ? q.a : Array.isArray(q.a) ? q.a : [q.a];
       return `<article class="ritem ritem--${state}">
         <div class="ritem__head"><b>${i + 1}</b><span class="num">${q.got} / ${q.max}</span></div>
-        ${q.ctx && (i === 0 || sec.items[i - 1].c !== q.c) ? `<div class="eq__ctx">${fmt(pk(q.ctx))}</div>` : ''}
+        ${q.ctx && (i === 0 || sec.items[i - 1].c !== q.c) ? `<div class="eq__ctx">${fmt(pk(q.ctx))}${q.cimg ? `<figure class="qfig">${q.cimg}</figure>` : ''}</div>` : ''}
         <p class="ritem__q">${fmt(pk(q.t))}</p>
+        ${q.img ? `<figure class="qfig qfig--sm">${q.img}</figure>` : ''}
         ${q.type === 'p' ? `<div class="match__cols match__cols--sm">
             <ol class="match__left">${pk(q.l).map((t, j) => `<li><b>${LET[j]}</b><span>${fmt(t)}</span></li>`).join('')}</ol>
             <ol class="match__right">${opts.map((t, j) => `<li><b>${j + 1}</b><span>${fmt(t)}</span></li>`).join('')}</ol></div>`

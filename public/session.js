@@ -11,7 +11,7 @@ window.SES = (() => {
       fio: 'Фамилия, имя', birth: 'Дата рождения', phone: 'Телефон', school: 'Школа', city: 'Город', login: 'Логин', fix: 'Исправить в профиле', dataOk: 'Данные верны',
       s2lead: 'Выберите пару профильных предметов. Обязательные предметы есть у всех:', mandatory: 'История Казахстана · Математическая грамотность · Грамотность чтения',
       s3lead: 'На каком языке вы будете сдавать тест?', langs: { kk: 'Қазақ тілі', ru: 'Русский язык', en: 'English' },
-      s4lead: 'Выберите дату и время. Запись закрывается за час до начала.', online: 'Онлайн · Bilim Arena', forSchool: 'Для вашей школы', regCount: n => `записано: ${n}`, regUntil: t => `запись до ${t}`, noSlots: 'Сейчас нет открытых дат для записи. Новые даты появляются каждую неделю.',
+      s4lead: 'Выберите день, затем время начала. Каждый день — три смены; запись закрывается за час до начала.', pickDay: 'День сдачи', pickTime: 'Время начала', online: 'Онлайн · Bilim Arena', forSchool: 'Для вашей школы', regCount: n => `записано: ${n}`, regUntil: t => `запись до ${t}`, noSlots: 'Сейчас нет открытых дат для записи. Новые даты появляются каждую неделю.',
       s5lead: 'Проверьте запись и подтвердите правила.',
       rules: ['Тест начинается у всех одновременно. Зал ожидания открывается за 15 минут до начала.', 'Опоздавшие могут войти в течение 30 минут после начала, но закончить придётся вместе со всеми.', 'Длительность — 4 часа, 120 заданий, максимум 140 баллов.', 'Переходы на другие вкладки фиксируются; подозрительные результаты не попадают в рейтинг.'],
       agree: 'С правилами ознакомлен(а)', sumSession: 'Дата и время', sumCombo: 'Профильные предметы', sumLang: 'Язык',
@@ -25,7 +25,7 @@ window.SES = (() => {
       stReg: 'Записались', stTook: 'Сдавали', stAvg: 'Средний балл', stPass: 'Набрали порог', stBest: 'Лучший балл', hist: 'Распределение баллов', top: 'Лучшие результаты',
       my: 'Мои записи', past: 'Прошедшие', scoreOf: s => `${s} из 140`, inProgress: 'идёт', missed: 'не сдавал(а)',
       teacher: 'Назначить пробный ЕНТ для школы', teacherLead: 'Ученики вашей школы увидят эту дату при записи. Тест длится 4 часа, начало — в выбранное время.', tStart: 'Начало', tTitle: 'Название (необязательно)', tCreate: 'Назначить', tMine: 'Назначено вами', tDel: 'Удалить',
-      banner: 'Пробный ЕНТ в одно время для всех', bannerNext: (d, t) => `Ближайшая дата: ${d}, ${t}`, bannerMine: (d, t) => `Вы записаны: ${d}, ${t}`,
+      banner: 'Пробный ЕНТ в одно время для всех', chooseReg: 'Записаться на пробный ЕНТ', chooseRegText: 'Как на настоящем ЕНТ: выберите день и время, сдавайте вместе со всеми и получите сертификат с ИКТ.', chooseNow: 'Сдать пробный ЕНТ сейчас', chooseNowText: 'Тренировочный вариант в любое время: 120 заданий, 4 часа, разбор ошибок сразу после теста.', chooseNowBtn: 'Выбрать предметы', bannerNext: (d, t) => `Ближайшая дата: ${d}, ${t}`, bannerMine: (d, t) => `Вы записаны: ${d}, ${t}`,
       err: { regClosed: 'Запись на эту дату уже закрыта', regExists: 'У вас уже есть запись. Отмените её, чтобы выбрать другую дату', profileNeeded: 'Заполните дату рождения и телефон в профиле', notRegistered: 'Вы не записаны на эту дату', sessSoon: 'Тест ещё не начался', sessLate: 'Вход уже закрыт', regStarted: 'Тест уже начат — запись нельзя отменить', sessStart: 'Начало — не раньше чем через 15 минут' }
     },
     kk: {
@@ -36,7 +36,7 @@ window.SES = (() => {
       fio: 'Тегі, аты', birth: 'Туған күні', phone: 'Телефон', school: 'Мектеп', city: 'Қала', login: 'Логин', fix: 'Профильде түзету', dataOk: 'Деректер дұрыс',
       s2lead: 'Бейіндік пәндер жұбын таңдаңыз. Міндетті пәндер барлығында бар:', mandatory: 'Қазақстан тарихы · Математикалық сауаттылық · Оқу сауаттылығы',
       s3lead: 'Тестті қай тілде тапсырасыз?', langs: { kk: 'Қазақ тілі', ru: 'Орыс тілі', en: 'English' },
-      s4lead: 'Күні мен уақытын таңдаңыз. Тіркелу басталуға бір сағат қалғанда жабылады.', online: 'Онлайн · Bilim Arena', forSchool: 'Сіздің мектебіңізге', regCount: n => `тіркелгендер: ${n}`, regUntil: t => `тіркелу ${t} дейін`, noSlots: 'Қазір тіркелуге ашық күн жоқ. Жаңа күндер әр апта сайын шығады.',
+      s4lead: 'Алдымен күнді, сосын басталу уақытын таңдаңыз. Күн сайын үш ауысым; тіркелу басталуға бір сағат қалғанда жабылады.', pickDay: 'Тапсыру күні', pickTime: 'Басталу уақыты', online: 'Онлайн · Bilim Arena', forSchool: 'Сіздің мектебіңізге', regCount: n => `тіркелгендер: ${n}`, regUntil: t => `тіркелу ${t} дейін`, noSlots: 'Қазір тіркелуге ашық күн жоқ. Жаңа күндер әр апта сайын шығады.',
       s5lead: 'Тіркелуді тексеріп, ережелерді растаңыз.',
       rules: ['Тест барлығында бір уақытта басталады. Күту залы басталуға 15 минут қалғанда ашылады.', 'Кешіккендер басталғаннан кейін 30 минут ішінде кіре алады, бірақ барлығымен бірге аяқтайды.', 'Ұзақтығы — 4 сағат, 120 тапсырма, ең көбі 140 балл.', 'Басқа беттерге өту белгіленеді; күдікті нәтижелер рейтингке кірмейді.'],
       agree: 'Ережелермен таныстым', sumSession: 'Күні мен уақыты', sumCombo: 'Бейіндік пәндер', sumLang: 'Тіл',
@@ -50,7 +50,7 @@ window.SES = (() => {
       stReg: 'Тіркелді', stTook: 'Тапсырды', stAvg: 'Орташа балл', stPass: 'Шектен өтті', stBest: 'Ең жоғары балл', hist: 'Балдардың таралуы', top: 'Үздік нәтижелер',
       my: 'Менің тіркелулерім', past: 'Өткендер', scoreOf: s => `140-тан ${s}`, inProgress: 'жүріп жатыр', missed: 'тапсырмады',
       teacher: 'Мектепке сынақ ҰБТ тағайындау', teacherLead: 'Мектебіңіздің оқушылары бұл күнді тіркелу кезінде көреді. Тест 4 сағат, басталуы — таңдалған уақытта.', tStart: 'Басталуы', tTitle: 'Атауы (міндетті емес)', tCreate: 'Тағайындау', tMine: 'Сіз тағайындаған', tDel: 'Жою',
-      banner: 'Барлығына бір уақытта сынақ ҰБТ', bannerNext: (d, t) => `Жақын күн: ${d}, ${t}`, bannerMine: (d, t) => `Сіз тіркелдіңіз: ${d}, ${t}`,
+      banner: 'Барлығына бір уақытта сынақ ҰБТ', chooseReg: 'Сынақ ҰБТ-ға тіркелу', chooseRegText: 'Нағыз ҰБТ сияқты: күн мен уақытты таңдап, барлығымен бірге тапсырыңыз және ТЖК бар сертификат алыңыз.', chooseNow: 'Сынақ ҰБТ-ны қазір тапсыру', chooseNowText: 'Кез келген уақытта жаттығу нұсқасы: 120 тапсырма, 4 сағат, тесттен кейін бірден қателерді талдау.', chooseNowBtn: 'Пәндерді таңдау', bannerNext: (d, t) => `Жақын күн: ${d}, ${t}`, bannerMine: (d, t) => `Сіз тіркелдіңіз: ${d}, ${t}`,
       err: { regClosed: 'Бұл күнге тіркелу жабылды', regExists: 'Сізде тіркелу бар. Басқа күнді таңдау үшін оны болдырмаңыз', profileNeeded: 'Профильде туған күн мен телефонды толтырыңыз', notRegistered: 'Сіз бұл күнге тіркелмегенсіз', sessSoon: 'Тест әлі басталған жоқ', sessLate: 'Кіру жабылды', regStarted: 'Тест басталды — тіркелуді болдырмау мүмкін емес', sessStart: 'Басталуы — кемінде 15 минуттан кейін' }
     }
   };
@@ -117,9 +117,20 @@ window.SES = (() => {
       else if (st.step === 2) body = `<p class="muted">${t().s2lead}</p><p class="rmand">${t().mandatory}</p>
           <div class="combos combos--ent rcombos">${Object.keys(X.meta().combos).map(c => `<label><input type="radio" name="rc" value="${c}" ${c === st.combo ? 'checked' : ''}><div class="opt">${esc(comboName(c))}</div></label>`).join('')}</div>`;
       else if (st.step === 3) body = `<p class="muted">${t().s3lead}</p><div class="rlangs">${['kk', 'ru', 'en'].map(l => `<label><input type="radio" name="rl" value="${l}" ${l === st.lang ? 'checked' : ''}><span><b>${t().langs[l]}</b></span></label>`).join('')}</div>`;
-      else if (st.step === 4) body = `<p class="muted">${t().s4lead}</p>${open.length ? `<div class="rslots">${open.map(s => `<label><input type="radio" name="rs" value="${s.id}" ${s.id === st.sid ? 'checked' : ''}><span class="rslot">
-          <span class="rslot__day">${day(s.startsAt)}</span><b class="rslot__time num">${hm(s.startsAt)}</b><span class="rslot__meta">${s.kind === 'weekly' ? t().online : t().forSchool + (s.title ? ' · ' + esc(s.title) : '')}</span>
-          <span class="rslot__meta">${t().regCount(s.count || 0)} · ${t().regUntil(`${fmtDate(new Date(s.regUntil).toISOString(), X.lang())} ${hm(s.regUntil)}`)}</span></span></label>`).join('')}</div>` : `<div class="empty">${t().noSlots}</div>`}`;
+      else if (st.step === 4) {
+        // Сначала день, потом время — как при записи на ЕНТ.
+        const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };
+        const days = [...new Map(open.map(x => [dayKey(x.startsAt), x.startsAt])).entries()];
+        if (!st.day || !days.some(([k]) => k === st.day)) st.day = st.sid ? dayKey(open.find(x => x.id === st.sid)?.startsAt || open[0]?.startsAt) : days[0]?.[0];
+        const DW = X.lang() === 'kk' ? ['Жс', 'Дс', 'Сс', 'Ср', 'Бс', 'Жм', 'Сб'] : ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+        const slots = open.filter(x => dayKey(x.startsAt) === st.day);
+        body = `<p class="muted">${t().s4lead}</p>${open.length ? `
+          <div class="rdays" role="radiogroup" aria-label="${t().pickDay}">${days.map(([k, ms]) => { const d = new Date(ms); return `<button type="button" class="rday" data-day="${k}" aria-pressed="${k === st.day}"><small>${DW[d.getDay()]}</small><b class="num">${d.getDate()}</b><small>${fmtDate(d.toISOString(), X.lang()).split(' ').slice(1).join(' ')}</small></button>`; }).join('')}</div>
+          <p class="rsub">${t().pickTime}</p>
+          <div class="rslots">${slots.map(x => `<label><input type="radio" name="rs" value="${x.id}" ${x.id === st.sid ? 'checked' : ''}><span class="rslot">
+            <b class="rslot__time num">${hm(x.startsAt)}</b><span class="rslot__day">${hm(x.startsAt)}–${hm(x.endsAt)}</span><span class="rslot__meta">${x.kind === 'weekly' ? t().online : t().forSchool + (x.title ? ' · ' + esc(x.title) : '')}</span>
+            <span class="rslot__meta">${t().regCount(x.count || 0)} · ${t().regUntil(hm(x.regUntil))}</span></span></label>`).join('')}</div>` : `<div class="empty">${t().noSlots}</div>`}`;
+      }
       else {
         const s = open.find(x => x.id === st.sid);
         body = `<p class="muted">${t().s5lead}</p><dl class="rdata">
@@ -128,7 +139,7 @@ window.SES = (() => {
           <ul class="rrules">${t().rules.map(r => `<li>${r}</li>`).join('')}</ul>
           <label class="check"><input type="checkbox" id="rAgree" ${st.agree ? 'checked' : ''}> <span>${t().agree}</span></label>`;
       }
-      const canNext = st.step === 1 ? st.ok : st.step === 4 ? !!st.sid : st.step === 5 ? st.agree : true;
+      const canNext = st.step === 1 ? st.ok : st.step === 4 ? !!st.sid && open.some(x => x.id === st.sid) : st.step === 5 ? st.agree : true;
       X.app.innerHTML = page(`<h1>${t().title}</h1><p class="page__lead">${t().lead}</p>
         <ol class="rsteps">${steps}</ol>
         <section class="rcard"><h2>${st.step}. ${t().steps[st.step - 1]}</h2>${body}<p class="form-error" id="rErr" role="alert"></p>
@@ -140,6 +151,7 @@ window.SES = (() => {
       X.app.querySelectorAll('[name=rc]').forEach(r => r.onchange = () => { st.combo = r.value; });
       X.app.querySelectorAll('[name=rl]').forEach(r => r.onchange = () => { st.lang = r.value; });
       X.app.querySelectorAll('[name=rs]').forEach(r => r.onchange = () => { st.sid = r.value; $('#rNext').disabled = false; });
+      X.app.querySelectorAll('[data-day]').forEach(b => b.onclick = () => { st.day = b.dataset.day; st.sid = null; draw(); });
       on('#rBack', 'onclick', () => { st.step--; draw(); window.scrollTo(0, 0); });
       on('#rNext', 'onclick', async () => {
         if (st.step < 5) { st.step++; draw(); window.scrollTo(0, 0); return; }
@@ -231,18 +243,28 @@ window.SES = (() => {
     X.onCleanup(() => clearInterval(iv));
   }
 
-  // ---------- плашка на странице «Пробный ЕНТ» ----------
+  // ---------- выбор на странице «Пробный ЕНТ»: записаться или сдать сейчас ----------
   async function banner(el) {
     if (!el) return;
-    let d; try { d = await X.api('/api/sessions'); } catch { return; }
-    offset = d.now - Date.now();
-    const mine = d.regs.find(r => r.session.phase !== 'done' && !(r.result?.score != null));
-    const next = d.sessions.find(s => s.phase === 'reg');
-    if (!mine && !next) return;
-    el.innerHTML = `<a class="sbanner" href="${mine ? `/ent/s/${mine.session.id}` : '/ent/register'}" data-link>
-      <span class="sbanner__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></span>
-      <span class="sbanner__txt"><b>${t().banner}</b><small>${mine ? t().bannerMine(day(mine.session.startsAt), hm(mine.session.startsAt)) + ` · ${t().ikt} ${esc(mine.ikt)}` : t().bannerNext(day(next.startsAt), hm(next.startsAt))}</small></span>
-      <span class="btn btn--sm">${mine ? t().toTicket : t().newReg}</span></a>`;
+    let d = null; try { d = await X.api('/api/sessions'); offset = d.now - Date.now(); } catch {}
+    const mine = d?.regs.find(r => r.session.phase !== 'done' && !(r.result?.score != null));
+    const next = d?.sessions.find(s => s.phase === 'reg');
+    const ico = p => `<span class="echoice__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg></span>`;
+    el.innerHTML = `<div class="echoice">
+      <a class="echoice__card echoice__card--main" href="${mine ? `/ent/s/${mine.session.id}` : '/ent/register'}" data-link>
+        ${ico('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>')}
+        <b>${t().chooseReg}</b>
+        <span>${mine ? t().bannerMine(day(mine.session.startsAt), hm(mine.session.startsAt)) + ` · ${t().ikt} ${esc(mine.ikt)}` : t().chooseRegText}</span>
+        ${!mine && next ? `<small>${t().bannerNext(day(next.startsAt), hm(next.startsAt))}</small>` : ''}
+        <span class="btn">${mine ? t().toTicket : t().newReg}</span>
+      </a>
+      <button type="button" class="echoice__card" id="echNow">
+        ${ico('<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/>')}
+        <b>${t().chooseNow}</b><span>${t().chooseNowText}</span>
+        <span class="btn btn--ghost">${t().chooseNowBtn}</span>
+      </button>
+    </div>`;
+    $('#echNow').onclick = () => { const f = document.getElementById('entForm'); f?.scrollIntoView({ behavior: 'smooth', block: 'start' }); f?.querySelector('input:checked')?.focus({ preventScroll: true }); };
   }
 
   return {

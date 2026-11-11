@@ -444,3 +444,9 @@ Object.assign(window.I18N.ru.err, { usernameSoon: 'Ник можно менят�
 Object.assign(window.I18N.kk.err, { usernameSoon: 'Никті тәулігіне бір рет өзгертуге болады', friendsLimit: 'Достар мен өтінімдер тым көп' });
 
 window.I18N.ru.acc.menuEntReg = 'Запись на пробный ЕНТ'; window.I18N.kk.acc.menuEntReg = 'Сынақ ҰБТ-ға тіркелу';
+
+Object.assign(window.I18N.ru.ent, { refs: 'Справочные материалы: периодическая таблица и таблица растворимости', refsShort: 'Таблицы', fontSize: 'Размер шрифта' });
+Object.assign(window.I18N.kk.ent, { refs: 'Анықтамалық материалдар: периодтық кесте және ерігіштік кестесі', refsShort: 'Кестелер', fontSize: 'Қаріп өлшемі' });
+Object.assign(window.I18N.en.ent, { refs: 'Reference materials: periodic table and solubility table', refsShort: 'Tables', fontSize: 'Font size' });
+
+window.I18N.ru.ent.nowTitle = 'Сдать сейчас'; window.I18N.kk.ent.nowTitle = 'Қазір тапсыру'; window.I18N.en.ent.nowTitle = 'Take it now';

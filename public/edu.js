@@ -251,8 +251,9 @@ window.EDU = (() => {
     const pk = o => (o && typeof o === 'object' ? o[lang] ?? o.ru : o);
     const o = pk(q.o) || [];
     let h = '';
-    if (q.ctx) h += `<div class="eq__ctx">${fmtTxt(pk(q.ctx))}</div>`;
+    if (q.ctx) h += `<div class="eq__ctx">${fmtTxt(pk(q.ctx))}${q.cimg ? `<figure class="qfig">${q.cimg}</figure>` : ''}</div>`;
     h += `<div class="eq__text">${fmtTxt(pk(q.t))}</div>`;
+    if (q.img) h += `<figure class="qfig">${q.img}</figure>`;
     const rev = opts.key != null;
     const mark = n => {
       if (!rev) return '';

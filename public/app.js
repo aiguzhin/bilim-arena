@@ -640,6 +640,7 @@
       <div class="qcard">
         <div class="qcard__meta"><span>${L.qOf(q.i + 1, q.total)} · ${esc(qp(q.s))}</span><span class="num" id="qSec"></span></div>
         <div class="qcard__text">${esc(qp(q.t))}</div>
+        ${q.img ? `<figure class="qfig qfig--battle">${q.img}</figure>` : ''}
         <div class="qtimer" id="qTimer"><i id="qBar"></i></div>
         <div class="answers" id="answers">
           ${qp(q.o).map((o, i) => `<button class="answer${keepState && picked === i ? ' picked' : ''}" data-i="${i}" ${keepState && picked !== null ? 'disabled' : ''}><span class="k">${LETTERS[i]}</span><span>${esc(o)}</span></button>`).join('')}

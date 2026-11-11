@@ -127,6 +127,8 @@ function view(it, withKey, answer) {
   const v = { type: kindOf(q), t: q.t, o: reorder(q.o) };
   if (q.l) v.l = q.l;
   if (q.ctx) { v.ctx = q.ctx; v.c = q.c; }
+  if (q.img) v.img = q.img;
+  if (q.cimg) v.cimg = q.cimg;
   if (q.type === 'm') v.need = q.a.length > 1 ? 'many' : 'any';
   if (withKey) {
     const shown = x => it.ord.indexOf(x);
