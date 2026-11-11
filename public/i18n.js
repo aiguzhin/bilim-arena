@@ -402,3 +402,21 @@ Object.assign(window.I18N.kk, { gInApp: 'Google арқылы кіру кірік
 
 Object.assign(window.I18N.ru, { tbHome: 'Главная', tbEnt: 'ЕНТ', tbPlay: 'Играть', tbTours: 'Турниры', tbRating: 'Рейтинг' });
 Object.assign(window.I18N.kk, { tbHome: 'Басты', tbEnt: 'ҰБТ', tbPlay: 'Ойнау', tbTours: 'Турнир', tbRating: 'Рейтинг' });
+
+Object.assign(window.I18N.ru, {
+  sizeLabel: 'Сколько игроков', sizeDuel: 'дуэль', sizePlayers: 'игроков', sizeHint: 'В игре на 4, 5 или 10 человек каждый играет сам за себя: побеждает тот, кто наберёт больше очков.',
+  quickBtnN: n => `Найти игру на ${n}`, createLink: 'Позвать друга по ссылке',
+  qwTitle1: 'Ищем соперника', qwTitleN: (n, s) => `Собираем игроков: ${n} из ${s}`, qwNote1: 'Обычно это занимает до минуты. Можно отменить в любой момент.',
+  qwNoteN: 'Как только наберётся группа, игра начнётся сама.', qwStartsIn: s => `Если группа не наберётся, игра начнётся через ${s} с с теми, кто уже нашёлся.`,
+  lobbyArena: 'Арена', waitArena: 'Ждём остальных игроков — игра начнётся автоматически.', leaveLobby: 'Выйти', quitGame: 'Выйти из игры',
+  arenaPlace: (p, n) => `Место ${p} из ${n}`, arenaRes: (p, n) => `${p} место из ${n}`, arenaTable: 'Итоговая таблица'
+});
+Object.assign(window.I18N.kk, {
+  sizeLabel: 'Неше ойыншы', sizeDuel: 'жекпе-жек', sizePlayers: 'ойыншы', sizeHint: '4, 5 немесе 10 адамдық ойында әркім өзі үшін ойнайды: ең көп ұпай жинаған жеңеді.',
+  quickBtnN: n => `${n} адамдық ойын табу`, createLink: 'Досты сілтемемен шақыру',
+  qwTitle1: 'Қарсылас іздеп жатырмыз', qwTitleN: (n, s) => `Ойыншылар жиналуда: ${s}-тің ${n}-і`, qwNote1: 'Әдетте бір минутқа дейін созылады. Кез келген уақытта тоқтатуға болады.',
+  qwNoteN: 'Топ жиналғанда ойын өзі басталады.', qwStartsIn: s => `Топ толмаса, ойын ${s} секундтан кейін табылған ойыншылармен басталады.`,
+  lobbyArena: 'Арена', waitArena: 'Қалған ойыншыларды күтеміз — ойын өзі басталады.', leaveLobby: 'Шығу', quitGame: 'Ойыннан шығу',
+  arenaPlace: (p, n) => `${n} ішінде ${p}-орын`, arenaRes: (p, n) => `${n} ойыншының ішінде ${p}-орын`, arenaTable: 'Қорытынды кесте'
+});
+window.I18N.ru.modeName.arena = 'Арена'; window.I18N.kk.modeName.arena = 'Арена';

@@ -358,7 +358,34 @@ app.post('/api/ent/:id/finish', auth, wrap(async (req, res) => {
 
 // ---------- комнаты ----------
 const rooms = new Map();
-const queue = new Map(); // topic -> socket
+const queues = new Map(); // тема|язык|размер -> { list: [сокеты], since }
+const QUICK_SIZES = [2, 4, 5, 10];
+const QUICK_WAIT_MS = 40000; // арена стартует с теми, кто нашёлся (от двух), если группа не набралась за 40 секунд
+const notifyQueue = q => { for (const s of q.list) s.emit('queue', { n: q.list.length, size: q.size, startsIn: q.size > 2 && q.list.length >= 2 ? Math.max(0, q.since + QUICK_WAIT_MS - Date.now()) : null }); };
+function leaveQueues(socket) {
+  for (const [k, q] of queues) {
+    const before = q.list.length;
+    q.list = q.list.filter(s => s.id !== socket.id);
+    if (!q.list.length) queues.delete(k); else if (q.list.length !== before) notifyQueue(q);
+  }
+}
+function formMatch(key) {
+  const q = queues.get(key); if (!q) return;
+  const list = q.list.splice(0, q.size);
+  if (!q.list.length) queues.delete(key); else { q.since = Date.now(); notifyQueue(q); }
+  const r = makeRoom(list.length === 2 ? 'duel' : 'arena', q.subject, list[0].id, q.lang);
+  r.expect = list.length;
+  for (const s of list) s.emit('matched', { code: r.code });
+  // Если кто-то не дошёл до комнаты, через 12 секунд начинаем с теми, кто на месте.
+  setTimeout(() => { if (r.state === 'lobby' && r.players.size >= 2 && rooms.has(r.code)) startGame(r); }, 12000);
+}
+setInterval(() => {
+  for (const [k, q] of queues) {
+    q.list = q.list.filter(s => s.connected);
+    if (!q.list.length) { queues.delete(k); continue; }
+    if (q.size > 2 && q.list.length >= 2 && Date.now() - q.since >= QUICK_WAIT_MS) formMatch(k);
+  }
+}, 2000);
 
 function code() {
   const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -414,7 +441,7 @@ function publicRoom(r) {
   }));
   return {
     code: r.code, mode: r.mode, subject: r.subject, lang: r.lang, subjectName: topicName(r.subject), state: r.state,
-    hostSid: r.hostSid, players, teams: teamScores(r), total: ROUND
+    hostSid: r.hostSid, players, teams: teamScores(r), total: ROUND, expect: r.expect || null
   };
 }
 
@@ -486,6 +513,11 @@ async function finish(r) {
     deltas[a.sid] = da; deltas[b.sid] = -da;
     wins[a.sid] = res === 1; wins[b.sid] = res === 0;
     winner = res === 1 ? a.sid : res === 0 ? b.sid : null;
+  } else if (r.mode === 'arena') {
+    // Каждый сам за себя: очки рейтинга по занятому месту — от +24 за первое до −24 за последнее.
+    const n = ranking.length;
+    ranking.forEach((p, i) => { deltas[p.sid] = n > 1 ? Math.round(24 * (n - 1 - 2 * i) / (n - 1)) : 0; wins[p.sid] = n > 1 && i === 0; });
+    winner = n > 1 ? ranking[0].sid : null;
   } else if (r.mode === 'class') {
     const t = teamScores(r);
     winner = t.A.avg === t.B.avg ? null : t.A.avg > t.B.avg ? 'A' : 'B';
@@ -538,6 +570,7 @@ io.on('connection', socket => {
     if (r.state !== 'lobby') return false;
     if (r.mode === 'duel' && r.players.size >= 2) return false;
     if (r.mode === 'solo' && r.players.size >= 1) return false;
+    if (r.mode === 'arena' && r.players.size >= (r.expect || 10)) return false;
     const counts = teamScores(r);
     r.players.set(socket.id, {
       sid: socket.id, pid: profile.id, name: profile.name, school: profile.school, city: profile.city,
@@ -571,6 +604,7 @@ io.on('connection', socket => {
       socket.emit('question', { i: r.i, total: r.questions.length, t: q.t, s: q.s, o: q.o, endsAt: r.endsAt, duration: QUESTION_MS });
     }
     if (r.mode === 'duel' && r.state === 'lobby' && r.players.size === 2) startGame(r);
+    if (r.mode === 'arena' && r.state === 'lobby' && r.players.size >= r.expect) startGame(r);
   });
 
   socket.on('team', ({ code, team } = {}) => {
@@ -599,24 +633,24 @@ io.on('connection', socket => {
     maybeEarlyReveal(r);
   });
 
-  socket.on('quick', ({ subject, lang } = {}, ack) => {
+  // Быстрый поиск: дуэль (2 игрока) или арена на 4, 5, 10 игроков — каждый сам за себя.
+  socket.on('quick', ({ subject, lang, size } = {}, ack) => {
     if (!profile || !validTopic(subject)) return ack?.({ error: 'pick' });
     const ql = LANGS.includes(lang) ? lang : 'ru';
-    const key = `${subject}|${ql}`;
-    const other = queue.get(key);
-    if (other && other.connected && other.id !== socket.id && other.data.pid !== profile.id) {
-      queue.delete(key);
-      const r = makeRoom('duel', subject, other.id, ql);
-      other.emit('matched', { code: r.code });
-      ack?.({ code: r.code });
-    } else {
-      socket.data.pid = profile.id;
-      queue.set(key, socket);
-      ack?.({ waiting: true });
-    }
+    const n = QUICK_SIZES.includes(size) ? size : 2;
+    leaveQueues(socket);
+    const key = `${subject}|${ql}|${n}`;
+    const q = queues.get(key) || { list: [], since: Date.now(), subject, lang: ql, size: n };
+    q.list = q.list.filter(s => s.connected && s.data.pid !== profile.id);
+    if (!q.list.length) q.since = Date.now();
+    socket.data.pid = profile.id;
+    q.list.push(socket); queues.set(key, q);
+    if (q.list.length === 2) q.since = Date.now();
+    ack?.({ waiting: true, n: q.list.length, size: n });
+    if (q.list.length >= n) formMatch(key); else notifyQueue(q);
   });
 
-  socket.on('cancel_quick', () => { for (const [k, s] of queue) if (s.id === socket.id) queue.delete(k); });
+  socket.on('cancel_quick', () => leaveQueues(socket));
 
   socket.on('invite', ({ from, code } = {}) => {
     if (profile && rooms.has(code) && typeof from === 'string') socket.to(from).emit('invite', { code, name: profile.name });
@@ -638,7 +672,7 @@ io.on('connection', socket => {
   }
 
   socket.on('disconnect', () => {
-    for (const [k, s] of queue) if (s.id === socket.id) queue.delete(k);
+    leaveQueues(socket);
     for (const r of rooms.values()) if (r.players.has(socket.id)) leaveRoom(r.code);
   });
 });

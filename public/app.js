@@ -370,6 +370,7 @@
     const isCombo = saved.startsWith('combo:');
     const comboKeys = Object.keys(meta.combos);
     const profileSubs = Object.keys(meta.subjects).filter(k => !meta.mandatory.includes(k));
+    const qsize = [2, 4, 5, 10].includes(+store.get('ba_qsize')) ? +store.get('ba_qsize') : 2;
     const radio = (k, label) => `<label><input type="radio" name="topic" value="${k}" ${k === saved ? 'checked' : ''}><span>${esc(label)}</span></label>`;
 
     app.innerHTML = `
@@ -402,14 +403,23 @@
           </div>
         </div>
         <p class="form-error" id="setupError" role="alert"></p>
+        <div id="sizeBox">
+          <div class="choose__label">${L.sizeLabel}</div>
+          <div class="sizes" role="radiogroup">${[2, 4, 5, 10].map(n => `<label><input type="radio" name="size" value="${n}" ${n === qsize ? 'checked' : ''}><span><b>${n === 2 ? '1 × 1' : n}</b><small>${n === 2 ? L.sizeDuel : L.sizePlayers}</small></span></label>`).join('')}</div>
+          <p class="hint">${L.sizeHint}</p>
+        </div>
         <div class="choose__actions">
-          <button class="btn" id="createBtn"></button>
-          <button class="btn btn--ghost" type="button" id="quickBtn">${L.quickBtn}</button>
+          <button class="btn btn--ghost" id="createBtn"></button>
+          <button class="btn" type="button" id="quickBtn"></button>
         </div>
       </form>
-      <div id="quickWait" hidden class="panel" style="margin-top:24px">
-        <div class="wait" style="margin:0"><span class="dots"><i></i><i></i><i></i></span><span id="qwText"></span></div>
-        <button class="btn btn--ghost btn--sm" style="margin-top:16px" id="quickCancel">${L.quickCancel}</button>
+      <div id="quickWait" hidden class="qwait">
+        <div class="qwait__spin" aria-hidden="true"><span></span></div>
+        <h2 id="qwTitle"></h2>
+        <p class="muted" id="qwText"></p>
+        <div class="qwait__slots" id="qwSlots"></div>
+        <p class="hint" id="qwNote"></p>
+        <button class="btn btn--ghost btn--block" id="quickCancel">${L.quickCancel}</button>
       </div>
     </div></div>`;
 
@@ -429,7 +439,13 @@
     });
     const checked = form.querySelector('input[name=topic]:checked'); if (checked) checked.setAttribute('data-last', '');
 
-    const sync = () => { $('#quickBtn').hidden = form.mode.value !== 'duel'; $('#createBtn').textContent = form.mode.value === 'solo' ? L.startSoloBtn : L.createBtn; };
+    const sync = () => {
+      const duel = form.mode.value === 'duel';
+      $('#quickBtn').hidden = !duel; $('#sizeBox').hidden = !duel;
+      $('#quickBtn').textContent = +form.size.value === 2 ? L.quickBtn : L.quickBtnN(+form.size.value);
+      $('#createBtn').textContent = form.mode.value === 'solo' ? L.startSoloBtn : duel ? L.createLink : L.createBtn;
+      $('#createBtn').className = duel ? 'btn btn--ghost' : 'btn';
+    };
     form.addEventListener('change', sync); sync();
 
     form.onsubmit = async e => {
@@ -442,16 +458,29 @@
       });
     };
 
+    let qInfo = null;
+    const drawWait = d => {
+      qInfo = { ...qInfo, ...d };
+      const { n = 1, size = 2, startsIn = null } = qInfo;
+      $('#qwTitle').textContent = size === 2 ? L.qwTitle1 : L.qwTitleN(n, size);
+      $('#qwSlots').innerHTML = size === 2 ? '' : Array.from({ length: size }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+      $('#qwNote').textContent = size === 2 ? L.qwNote1 : startsIn != null ? L.qwStartsIn(Math.ceil(startsIn / 1000)) : L.qwNoteN;
+    };
     $('#quickBtn').onclick = async () => {
       const t = topic(); store.set('ba_topic', t);
+      const size = +form.size.value; store.set('ba_qsize', size);
       const ql = await chooseLang(); if (!ql) return;
-      $('#qwText').textContent = L.quickWait(`${topicName(t)} · ${LANGN[ql]}`);
-      socket.emit('quick', { subject: t, lang: ql }, r => {
+      $('#qwText').textContent = `${topicName(t)} · ${LANGN[ql]}`;
+      qInfo = null;
+      socket.emit('quick', { subject: t, lang: ql, size }, r => {
         if (r?.error) { $('#setupError').textContent = L.err[r.error] || r.error; return; }
         if (r.code) return joinFlow(r.code, true);
-        form.hidden = true; $('#quickWait').hidden = false;
+        form.hidden = true; $('#quickWait').hidden = false; drawWait(r); window.scrollTo(0, 0);
       });
     };
+    const onQueue = d => { if (!$('#quickWait')?.hidden) drawWait(d); };
+    socket.on('queue', onQueue);
+    cleanup.push(() => socket.off('queue', onQueue));
     $('#quickCancel').onclick = () => { socket.emit('cancel_quick'); $('#quickWait').hidden = true; form.hidden = false; };
     const onMatch = ({ code }) => joinFlow(code, true);
     socket.on('matched', onMatch);
@@ -495,7 +524,7 @@
   function viewLobby() {
     reset();
     const topic = pick(room.subjectName) + (room.lang ? ` · ${LANGN[room.lang]}` : '');
-    const titleMode = room.mode === 'class' ? L.lobbyClass : room.mode === 'solo' ? L.lobbySolo : L.lobbyDuel;
+    const titleMode = room.mode === 'class' ? L.lobbyClass : room.mode === 'solo' ? L.lobbySolo : room.mode === 'arena' ? L.lobbyArena : L.lobbyDuel;
     setTitle(titleMode);
     const link = `${location.origin}/b/${room.code}`;
     const isHost = room.hostSid === socket.id;
@@ -529,14 +558,16 @@
             </div>
             ${isHost ? `<button class="btn btn--block" style="margin-top:16px" id="startBtn">${L.startGame}</button><p class="form-error" id="startError"></p>` : `<div class="wait"><span class="dots"><i></i><i></i><i></i></span>${L.waitHost}</div>`}
           ` : `
-            <b>${L.players}</b>
+            <b>${L.players}${room.expect ? ` <span class="num muted">${players.length} / ${room.expect}</span>` : ''}</b>
             <ul class="plist">${players.map(playerLi).join('')}</ul>
-            ${players.length < 2 ? `<div class="wait"><span class="dots"><i></i><i></i><i></i></span>${L.waitOpp}</div>` : ''}
+            ${room.mode === 'arena' ? `<div class="wait"><span class="dots"><i></i><i></i><i></i></span>${L.waitArena}</div>` : players.length < 2 ? `<div class="wait"><span class="dots"><i></i><i></i><i></i></span>${L.waitOpp}</div>` : ''}
           `}
         </div>
       </div>
+      <div class="lobby__leave"><button class="btn btn--ghost" id="leaveBtn">${L.leaveLobby}</button></div>
     </div></div>`;
 
+    $('#leaveBtn').onclick = () => { leaveRoom(); go('/play'); };
     $('#copyBtn').onclick = async () => {
       try { await navigator.clipboard.writeText(link); } catch { $('#linkInput').select(); document.execCommand('copy'); }
       toast(L.copied);
@@ -572,6 +603,14 @@
         <div class="side side--r"><div class="side__name">${L.team(2)}${mine?.team === 'B' ? L.yours : ''}</div><div class="side__school">${L.nPlayers(room.teams.B.players)}</div></div></div>
         <div class="gbar__progress"><span>${L.teamAvg}</span><span>${L.yourScore(mine?.score ?? 0)}</span></div>`;
     }
+    if (room.mode === 'arena') {
+      const sorted = [...ps].sort((a, b) => b.score - a.score);
+      const me = sorted.find(p => p.sid === socket.id) || sorted[0];
+      const place = sorted.indexOf(me) + 1;
+      return `<div class="arena">${sorted.slice(0, 5).map((p, i) => `<div class="arena__p ${p.sid === socket.id ? 'is-me' : ''} ${p.connected ? '' : 'is-off'}"><span class="arena__n">${i + 1}</span><span class="arena__name">${esc(p.name)}</span>${p.answered ? '<i class="arena__ok" aria-hidden="true"></i>' : ''}<b class="num">${p.score}</b></div>`).join('')}
+        ${place > 5 ? `<div class="arena__p is-me"><span class="arena__n">${place}</span><span class="arena__name">${esc(me.name)}</span><b class="num">${me.score}</b></div>` : ''}</div>
+        <div class="gbar__progress"><span>${L.arenaPlace(place, sorted.length)}</span><span>${L.yourScore(me?.score ?? 0)}</span></div>`;
+    }
     const mine = ps.find(p => p.sid === socket.id) || ps[0];
     return `<div class="board__score"><div class="side"><div class="side__name">${esc(mine?.name)}</div><div class="side__school">${L.practice}</div></div><div class="score"><span>${mine?.score ?? 0}</span></div><div></div></div>`;
   }
@@ -594,7 +633,9 @@
         </div>
         <div id="explain"></div>
       </div>
+      <div class="game__leave"><button class="linkbtn" id="quitBtn">${L.quitGame}</button></div>
     </div>`;
+    $('#quitBtn').onclick = () => { if (confirm(L.leaveConfirm)) { leaveRoom(); go('/play'); } };
     if (keepState && lastReveal?.i === q.i) return showReveal(lastReveal);
     const bar = $('#qBar'), sec = $('#qSec');
     const draw = () => {
@@ -634,11 +675,12 @@
     let title;
     if (d.mode === 'duel') title = d.winner === null ? L.draw : d.winner === socket.id ? L.win : L.lose;
     else if (d.mode === 'class') { const myTeam = room.players.find(p => p.sid === socket.id)?.team; title = d.winner === null ? L.draw : d.winner === myTeam ? L.teamWin : L.teamLose; }
+    else if (d.mode === 'arena') { const pl = d.ranking.findIndex(p => p.sid === socket.id) + 1; title = pl === 1 ? L.win : L.arenaRes(pl, d.ranking.length); }
     else title = L.soloRes(correct, n);
     setTitle(title);
     const delta = d.change;
     const opp = d.mode === 'duel' ? d.ranking.find(p => p.sid !== socket.id) : null;
-    const lead = d.mode === 'duel' && opp ? `${esc(mine?.name)} ${mine?.score} : ${opp.score} ${esc(opp.name)}.` : d.mode === 'class' ? L.classLead(d.teams.A.avg, d.teams.B.avg, mine?.score ?? 0) + '.' : L.soloLead(mine?.score ?? 0) + '.';
+    const lead = d.mode === 'duel' && opp ? `${esc(mine?.name)} ${mine?.score} : ${opp.score} ${esc(opp.name)}.` : d.mode === 'class' ? L.classLead(d.teams.A.avg, d.teams.B.avg, mine?.score ?? 0) + '.' : d.mode === 'arena' ? L.soloLead(mine?.score ?? 0) + '.' : L.soloLead(mine?.score ?? 0) + '.';
 
     app.innerHTML = `
     <div class="page"><div class="wrap narrow">
@@ -648,9 +690,10 @@
         ${d.mode !== 'solo' ? `<span class="delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero'} num">${delta > 0 ? '+' : ''}${delta} ${L.toRating}</span>` : ''}
       </div>
       <div class="result__actions">
-        ${d.mode === 'duel' ? `<button class="btn" id="rematch">${L.again}</button>` : `<a href="/play?mode=${d.mode}" data-link class="btn">${d.mode === 'solo' ? L.again : L.newBattle}</a>`}
+        ${d.mode === 'duel' ? `<button class="btn" id="rematch">${L.again}</button>` : d.mode === 'arena' ? `<a href="/play?mode=duel" data-link class="btn">${L.again}</a>` : `<a href="/play?mode=${d.mode}" data-link class="btn">${d.mode === 'solo' ? L.again : L.newBattle}</a>`}
         <a href="/rating" data-link class="btn btn--ghost">${L.navRating}</a>
       </div>
+      ${d.mode === 'arena' ? `<h2 style="font-size:22px;margin-bottom:12px">${L.arenaTable}</h2><table class="table" style="margin-bottom:36px"><tbody>${d.ranking.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''} ${p.sid === socket.id ? 'is-me' : ''}"><td class="pos">${i + 1}</td><td>${esc(p.name)}<div class="sub">${esc(p.school || '')} · ${L.correctN(p.correct, n)}</div></td><td class="r">${p.score}</td></tr>`).join('')}</tbody></table>` : ''}
       ${d.mode === 'class' ? `<h2 style="font-size:22px;margin-bottom:12px">${L.bestPlayers}</h2><table class="table" style="margin-bottom:36px"><tbody>${d.ranking.slice(0, 10).map((p, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(p.name)}<div class="sub">${L.team(p.team === 'A' ? 1 : 2)}</div></td><td class="r">${p.score}</td></tr>`).join('')}</tbody></table>` : ''}
       <h2 style="font-size:22px;margin-bottom:12px">${L.review}</h2>
       <label class="filter"><input type="checkbox" id="onlyMiss" ${correct < n ? 'checked' : ''}> ${L.onlyMiss}</label>
@@ -676,9 +719,9 @@
     $('#onlyMiss').onchange = drawReview; drawReview();
 
     $('#rematch')?.addEventListener('click', () => {
-      const subject = room.subject, from = room.code;
+      const subject = room.subject, from = room.code, rlang = room.lang;
       room = null; lastEnd = null;
-      socket.emit('create', { mode: 'duel', subject, lang: lastEnd?.room?.lang || room?.lang }, r => {
+      socket.emit('create', { mode: 'duel', subject, lang: rlang }, r => {
         if (!r?.code) return;
         history.replaceState({}, '', `/b/${r.code}`);
         socket.emit('invite', { from, code: r.code });

@@ -1013,3 +1013,35 @@ a, button, label, select, input { -webkit-tap-highlight-color: transparent; touc
   .phead__actions .btn { font-size: 12px; }
   .lang-seg button { min-width: 34px; padding: 6px; }
 }
+
+/* размер игры и ожидание */
+.sizes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.sizes label { cursor: pointer; }
+.sizes input { position: absolute; opacity: 0; pointer-events: none; }
+.sizes span { display: grid; justify-items: center; gap: 2px; padding: 12px 6px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--card); }
+.sizes b { font: 700 20px/1.1 var(--display); color: var(--heading); }
+.sizes small { font-size: 12px; color: var(--ink-3); font-weight: 600; }
+.sizes input:checked + span { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 1px var(--blue); }
+.sizes input:focus-visible + span { outline: 3px solid var(--blue); outline-offset: 2px; }
+.qwait { margin-top: 24px; padding: 32px 24px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--card); text-align: center; display: grid; gap: 10px; justify-items: center; }
+.qwait h2 { font-size: 22px; }
+.qwait .btn { max-width: 320px; margin-top: 8px; }
+.qwait__spin { width: 64px; height: 64px; border-radius: 50%; border: 4px solid var(--blue-soft); border-top-color: var(--blue); animation: spin 1s linear infinite; margin-bottom: 6px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.qwait__slots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin: 4px 0; }
+.qwait__slots:empty { display: none; }
+.qwait__slots i { width: 22px; height: 22px; border-radius: 50%; background: var(--field); border: 1.5px solid var(--line); transition: background .3s; }
+.qwait__slots i.on { background: var(--blue); border-color: var(--blue); }
+.lobby__leave { margin-top: 20px; }
+.game__leave { text-align: center; margin: 18px 0 8px; }
+.game__leave .linkbtn { color: var(--ink-3); font-size: 14px; }
+.arena { display: grid; gap: 4px; }
+.arena__p { display: grid; grid-template-columns: 22px 1fr auto auto; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 8px; font-size: 14px; }
+.arena__p.is-me { background: rgba(255,255,255,.14); font-weight: 700; }
+.arena__p.is-off { opacity: .5; }
+.arena__n { opacity: .7; font-variant-numeric: tabular-nums; }
+.arena__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arena__ok { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+@media (prefers-reduced-motion: reduce) { .qwait__spin { animation-duration: 3s; } }
+@media (max-width: 760px) { .sizes b { font-size: 18px; } .qwait { padding: 26px 18px; } .lobby__leave .btn { width: 100%; } }
+@media (max-width: 760px) { body:has(.game) .tabbar, body:has(.count) .tabbar { display: none; } body:has(.game), body:has(.count) { padding-bottom: 0; } }
