@@ -361,7 +361,7 @@ const rooms = new Map();
 const queues = new Map(); // тема|язык|размер -> { list: [сокеты], since }
 const QUICK_SIZES = [2, 4, 5, 10];
 const QUICK_WAIT_MS = 40000; // арена стартует с теми, кто нашёлся (от двух), если группа не набралась за 40 секунд
-const notifyQueue = q => { for (const s of q.list) s.emit('queue', { n: q.list.length, size: q.size, startsIn: q.size > 2 && q.list.length >= 2 ? Math.max(0, q.since + QUICK_WAIT_MS - Date.now()) : null }); };
+const notifyQueue = q => { const players = q.list.map(s => s.data.card).filter(Boolean); for (const s of q.list) s.emit('queue', { n: q.list.length, size: q.size, players, startsIn: q.size > 2 && q.list.length >= 2 ? Math.max(0, q.since + QUICK_WAIT_MS - Date.now()) : null }); };
 function leaveQueues(socket) {
   for (const [k, q] of queues) {
     const before = q.list.length;
@@ -436,7 +436,7 @@ function makeRoom(mode, subject, hostSid, lang) {
 
 function publicRoom(r) {
   const players = [...r.players.values()].map(p => ({
-    sid: p.sid, name: p.name, school: p.school, city: p.city, team: p.team,
+    sid: p.sid, name: p.name, username: p.username, avatar: p.avatar, photo: p.photo, school: p.school, city: p.city, team: p.team,
     score: p.score, connected: p.connected, answered: r.state === 'playing' && p.answers[r.i] !== undefined
   }));
   return {
@@ -541,11 +541,15 @@ async function finish(r) {
   for (const p of list) {
     io.to(p.sid).emit('end', {
       room: publicRoom(r), mode: r.mode, winner, change: changes[p.sid] ?? 0,
-      ranking: ranking.map(x => ({ sid: x.sid, name: x.name, school: x.school, team: x.team, score: x.score, correct: x.answers.filter(a => a?.correct).length })),
+      ranking: ranking.map(x => ({ sid: x.sid, name: x.name, username: x.username, avatar: x.avatar, photo: x.photo, school: x.school, team: x.team, score: x.score, correct: x.answers.filter(a => a?.correct).length })),
       teams: teamScores(r), review, mine: r.questions.map((_, i) => p.answers[i]?.choice ?? null)
     });
   }
 }
+
+// Карточка игрока для комнат и поиска: имя, ник, цвет аватара и ссылка на фото (не само фото).
+const card = p => ({ id: p.id, name: p.name, school: p.school, city: p.city, username: p.username, avatar: p.avatar || null,
+  photo: p.photo ? `/p/${p.username}?v=${crypto.createHash('md5').update(p.photo).digest('hex').slice(0, 8)}` : null });
 
 // ---------- сокеты ----------
 io.use(async (socket, next) => {
@@ -557,10 +561,10 @@ io.use(async (socket, next) => {
 
 io.on('connection', socket => {
   const pl = socket.data.player;
-  let profile = { id: pl.id, name: pl.name, school: pl.school, city: pl.city };
+  let profile = card(pl);
   socket.on('profile_updated', async () => {
     const p = await db.get(profile.id).catch(() => null);
-    if (p) profile = { id: p.id, name: p.name, school: p.school, city: p.city };
+    if (p) profile = card(p);
   });
 
   const join = (r, team) => {
@@ -573,7 +577,7 @@ io.on('connection', socket => {
     if (r.mode === 'arena' && r.players.size >= (r.expect || 10)) return false;
     const counts = teamScores(r);
     r.players.set(socket.id, {
-      sid: socket.id, pid: profile.id, name: profile.name, school: profile.school, city: profile.city,
+      sid: socket.id, pid: profile.id, name: profile.name, school: profile.school, city: profile.city, username: profile.username, avatar: profile.avatar, photo: profile.photo,
       team: r.mode === 'class' ? (team === 'A' || team === 'B' ? team : counts.A.players <= counts.B.players ? 'A' : 'B') : null,
       score: 0, time: 0, answers: [], connected: true
     });
@@ -643,11 +647,10 @@ io.on('connection', socket => {
     const q = queues.get(key) || { list: [], since: Date.now(), subject, lang: ql, size: n };
     q.list = q.list.filter(s => s.connected && s.data.pid !== profile.id);
     if (!q.list.length) q.since = Date.now();
-    socket.data.pid = profile.id;
+    socket.data.pid = profile.id; socket.data.card = { name: profile.name, username: profile.username, avatar: profile.avatar, photo: profile.photo, school: profile.school };
     q.list.push(socket); queues.set(key, q);
     if (q.list.length === 2) q.since = Date.now();
-    ack?.({ waiting: true, n: q.list.length, size: n });
-    if (q.list.length >= n) formMatch(key); else notifyQueue(q);
+    if (q.list.length >= n) { ack?.({ waiting: true, n: q.list.length, size: n }); formMatch(key); } else { ack?.({ waiting: true }); notifyQueue(q); }
   });
 
   socket.on('cancel_quick', () => leaveQueues(socket));

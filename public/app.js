@@ -461,9 +461,14 @@
     let qInfo = null;
     const drawWait = d => {
       qInfo = { ...qInfo, ...d };
-      const { n = 1, size = 2, startsIn = null } = qInfo;
+      const { n = 1, size = 2, startsIn = null, players = [] } = qInfo;
+      const list = players.length ? players : [me];
       $('#qwTitle').textContent = size === 2 ? L.qwTitle1 : L.qwTitleN(n, size);
-      $('#qwSlots').innerHTML = size === 2 ? '' : Array.from({ length: size }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+      $('#qwSlots').innerHTML = Array.from({ length: size }, (_, i) => {
+        const p = list[i];
+        return p ? `<div class="qslot is-on">${ACC.avatar(p, 'md')}<b>${esc(p.name)}</b><small>@${esc(p.username)}</small>${p.username === me.username ? `<em>${L.you}</em>` : ''}</div>`
+          : `<div class="qslot"><span class="qslot__empty" aria-hidden="true">?</span><b>${L.qwFree}</b><small>&nbsp;</small></div>`;
+      }).join('');
       $('#qwNote').textContent = size === 2 ? L.qwNote1 : startsIn != null ? L.qwStartsIn(Math.ceil(startsIn / 1000)) : L.qwNoteN;
     };
     $('#quickBtn').onclick = async () => {
@@ -530,7 +535,7 @@
     const isHost = room.hostSid === socket.id;
     const msg = room.mode === 'class' ? L.shareClass(topic, link) : L.shareDuel(topic, link);
     const players = room.players;
-    const playerLi = p => `<li><span>${esc(p.name)}${p.sid === socket.id ? ` <span class="tag">${L.you}</span>` : ''}<br><span class="sub">${esc(p.school)}${p.city ? ', ' + esc(cityName(p.city)) : ''}</span></span>${p.sid === room.hostSid ? `<span class="tag">${L.host}</span>` : ''}</li>`;
+    const playerLi = p => `<li><span class="who">${p.username ? ACC.avatar(p, 'sm') : ''}<span>${esc(p.name)}${p.sid === socket.id ? ` <span class="tag">${L.you}</span>` : ''}<br><span class="sub">${p.username ? '@' + esc(p.username) + ' · ' : ''}${esc(p.school)}${p.city ? ', ' + esc(cityName(p.city)) : ''}</span></span></span>${p.sid === room.hostSid ? `<span class="tag">${L.host}</span>` : ''}</li>`;
     const mine = players.find(p => p.sid === socket.id);
 
     app.innerHTML = `
@@ -591,9 +596,9 @@
     if (room.mode === 'duel' && ps.length === 2) {
       const a = ps.find(p => p.sid === socket.id) || ps[0], b = ps.find(p => p !== a);
       return `<div class="board__score">
-        <div class="side"><div class="side__name">${esc(a.name)}</div><div class="side__school">${a.answered ? L.answered : L.thinking}</div></div>
+        <div class="side"><div class="side__name">${a.username ? ACC.avatar(a, 'xs') : ''}${esc(a.name)}</div><div class="side__school">${a.answered ? L.answered : L.thinking}</div></div>
         <div class="score"><span>${a.score}</span><span>:</span><span>${b.score}</span></div>
-        <div class="side side--r"><div class="side__name">${esc(b.name)}${b.connected ? '' : L.left}</div><div class="side__school">${b.answered ? L.answered : L.thinking}</div></div></div>`;
+        <div class="side side--r"><div class="side__name">${esc(b.name)}${b.connected ? '' : L.left}${b.username ? ACC.avatar(b, 'xs') : ''}</div><div class="side__school">${b.answered ? L.answered : L.thinking}</div></div></div>`;
     }
     if (room.mode === 'class') {
       const mine = ps.find(p => p.sid === socket.id);
@@ -607,8 +612,8 @@
       const sorted = [...ps].sort((a, b) => b.score - a.score);
       const me = sorted.find(p => p.sid === socket.id) || sorted[0];
       const place = sorted.indexOf(me) + 1;
-      return `<div class="arena">${sorted.slice(0, 5).map((p, i) => `<div class="arena__p ${p.sid === socket.id ? 'is-me' : ''} ${p.connected ? '' : 'is-off'}"><span class="arena__n">${i + 1}</span><span class="arena__name">${esc(p.name)}</span>${p.answered ? '<i class="arena__ok" aria-hidden="true"></i>' : ''}<b class="num">${p.score}</b></div>`).join('')}
-        ${place > 5 ? `<div class="arena__p is-me"><span class="arena__n">${place}</span><span class="arena__name">${esc(me.name)}</span><b class="num">${me.score}</b></div>` : ''}</div>
+      return `<div class="arena">${sorted.slice(0, 5).map((p, i) => `<div class="arena__p ${p.sid === socket.id ? 'is-me' : ''} ${p.connected ? '' : 'is-off'}"><span class="arena__n">${i + 1}</span><span class="arena__name">${p.username ? ACC.avatar(p, 'xs') : ''}${esc(p.name)}</span>${p.answered ? '<i class="arena__ok" aria-hidden="true"></i>' : ''}<b class="num">${p.score}</b></div>`).join('')}
+        ${place > 5 ? `<div class="arena__p is-me"><span class="arena__n">${place}</span><span class="arena__name">${me.username ? ACC.avatar(me, 'xs') : ''}${esc(me.name)}</span><b class="num">${me.score}</b></div>` : ''}</div>
         <div class="gbar__progress"><span>${L.arenaPlace(place, sorted.length)}</span><span>${L.yourScore(me?.score ?? 0)}</span></div>`;
     }
     const mine = ps.find(p => p.sid === socket.id) || ps[0];
@@ -693,7 +698,7 @@
         ${d.mode === 'duel' ? `<button class="btn" id="rematch">${L.again}</button>` : d.mode === 'arena' ? `<a href="/play?mode=duel" data-link class="btn">${L.again}</a>` : `<a href="/play?mode=${d.mode}" data-link class="btn">${d.mode === 'solo' ? L.again : L.newBattle}</a>`}
         <a href="/rating" data-link class="btn btn--ghost">${L.navRating}</a>
       </div>
-      ${d.mode === 'arena' ? `<h2 style="font-size:22px;margin-bottom:12px">${L.arenaTable}</h2><table class="table" style="margin-bottom:36px"><tbody>${d.ranking.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''} ${p.sid === socket.id ? 'is-me' : ''}"><td class="pos">${i + 1}</td><td>${esc(p.name)}<div class="sub">${esc(p.school || '')} · ${L.correctN(p.correct, n)}</div></td><td class="r">${p.score}</td></tr>`).join('')}</tbody></table>` : ''}
+      ${d.mode === 'arena' ? `<h2 style="font-size:22px;margin-bottom:12px">${L.arenaTable}</h2><table class="table" style="margin-bottom:36px"><tbody>${d.ranking.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''} ${p.sid === socket.id ? 'is-me' : ''}"><td class="pos">${i + 1}</td><td><span class="who">${p.username ? ACC.avatar(p, 'sm') : ''}<span>${esc(p.name)}<div class="sub">${p.username ? '@' + esc(p.username) + ' · ' : ''}${L.correctN(p.correct, n)}</div></span></span></td><td class="r">${p.score}</td></tr>`).join('')}</tbody></table>` : ''}
       ${d.mode === 'class' ? `<h2 style="font-size:22px;margin-bottom:12px">${L.bestPlayers}</h2><table class="table" style="margin-bottom:36px"><tbody>${d.ranking.slice(0, 10).map((p, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(p.name)}<div class="sub">${L.team(p.team === 'A' ? 1 : 2)}</div></td><td class="r">${p.score}</td></tr>`).join('')}</tbody></table>` : ''}
       <h2 style="font-size:22px;margin-bottom:12px">${L.review}</h2>
       <label class="filter"><input type="checkbox" id="onlyMiss" ${correct < n ? 'checked' : ''}> ${L.onlyMiss}</label>
