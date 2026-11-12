@@ -45,9 +45,27 @@ function validTopic(t) {
 
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
-const VERSION = (process.env.RENDER_GIT_COMMIT || String(Date.now())).slice(0, 8);
+const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
 const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
+// Переезд на свой сервер. CANONICAL_HOST (задаётся на старом хостинге) — все страницы пересылаются на основной домен.
+const CANON = (process.env.CANONICAL_HOST || '').trim();
+if (CANON) app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.hostname === CANON || /^\/(api|socket\.io|healthz|i$)/.test(req.path)) return next();
+  res.redirect(301, `https://${CANON}${req.originalUrl}`);
+});
+// Установщик для сервера: curl -sL <адрес>/i | bash -s КОД
+app.get('/i', (req, res) => res.type('text/plain').sendFile(path.join(__dirname, 'deploy', 'install.sh')));
+// Одноразовая передача настроек новому серверу. Работает, только пока на старом хостинге задан HANDOFF_TOKEN.
+let handoffUsed = false, handoffFails = 0;
+app.get('/api/handoff', (req, res) => {
+  const want = (process.env.HANDOFF_TOKEN || '').trim(), got = String(req.get('x-handoff') || '');
+  const ok = want.length >= 16 && got.length === want.length && require('crypto').timingSafeEqual(Buffer.from(got), Buffer.from(want));
+  if (handoffUsed || handoffFails >= 10 || !ok) { handoffFails++; return res.status(403).type('text/plain').send('denied'); }
+  handoffUsed = true;
+  const env = { DATABASE_URL: process.env.DATABASE_URL, GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID };
+  res.set('Cache-Control', 'no-store').type('text/plain').send(Object.entries(env).filter(([, v]) => v).map(([k, v]) => `${k}=${String(v).trim()}`).join('\n') + '\n');
+});
 app.get(['/', '/index.html'], sendIndex);
 app.use(express.static(path.join(__dirname, 'public'), { index: false, maxAge: '30d', immutable: true }));
 // Фото профиля отдельным файлом: в списках и рейтингах передаём только ссылку.

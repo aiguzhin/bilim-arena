@@ -1,0 +1,21 @@
+# Bilim Arena на сервере вместе с Cosplaygram. Https и домен обслуживает Caddy из /opt/cosplaygram:
+# он видит этот контейнер по имени bilim-arena через общую сеть edge (её создаёт deploy/install.sh).
+services:
+  app:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-dev}
+    container_name: bilim-arena
+    restart: always
+    env_file: .env
+    networks: [edge]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz || exit 1"]
+      interval: 30s
+      retries: 3
+
+networks:
+  edge:
+    external: true
+    name: edge
