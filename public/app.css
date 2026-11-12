@@ -688,7 +688,6 @@ body.menu-open { overflow: hidden; }
 @media (max-width: 600px) {
   .nav > .profile-chip, .nav > a.btn { display: none !important; }
 }
-.logo svg rect { fill: var(--block); }
 @media (max-width: 600px) {
   .ptabs a { padding: 12px 9px; font-size: 14px; }
   .stabs a { white-space: nowrap; padding: 8px 10px; font-size: 14px; }
@@ -1305,14 +1304,10 @@ a, button, label, select, input { -webkit-tap-highlight-color: transparent; touc
 .memo p { margin: 2px 0 0; font-size: 14px; color: var(--ink-2); }
 @media print { .memo { display: none; } }
 
-/* логотип */
-.logo { gap: 10px; }
-.logo svg { flex: 0 0 auto; border-radius: 11px; box-shadow: 0 4px 12px -6px rgba(11,29,69,.55); }
-.logo svg rect { fill: url(#lgh) !important; }
-.logo__w { font: 800 19px/1 var(--display); letter-spacing: -0.035em; color: var(--heading); }
-.logo__w b { font-weight: 800; color: #C98A00; margin-left: 4px; }
-[data-theme="dark"] .logo__w b { color: var(--gold); }
-@media (prefers-color-scheme: dark) { [data-theme="system"] .logo__w b { color: var(--gold); } }
+/* логотип: «Дуэль» — два скрещённых карандаша */
+.logo { gap: 9px; }
+.logo__mark { flex: 0 0 auto; display: block; }
+.logo__w { font: 700 18px/1 var(--display); letter-spacing: -0.02em; color: var(--heading); }
 
 /* ---------- пропуск ---------- */
 .tk { display: grid; grid-template-columns: 1fr 260px; border-radius: 22px; overflow: hidden; background: var(--card); box-shadow: 0 1px 0 var(--line), 0 18px 40px -24px rgba(11,29,69,.35); border: 1px solid var(--line); position: relative; }
