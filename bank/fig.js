@@ -18,12 +18,12 @@ const arrow = (x1, y1, x2, y2, o = {}) => {
 };
 
 // Координатная плоскость с графиками. fns: [{ f, c, dash }] или { pts } для ломаной; area: { f, from, to } — закрашенная площадь.
-function graph({ x: [x0, x1], y: [y0, y1], w = 340, h = 280, step = 1, labelStep = 1, fns = [], points = [], area = null, guides = [], xl = 'x', yl = 'y', ticks = true }) {
+function graph({ x: [x0, x1], y: [y0, y1], w = 340, h = 280, step = 1, labelStep = 1, ystep = step, ylabelStep = labelStep, fns = [], points = [], area = null, guides = [], xl = 'x', yl = 'y', ticks = true }) {
   const pad = 26;
   const X = v => pad + (v - x0) / (x1 - x0) * (w - 2 * pad), Y = v => h - pad - (v - y0) / (y1 - y0) * (h - 2 * pad);
   let b = '';
   for (let v = Math.ceil(x0 / step) * step; v <= x1 + 1e-9; v += step) b += line(X(v), Y(y0), X(v), Y(y1), { c: K.grid, w: 1 });
-  for (let v = Math.ceil(y0 / step) * step; v <= y1 + 1e-9; v += step) b += line(X(x0), Y(v), X(x1), Y(v), { c: K.grid, w: 1 });
+  for (let v = Math.ceil(y0 / ystep) * ystep; v <= y1 + 1e-9; v += ystep) b += line(X(x0), Y(v), X(x1), Y(v), { c: K.grid, w: 1 });
   if (area) {
     const pts = [];
     for (let i = 0; i <= 80; i++) { const v = area.from + (area.to - area.from) * i / 80; pts.push([X(v), Y(area.f(v))]); }
@@ -31,10 +31,10 @@ function graph({ x: [x0, x1], y: [y0, y1], w = 340, h = 280, step = 1, labelStep
   }
   const ax = Y(Math.min(Math.max(0, y0), y1)), ay = X(Math.min(Math.max(0, x0), x1));
   b += arrow(X(x0), ax, X(x1) + 12, ax, { c: K.axis, w: 1.5 }) + arrow(ay, Y(y0), ay, Y(y1) - 12, { c: K.axis, w: 1.5 });
-  b += txt(X(x1) + 4, ax - 14, xl, { it: true, c: K.axis, a: 'end' }) + txt(ay - 12, Y(y1) - 12, yl, { it: true, c: K.axis });
+  b += txt(X(x1) + 4, ax - 14, xl, { it: true, c: K.axis, a: 'end' }) + txt(ay + 8, Y(y1) - 10, yl, { it: true, c: K.axis, a: 'start' });
   if (ticks) {
     for (let v = Math.ceil(x0 / labelStep) * labelStep; v <= x1 + 1e-9; v += labelStep) if (Math.abs(v) > 1e-9) b += txt(X(v), ax + 13, String(+v.toFixed(2)).replace('-', '−').replace('.', ','), { size: 11, c: K.soft });
-    for (let v = Math.ceil(y0 / labelStep) * labelStep; v <= y1 + 1e-9; v += labelStep) if (Math.abs(v) > 1e-9) b += txt(ay - 9, Y(v), String(+v.toFixed(2)).replace('-', '−').replace('.', ','), { size: 11, c: K.soft, a: 'end' });
+    for (let v = Math.ceil(y0 / ylabelStep) * ylabelStep; v <= y1 + 1e-9; v += ylabelStep) if (Math.abs(v) > 1e-9) b += txt(ay - 9, Y(v), String(+v.toFixed(2)).replace('-', '−').replace('.', ','), { size: 11, c: K.soft, a: 'end' });
     b += txt(ay - 9, ax + 12, 'O', { size: 12, c: K.soft, a: 'end' });
   }
   for (const g of guides) b += line(X(g[0]), Y(g[1]), X(g[2]), Y(g[3]), { c: K.soft, w: 1.2, dash: '4 4' });
