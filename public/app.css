@@ -1565,10 +1565,6 @@ section.block--tour { padding: 48px 0 0; }
 .nav > a:not(.btn) { white-space: nowrap; }
 .logo { flex: 0 0 auto; }
 @media (max-width: 1320px) { .nav { gap: 14px; } .nav > a:not(.btn) { font-size: 14px; } }
-@media (max-width: 1200px) { .nav > a.nav__tours { display: none; } }
-@media (max-width: 1090px) { .nav > a.nav__rating { display: none; } }
-@media (max-width: 990px) { .nav > a.nav__games { display: none; } }
-@media (max-width: 900px) { .nav > a.nav__unis { display: none; } }
 @media (max-width: 760px) { .nav > #friendsBtn { display: none; } }
 
 /* Регистрация: выбор роли */
@@ -1969,3 +1965,18 @@ section.block--tour { padding: 48px 0 0; }
 @media (max-width: 720px) { .adm-sides, .adm-row { grid-template-columns: 1fr; } .adm-bars { gap: 3px; padding: 10px 6px 6px; } .adm-bar small { font-size: 10px; } }
 
 .hw-form .btn { white-space: nowrap; }
+
+/* Шапка: отступ от логотипа, ссылки-«таблетки» и подсветка текущего раздела */
+.top__in { gap: 28px; }
+.nav { min-width: 0; gap: 6px; }
+.nav > a:not(.btn):not(.friends-btn) { padding: 8px 12px; border-radius: 9px; transition: background-color .15s, color .15s; }
+.nav > a:not(.btn):not(.friends-btn):hover { background: var(--field); color: var(--ink); }
+.nav > a.is-active:not(.btn), .nav > a.is-active:not(.btn):hover { background: var(--blue-soft); color: var(--blue); font-weight: 600; }
+.nav > .friends-btn { transition: background-color .15s, color .15s; }
+.nav > .friends-btn:hover { background: var(--field); color: var(--ink); }
+.nav > .friends-btn.is-active { background: var(--blue-soft); color: var(--blue); }
+.nav > .lang-seg { margin: 0 6px; }
+.nav > a.nav--fold { display: none !important; }
+@media (max-width: 1320px) { .nav > a:not(.btn):not(.friends-btn) { padding: 8px 10px; } }
+:root[data-theme="dark"] .nav > a.is-active:not(.btn) { color: #A9C7FF; background: rgba(90, 140, 255, .18); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav > a.is-active:not(.btn) { color: #A9C7FF; background: rgba(90, 140, 255, .18); } }

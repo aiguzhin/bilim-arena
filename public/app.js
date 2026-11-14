@@ -58,7 +58,7 @@
   const setLang = next => {
     if (next === lang) return;
     lang = next; L = I18N[lang]; store.set('ba_lang', lang);
-    applyStatic();
+    applyStatic(); fitNav();
     if (room && room.state === 'playing' && current) viewQuestion(true);
     else if (room && room.state === 'lobby') viewLobby();
     else if (room && room.state === 'done' && lastEnd) viewResult(lastEnd);
@@ -156,11 +156,35 @@
   // Пришёл по приглашению (?ref=логин) — запоминаем, чтобы засчитать при регистрации.
   try { const rf = new URLSearchParams(location.search).get('ref'); if (rf && /^[a-z0-9_.]{3,20}$/i.test(rf)) localStorage.setItem('ba_ref', rf.toLowerCase()); } catch {}
   const refOf = () => { try { return localStorage.getItem('ba_ref') || undefined; } catch { return undefined; } };
+  // Шапка: подсвечиваем раздел, в котором находится человек, и прячем ссылки, которым не хватает места
+  // (порядок: сначала турниры, потом рейтинг, игры, вузы, пробный ЕНТ — они остаются в меню).
+  const NAV = [['.nav__ent', p => p.startsWith('/ent')], ['.nav__rating', p => p === '/rating'], ['.nav__tours', p => p.startsWith('/tournaments') || p.startsWith('/t/')],
+    ['.nav__games', p => p.startsWith('/games')], ['.nav__unis', p => p.startsWith('/unis')], ['#chatBtn', p => p.startsWith('/chat')], ['#friendsBtn', p => p.startsWith('/friends')]];
+  function markNav(path) {
+    for (const [sel, ok] of NAV) { const a = document.querySelector('#mainNav ' + sel); if (!a) continue; const on = ok(path); a.classList.toggle('is-active', on); on ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); }
+    fitNav();
+  }
+  const DROP = ['.nav__tours', '.nav__rating', '.nav__games', '.nav__unis', '.nav__ent'];
+  function fitNav() {
+    const inner = document.querySelector('.top__in'), logo = inner?.querySelector('.logo'), nav = document.getElementById('mainNav');
+    if (!inner || !nav) return;
+    const links = DROP.map(s => nav.querySelector(s)).filter(Boolean);
+    links.forEach(a => a.classList.remove('nav--fold'));
+    const fits = () => nav.scrollWidth <= nav.clientWidth + 1 && logo.getBoundingClientRect().right + 24 <= nav.getBoundingClientRect().left && nav.getBoundingClientRect().right <= inner.getBoundingClientRect().right + 1;
+    for (const a of links) { if (fits()) break; a.classList.add('nav--fold'); }
+  }
+  const refit = () => { cancelAnimationFrame(fitNav.f); fitNav.f = requestAnimationFrame(fitNav); };
+  addEventListener('resize', refit);
+  // Ссылки «только для вошедших» и аватар появляются позже — пересчитываем, когда меняются размеры элементов шапки.
+  if (window.ResizeObserver) { const ro = new ResizeObserver(refit); document.querySelectorAll('#mainNav > *, .top__in > .logo').forEach(el => ro.observe(el)); }
+  document.fonts?.ready?.then(fitNav);
+
   async function route() {
     reset();
     const path = location.pathname;
     const tab = path === '/' ? 'home' : path.startsWith('/ent') ? 'ent' : path === '/play' || path.startsWith('/b/') ? 'play' : path.startsWith('/tournaments') || path.startsWith('/t/') ? 'tours' : path === '/rating' ? 'rating' : '';
     document.querySelectorAll('#tabbar [data-tab]').forEach(a => a.toggleAttribute('aria-current', a.dataset.tab === tab));
+    markNav(path);
     window.scrollTo(0, 0);
     app.classList.remove('fx-page'); void app.offsetWidth; app.classList.add('fx-page');
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
