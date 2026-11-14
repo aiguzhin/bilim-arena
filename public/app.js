@@ -242,13 +242,8 @@
           <h1>${L.heroTitle}</h1>
           <p class="hero__lead">${L.heroLead}</p>
           <div class="hero__cta">
-            <a href="/play" data-link class="btn">${L.heroDuel}</a>
-            <a href="/ent" data-link class="btn btn--ghost">${L.navEnt}</a>
-          </div>
-          <div class="hero__facts">
-            <div><b class="num">${Object.keys(meta.combos).length}</b>${L.factCombos}</div>
-            <div><b class="num">${meta.count}</b>${L.factQuestions}</div>
-            <div><b class="num" id="onlineNow">—</b>${L.factOnline}</div>
+            <a href="/ent" data-link class="btn">${L.navEnt}</a>
+            <a href="/play" data-link class="btn btn--ghost">${L.heroDuel}</a>
           </div>
         </div>
         <div class="board board--live" id="liveBoard" aria-live="polite"><div class="board__head"><span class="board__live"><i></i>…</span></div><div class="board__empty"></div></div>
@@ -256,39 +251,13 @@
     </section>
 
     <section class="today" id="homeToday" hidden></section>
+    <section class="block block--daily" id="homeDaily" hidden></section>
     <section class="block block--tour" id="homeTour" hidden></section>
-
-    <section class="block block--field">
-      <div class="wrap">
-        <div class="block__head"><h2>${L.modesTitle}</h2><p>${L.modesLead}</p></div>
-        <div class="modes">
-          <div class="mode mode--main">
-            <h3>${L.duelTitle}</h3>
-            <p>${L.duelText}</p>
-            <div class="mode__rule"><div><b>10</b>${L.ruleQ}</div><div><b>20 ${L.sec}</b>${L.ruleT}</div><div><b>+15</b>${L.ruleMax}</div></div>
-            <a href="/play?mode=duel" data-link class="btn">${L.duelBtn}</a>
-          </div>
-          <div class="mode"><h3>${L.classTitle}</h3><p>${L.classText}</p><a href="/play?mode=class" data-link class="btn btn--ghost">${L.classBtn}</a></div>
-          <div class="mode"><h3>${L.soloTitle}</h3><p>${L.soloText}</p><a href="/play?mode=solo" data-link class="btn btn--ghost">${L.soloBtn}</a></div>
-        </div>
-      </div>
-    </section>
 
     <section class="block">
       <div class="wrap">
-        <div class="block__head"><h2>${lang === 'kk' ? '1 минуттық ойындар' : 'Игры на одну минуту'}</h2><a href="/games" data-link class="btn btn--ghost btn--sm">${lang === 'kk' ? 'Барлық ойындар' : 'Все игры'}</a></div>
-        <div class="mini-row">${(lang === 'kk' ? [['Блиц', '60 секундта мүмкіндігінше көп жауап'], ['Аман қалу', '3 өмір: үш қатеге дейін ойнаңыз'], ['Дұрыс па, жоқ па', 'Бір секундта шешім қабылдаңыз']] : [['Блиц', 'Как можно больше ответов за 60 секунд'], ['Выживание', '3 жизни: играйте до трёх ошибок'], ['Верно или нет', 'Решение за одну секунду']]).map(([h, p]) => `<a class="mini" href="/games" data-link><b>${h}</b><span>${p}</span></a>`).join('')}</div>
-      </div>
-    </section>
-
-    <section class="block" id="how">
-      <div class="wrap">
-        <div class="block__head"><h2>${L.howTitle}</h2></div>
-        <ol class="steps">
-          <li><h3>${L.how1t}</h3><p>${L.how1p}</p></li>
-          <li><h3>${L.how2t}</h3><p>${L.how2p}</p></li>
-          <li><h3>${L.how3t}</h3><p>${L.how3p}</p></li>
-        </ol>
+        <div class="block__head"><h2>${lang === 'kk' ? 'Дайындық құралдары' : 'Всё для подготовки'}</h2></div>
+        <div class="tools">${homeTools().map(([href, ico, h, p]) => `<a class="tool" href="${href}" data-link><i>${toolIcon(ico)}</i><b>${h}</b><span>${p}</span></a>`).join('')}</div>
       </div>
     </section>
 
@@ -299,25 +268,61 @@
       </div>
     </section>
 
-    <section class="block">
-      <div class="wrap">
-        <div class="schools">
-          <div>
-            <h2>${L.schoolsTitle}</h2>
-            <p>${L.schoolsText}</p>
-            <div style="margin-top:24px"><a href="/play?mode=class" data-link class="btn btn--light">${L.schoolsBtn}</a></div>
-          </div>
-          <ul>${L.schoolsList.map(x => `<li>${x}</li>`).join('')}</ul>
-        </div>
-      </div>
-    </section>
     ${footer()}`;
-    if (me) homeToday();
+    if (me) { homeToday(); dailyQ(); }
 
     loadTop();
     EDU.homeBlock(eduCtx, $('#homeTour'));
-    fetch('/api/stats').then(r => r.json()).then(s => { const el = $('#onlineNow'); if (el) el.textContent = Math.max(1, s.online); }).catch(() => {});
     liveBoard();
+  }
+
+  const TOOL_ICONS = {
+    ent: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
+    practice: '<path d="M4 19V5M4 19h16"/><path d="M8 15l3-4 3 2 5-6"/>',
+    duel: '<path d="M5 19 19 5M14 5h5v5M5 5l5 5M14 14l5 5M5 19l3-3"/>',
+    class: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5M15 14c3 0 6 1.5 6 4.5"/>',
+    games: '<path d="M13 3 5 14h6l-1 7 8-11h-6z"/>',
+    tour: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H4v2a3 3 0 0 0 4 3M16 6h4v2a3 3 0 0 1-4 3M12 13v4M8 21h8M10 17h4v4h-4z"/>',
+    unis: '<path d="M3 9 12 4l9 5-9 5z"/><path d="M7 11v5c3 2 7 2 10 0v-5M21 9v6"/>',
+    rating: '<path d="M6 20V10M12 20V4M18 20v-7"/>'
+  };
+  const toolIcon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOOL_ICONS[k]}</svg>`;
+  const homeTools = () => lang === 'kk' ? [
+    ['/ent', 'ent', 'Сынақ ҰБТ', 'Нақты емтихан форматы'], ['/practice', 'practice', 'Жаттығу', 'Қатемен жұмыс және тақырыптар'],
+    ['/play?mode=duel', 'duel', 'Досыңмен баттл', 'Сілтеме арқылы бірге-бір'], ['/play?mode=class', 'class', 'Сынып сыныпқа', '30 адамға дейінгі командалар'],
+    ['/games', 'games', 'Мини-ойындар', 'Блиц, Аман қалу, Дұрыс па'], ['/tournaments', 'tour', 'Турнирлер', 'Мектептер мен сыныптар үшін'],
+    ['/unis', 'unis', 'ЖОО және грант', 'Шекті және өту балдары'], ['/rating', 'rating', 'Рейтинг', 'Мектептер мен оқушылар']
+  ] : [
+    ['/ent', 'ent', 'Пробный ЕНТ', 'Как на настоящем экзамене'], ['/practice', 'practice', 'Тренировка', 'Работа над ошибками и темы'],
+    ['/play?mode=duel', 'duel', 'Баттл с другом', 'Один на один по ссылке'], ['/play?mode=class', 'class', 'Класс на класс', 'Команды до 30 человек'],
+    ['/games', 'games', 'Мини-игры', 'Блиц, Выживание, Верно или нет'], ['/tournaments', 'tour', 'Турниры', 'Для школ и классов'],
+    ['/unis', 'unis', 'Вузы и гранты', 'Пороговые и проходные баллы'], ['/rating', 'rating', 'Рейтинг', 'Школы и ученики']
+  ];
+
+  // Вопрос дня: один вопрос для всех, после ответа видно, сколько людей ответили верно.
+  async function dailyQ() {
+    const box = document.getElementById('homeDaily'); if (!box) return;
+    const T = lang === 'kk'
+      ? { h: 'Күн сұрағы', stat: (p, n) => `${n} адамның ${p}% дұрыс жауап берді`, first: 'Сіз бірінші жауап бердіңіз', ok: 'Дұрыс!', no: 'Қате', ans: 'Дұрыс жауап', next: 'Жаңа сұрақ ертең' }
+      : { h: 'Вопрос дня', stat: (p, n) => `Верно ответили ${p}% из ${n}`, first: 'Вы ответили первым', ok: 'Верно!', no: 'Неверно', ans: 'Правильный ответ', next: 'Новый вопрос завтра' };
+    let d; try { d = await api('/api/daily?lang=' + lang); } catch { return; }
+    if (!document.body.contains(box) || !d.q) return;
+    const statLine = st => st.n > 1 ? T.stat(Math.round(st.ok * 100 / st.n), st.n) : T.first;
+    const render = () => {
+      const r = d.mine;
+      box.innerHTML = `<div class="wrap"><div class="daily">
+        <div class="daily__head"><span>${T.h} · ${esc(d.subject)}</span>${r ? `<span>${statLine(d.stat)}</span>` : ''}</div>
+        <p class="daily__q">${esc(d.q.t).replace(/\n/g, '<br>')}</p>${d.q.img ? `<div class="qfig">${d.q.img}</div>` : ''}
+        <div class="daily__opts">${d.q.o.map((o, i) => `<button class="g-opt${r ? (i === r.a ? ' ok' : i === r.choice ? ' no' : '') : ''}" data-i="${i}" ${r ? 'disabled' : ''}><span>${'ABCD'[i]}</span>${esc(o)}</button>`).join('')}</div>
+        ${r ? `<p class="daily__res ${r.ok ? 'ok' : 'no'}"><b>${r.ok ? T.ok : T.no}</b>${r.e ? ` ${esc(r.e)}` : ''} <span class="muted">${T.next}</span></p>` : ''}
+      </div></div>`;
+      box.querySelectorAll('[data-i]:not([disabled])').forEach(b => b.onclick = async () => {
+        box.querySelectorAll('[data-i]').forEach(x => x.disabled = true);
+        try { const res = await api('/api/daily', { method: 'POST', body: { choice: +b.dataset.i, lang } }); d.mine = res.mine; d.stat = res.stat; } catch {}
+        render();
+      });
+    };
+    render(); box.hidden = false;
   }
 
   function footer() {
@@ -973,11 +978,11 @@
             <button type="button" role="tab" data-auth="login">${L.tabLogin}</button>
           </div>
           <form id="authForm" class="auth__form" novalidate>
-            <label class="field"><span>${L.fUsername}</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required><small class="reg">${L.fUsernameHint}</small></label>
-            <label class="field"><span>${L.fPassword}</span><input name="password" type="password" maxlength="72" required><small class="reg">${L.fPasswordHint}</small></label>
+            <label class="field"><span>${L.fUsername}</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required placeholder="aigerim_07"></label>
+            <label class="field"><span>${L.fPassword}</span><input name="password" type="password" maxlength="72" required></label>
             <label class="field reg"><span>${L.fName}</span><input name="name" maxlength="24" autocomplete="nickname" placeholder="${L.fNamePh}"></label>
             <label class="field reg"><span>${L.fBirth}</span><input name="birth" type="date" min="1926-01-01" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
-            <label class="field reg"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"><small>${L.fPhoneHint}</small></label>
+            <label class="field reg"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"></label>
             <label class="field reg"><span>${L.fCity}</span><select name="city">${$('#citySelect').innerHTML}</select></label>
             <label class="field reg"><span>${L.fSchool}</span><input name="school" maxlength="60" placeholder="${L.fSchoolPh}"></label>
             <label class="check reg"><input type="checkbox" name="consent"> <span>${L.consent}</span></label>

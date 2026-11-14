@@ -92,6 +92,34 @@ module.exports = function (app, { db, auth, wrap, BANK, QUICK, shuffle }) {
     res.json({ ...state(g), done: true, result: await finish(g) });
   }));
 
+  // Вопрос дня: один и тот же для всех, порядок вариантов тоже одинаковый.
+  const DAILY_SUBJ = ['history', 'mathlit', 'math', 'physics', 'informatics', 'chemistry', 'biology', 'geography', 'worldhistory', 'law', 'english'].filter(k => QUICK[k]?.length);
+  const hash = str => { let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h; };
+  function daily(lang) {
+    const day = new Date(Date.now() + TZ_MS).toISOString().slice(0, 10);
+    const n = Math.floor((Date.now() + TZ_MS) / 864e5);
+    const subj = DAILY_SUBJ[n % DAILY_SUBJ.length];
+    const list = QUICK[subj].filter(q => q.t.ru && q.t.kk && q.o.ru && q.o.kk);
+    const src = (list.length ? list : QUICK[subj])[hash(day) % (list.length || QUICK[subj].length)];
+    const order = [0, 1, 2, 3].sort((a, b) => hash(day + a) - hash(day + b));
+    const L = o => (o && (o[lang] || o.ru));
+    return { day, subject: L(BANK[subj].name), q: { t: L(src.t), o: order.map(i => L(src.o)[i]), img: src.img || null }, a: order.indexOf(src.a), e: src.e ? L(src.e) : null };
+  }
+  const dLang = l => (['ru', 'kk'].includes(l) ? l : 'ru');
+  app.get('/api/daily', auth, wrap(async (req, res) => {
+    const d = daily(dLang(req.query.lang));
+    const mine = await db.dailyGet(d.day, req.player.id);
+    res.json({ day: d.day, subject: d.subject, q: d.q, mine: mine ? { choice: mine.choice, ok: mine.ok, a: d.a, e: d.e } : null, stat: mine ? await db.dailyStat(d.day) : null });
+  }));
+  app.post('/api/daily', auth, wrap(async (req, res) => {
+    const d = daily(dLang(req.body?.lang));
+    const choice = Number.isInteger(req.body?.choice) && req.body.choice >= 0 && req.body.choice < 4 ? req.body.choice : -1;
+    if (choice < 0) return res.status(400).json({ error: 'bad' });
+    if (await db.dailyAdd(d.day, req.player.id, choice, choice === d.a)) await db.logPractice(req.player.id, 1, choice === d.a ? 1 : 0).catch(() => {});
+    const mine = await db.dailyGet(d.day, req.player.id);
+    res.json({ mine: { choice: mine.choice, ok: mine.ok, a: d.a, e: d.e }, stat: await db.dailyStat(d.day) });
+  }));
+
   app.get('/api/mini/top', auth, wrap(async (req, res) => {
     const mode = MODES[req.query.mode] ? req.query.mode : 'blitz';
     const [today, week, best] = await Promise.all([db.miniTop(mode, dayStart()), db.miniTop(mode, weekStart()), db.miniBest(req.player.id, mode)]);

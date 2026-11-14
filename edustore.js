@@ -10,7 +10,7 @@ const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= [];
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= []; db.daily ||= [];
   const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
@@ -19,6 +19,9 @@ function memory(db, save) {
     .sort((a, b) => b.score - a.score || a.time_ms - b.time_ms);
   return {
     async kvGet(k) { return db.kv[k] || null; },
+    async dailyGet(day, pid) { return db.daily.find(d => d.day === day && d.player_id === pid) || null; },
+    async dailyAdd(day, pid, choice, ok) { if (db.daily.some(d => d.day === day && d.player_id === pid)) return false; db.daily.push({ day, player_id: pid, choice, ok }); save(); return true; },
+    async dailyStat(day) { const l = db.daily.filter(d => d.day === day); return { n: l.length, ok: l.filter(d => d.ok).length }; },
     async addMini(r) { db.minis.push({ ...r, created_at: new Date().toISOString() }); save(); },
     async miniTop(mode, since, limit = 10) {
       const best = {};
@@ -139,6 +142,9 @@ function pg(q) {
   const entry = r => r && ({ ...r, served_at: r.served_at == null ? null : Number(r.served_at), registered_at: iso(r.registered_at), started_at: iso(r.started_at), finished_at: iso(r.finished_at), time_ms: r.time_ms == null ? null : Number(r.time_ms) });
   return {
     async kvGet(k) { const r = (await q('select val, updated_at from kv where key=$1', [k])).rows[0]; return r ? { val: r.val, updated_at: iso(r.updated_at) } : null; },
+    async dailyGet(day, pid) { return (await q('select choice, ok from daily_answers where day=$1 and player_id=$2', [day, pid])).rows[0] || null; },
+    async dailyAdd(day, pid, choice, ok) { return (await q('insert into daily_answers (day, player_id, choice, ok) values ($1,$2,$3,$4) on conflict do nothing', [day, pid, choice, ok])).rowCount === 1; },
+    async dailyStat(day) { const r = (await q('select count(*)::int as n, count(*) filter (where ok)::int as ok from daily_answers where day=$1', [day])).rows[0]; return { n: r.n, ok: r.ok }; },
     async addMini(r) { await q('insert into minigames (player_id, mode, subject, score, correct, total) values ($1,$2,$3,$4,$5,$6)', [r.player_id, r.mode, r.subject, r.score, r.correct, r.total]); },
     async miniTop(mode, since, limit = 10) {
       return (await q(`select distinct on (m.player_id) m.player_id, m.score, m.subject, p.username, p.name, p.school, p.city, p.avatar, md5(p.photo) as photo_v
@@ -156,6 +162,7 @@ function pg(q) {
       await q(`create table if not exists kv (key text primary key, val jsonb not null, updated_at timestamptz not null default now())`);
       await q(`create table if not exists minigames (id bigserial primary key, player_id text not null references players(id) on delete cascade, mode text not null, subject text not null, score int not null, correct int not null, total int not null, created_at timestamptz not null default now())`);
       await q(`create index if not exists minigames_mode_time on minigames (mode, created_at)`);
+      await q(`create table if not exists daily_answers (day text not null, player_id text not null references players(id) on delete cascade, choice int not null, ok boolean not null, created_at timestamptz not null default now(), primary key (day, player_id))`);
       await q(`alter table players add column if not exists role text`);
       await q(`alter table players add column if not exists class_id text`);
       await q(`alter table mock_tests add column if not exists meta jsonb`);

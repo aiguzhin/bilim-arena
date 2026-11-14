@@ -4,24 +4,26 @@ window.GAMES = (() => {
   const $ = (s, el = document) => el.querySelector(s);
   const T = {
     ru: {
-      title: 'Игры', lead: 'Короткие игры на 1–3 минуты: размяться перед пробным ЕНТ, побить свой рекорд и попасть в топ дня.',
+      title: 'Игры', lead: 'Побейте свой рекорд и попадите в топ дня.',
       blitz: ['Блиц', '60 секунд — ответь на как можно больше вопросов. Ошибка не отнимает очки, но съедает время.'],
       survival: ['Выживание', '3 жизни и 20 секунд на вопрос. Сколько продержишься без трёх ошибок?'],
       tf: ['Верно или нет', 'Вопрос и один ответ. Решай за секунду: верно или неверно? 60 секунд.'],
       subject: 'Предмет', play: 'Играть', best: n => `Ваш рекорд: ${n}`, topDay: 'Топ дня', topWeek: 'Топ недели', noTop: 'Сегодня ещё никто не играл — будьте первым.',
       score: 'Счёт', lives: 'Жизни', sec: 'с', yes: 'Верно', no: 'Неверно', right: 'Правильно', wrong: 'Ошибка', answer: 'Ответ',
       over: 'Игра окончена', record: 'Новый рекорд!', yourScore: 'Ваш результат', correct: (a, b) => `Верных ответов: ${a} из ${b}`,
-      again: 'Ещё раз', other: 'Другие игры', exit: 'Выйти', claim: 'Ответ:', points: n => `${n}`
+      again: 'Ещё раз', other: 'Другие игры', exit: 'Выйти', claim: 'Ответ:', points: n => `${n}`,
+      review: 'Разбор ошибок', mine: 'Ваш ответ', noAns: 'нет ответа', clean: 'Ни одной ошибки', keys: 'Клавиши: 1–4 или A–D', keysTf: 'Клавиши: ← верно, → неверно'
     },
     kk: {
-      title: 'Ойындар', lead: '1–3 минуттық қысқа ойындар: сынақ ҰБТ алдында дайындалып, рекордыңызды жаңартып, күн топына шығыңыз.',
+      title: 'Ойындар', lead: 'Рекордыңызды жаңартып, күн топына шығыңыз.',
       blitz: ['Блиц', '60 секунд — мүмкіндігінше көп сұраққа жауап беріңіз. Қате ұпайды азайтпайды, бірақ уақыт алады.'],
       survival: ['Аман қалу', '3 өмір және сұраққа 20 секунд. Үш қатеге дейін қанша шыдайсыз?'],
       tf: ['Дұрыс па, жоқ па', 'Сұрақ және бір жауап. Бір секундта шешіңіз: дұрыс па, қате ме? 60 секунд.'],
       subject: 'Пән', play: 'Ойнау', best: n => `Сіздің рекорд: ${n}`, topDay: 'Күн топы', topWeek: 'Апта топы', noTop: 'Бүгін әлі ешкім ойнамады — бірінші болыңыз.',
       score: 'Ұпай', lives: 'Өмір', sec: 'с', yes: 'Дұрыс', no: 'Қате', right: 'Дұрыс', wrong: 'Қате', answer: 'Жауап',
       over: 'Ойын аяқталды', record: 'Жаңа рекорд!', yourScore: 'Сіздің нәтиже', correct: (a, b) => `Дұрыс жауап: ${b}-ден ${a}`,
-      again: 'Тағы ойнау', other: 'Басқа ойындар', exit: 'Шығу', claim: 'Жауап:', points: n => `${n}`
+      again: 'Тағы ойнау', other: 'Басқа ойындар', exit: 'Шығу', claim: 'Жауап:', points: n => `${n}`,
+      review: 'Қателерді талдау', mine: 'Сіздің жауап', noAns: 'жауап жоқ', clean: 'Бірде-бір қате жоқ', keys: 'Пернелер: 1–4 немесе A–D', keysTf: 'Пернелер: ← дұрыс, → қате'
     }
   };
   const t = () => T[X.lang()] || T.ru;
@@ -33,7 +35,8 @@ window.GAMES = (() => {
   };
   const icon = (k, s = 22) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
   const heart = on => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" class="g-heart${on ? ' on' : ''}"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>`;
-  const stop = () => { clearInterval(timer); timer = null; };
+  let onKey = null;
+  const stop = () => { clearInterval(timer); timer = null; if (onKey) { document.removeEventListener('keydown', onKey); onKey = null; } };
   const subjects = () => Object.entries(X.meta().subjects || {});
   const sname = k => { const s = X.meta().subjects[k]; return s ? (s[X.lang()] || s.ru) : k; };
   const saved = () => { try { return localStorage.getItem('ba_gsub') || 'math'; } catch { return 'math'; } };
@@ -69,12 +72,14 @@ window.GAMES = (() => {
     stop();
     let s; try { s = await X.api('/api/mini/start', { method: 'POST', body: { mode, subject, lang: X.lang() } }); } catch { return; }
     X.setTitle(t()[mode][0]);
-    let busy = false;
+    let busy = false, cur = null;
+    const miss = [];
     X.app.innerHTML = `<div class="page g-play"><div class="wrap narrow">
       <div class="g-bar"><button class="btn btn--ghost btn--sm" id="gExit">${t().exit}</button><span class="g-name">${icon(mode, 18)} ${t()[mode][0]} · ${esc(sname(subject))}</span>
         <span class="g-stat"><span id="gLives"></span><b class="num" id="gScore">0</b></span></div>
       <div class="timer g-timer"><i id="gTime"></i></div><div class="g-clock num" id="gClock"></div>
       <div class="g-card" id="gCard"></div>
+      <p class="g-keys muted">${mode === 'tf' ? t().keysTf : t().keys}</p>
     </div></div>`;
     $('#gExit').onclick = async () => { stop(); try { await X.api('/api/mini/finish', { method: 'POST', body: { id: s.id } }); } catch {} hub(); };
     const total = mode === 'survival' ? 20000 : 60000;
@@ -91,6 +96,7 @@ window.GAMES = (() => {
       $('#gLives').innerHTML = mode === 'survival' ? [0, 1, 2].map(i => heart(i < s.lives)).join('') : '';
     };
     const draw = q => {
+      cur = q;
       const card = $('#gCard');
       card.innerHTML = `<div class="g-q"><span class="muted g-n">#${q.n}</span><p>${esc(q.t).replace(/\n/g, '<br>')}</p>${q.img ? `<div class="qfig">${q.img}</div>` : ''}</div>
         ${mode === 'tf' ? `<div class="g-claim"><span>${t().claim}</span><b>${esc(q.claim)}</b></div><div class="g-tf"><button class="g-opt g-opt--yes" data-tf="1">${t().yes}</button><button class="g-opt g-opt--no" data-tf="0">${t().no}</button></div>`
@@ -103,6 +109,9 @@ window.GAMES = (() => {
       let r; try { r = await X.api('/api/mini/answer', { method: 'POST', body: { id: s.id, ...body } }); } catch { busy = false; return; }
       const card = $('#gCard'); if (!card) return;
       if (r.reveal) {
+        if (!r.reveal.ok && cur) miss.push(mode === 'tf'
+          ? { t: cur.t, img: cur.img, mine: `${cur.claim} — ${body.tf ? t().yes : t().no}`.toLowerCase(), right: r.reveal.right, e: r.reveal.e }
+          : { t: cur.t, img: cur.img, mine: cur.o[body.choice] ?? t().noAns, right: cur.o[r.reveal.a], e: r.reveal.e });
         if (mode === 'tf') { btn?.classList.add(r.reveal.ok ? 'ok' : 'no'); if (!r.reveal.ok) card.insertAdjacentHTML('beforeend', `<p class="g-right">${t().answer}: <b>${esc(r.reveal.right)}</b></p>`); }
         else { card.querySelector(`[data-c="${r.reveal.a}"]`)?.classList.add('ok'); if (!r.reveal.ok && btn) btn.classList.add('no'); }
         card.classList.add(r.reveal.ok ? 'g-flash-ok' : 'g-flash-no');
@@ -110,23 +119,35 @@ window.GAMES = (() => {
       Object.assign(s, r); head();
       const wait = r.reveal?.ok ? (mode === 'survival' ? 500 : 280) : (mode === 'survival' ? 1500 : 900);
       setTimeout(() => {
-        if (r.done) return result(mode, subject, r.result);
+        if (r.done) return result(mode, subject, r.result, miss);
         card.classList.remove('g-flash-ok', 'g-flash-no');
         draw(r.q); busy = false;
       }, wait);
     }
-    async function end_() { stop(); busy = true; try { const r = await X.api('/api/mini/finish', { method: 'POST', body: { id: s.id } }); result(mode, subject, r.result); } catch { hub(); } }
+    async function end_() { stop(); busy = true; try { const r = await X.api('/api/mini/finish', { method: 'POST', body: { id: s.id } }); result(mode, subject, r.result, miss); } catch { hub(); } }
+    onKey = e => {
+      if (busy || e.metaKey || e.ctrlKey || e.altKey || !$('#gCard')) return;
+      const k = e.key.toLowerCase();
+      if (mode === 'tf') { const b = k === 'arrowleft' || k === 'y' ? '1' : k === 'arrowright' || k === 'n' ? '0' : null; if (b) { e.preventDefault(); const el = $(`[data-tf="${b}"]`); send({ tf: b === '1' }, el); } return; }
+      const i = '1234'.indexOf(k) >= 0 ? '1234'.indexOf(k) : 'abcd'.indexOf(k);
+      if (i >= 0) { const el = $(`[data-c="${i}"]`); if (el) { e.preventDefault(); send({ choice: i }, el); } }
+    };
+    document.addEventListener('keydown', onKey);
     head(); draw(s.q); timer = setInterval(tick, 200); tick();
   }
 
-  function result(mode, subject, r) {
+  function result(mode, subject, r, miss = []) {
     stop();
+    const review = r.answered ? `<section class="g-review"><h2>${t().review}</h2>${miss.length ? miss.map(m => `<article class="g-rev">
+        <p>${esc(m.t).replace(/\n/g, '<br>')}</p>${m.img ? `<div class="qfig">${m.img}</div>` : ''}
+        <div class="g-rev__a"><span class="no">${t().mine}: ${esc(m.mine)}</span><span class="ok">${t().answer}: ${esc(m.right)}</span></div>
+        ${m.e ? `<p class="muted g-rev__e">${esc(m.e)}</p>` : ''}</article>`).join('') : `<p class="muted">${t().clean}</p>`}</section>` : '';
     X.app.innerHTML = `<div class="page"><div class="wrap narrow"><div class="g-result">
       <i class="g-result__ico">${icon(mode, 30)}</i><p class="muted">${t().over} · ${t()[mode][0]}</p>
       ${r.record && r.score ? `<p class="g-record">${t().record}</p>` : ''}
       <div class="g-result__score num">${r.score}</div><p>${t().correct(r.correct, r.answered)}</p><p class="muted">${t().best(r.best)}</p>
       <div class="g-result__btns"><button class="btn" id="gAgain">${t().again}</button><a class="btn btn--ghost" href="/games?top=${mode}" data-link>${t().other}</a></div>
-    </div></div></div>${X.footer()}`;
+    </div>${review}</div></div>${X.footer()}`;
     $('#gAgain').onclick = () => { X.onCleanup(stop); play(mode, subject); };
   }
 
