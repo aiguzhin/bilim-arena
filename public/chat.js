@@ -10,9 +10,11 @@ window.CHAT = (() => {
       add: 'В друзья', sent: 'Заявка отправлена', accept: 'Принять заявку', friend: 'В друзьях', block: 'Заблокировать', unblock: 'Разблокировать', profile: 'Профиль',
       blockedMe: 'Вы заблокировали этого человека. Разблокируйте, чтобы написать.', blockedPeer: 'Этот человек ограничил сообщения от вас.',
       onlyFriends: 'Писать мне могут только друзья', noUsers: 'Никого не нашли', teacher: 'учитель', back: 'Все чаты', online: 'в сети',
-      rules: 'Пишите уважительно. На грубость можно пожаловаться — три жалобы скрывают сообщение.',
+      rules: 'Удерживайте или нажмите правой кнопкой на сообщение — реакции, ответ, жалоба.',
       noRooms: 'Чатов пока нет. Укажите школу в профиле или вступите в класс — и они появятся здесь.',
-      err: { chatFast: 'Слишком часто. Подождите пару секунд.', chatBlocked: 'Сообщение не отправлено: чат заблокирован.', chatFriendsOnly: 'Этот человек принимает сообщения только от друзей.', chatEmpty: 'Пустое сообщение.', chatNoUser: 'Такого пользователя нет.' }
+      voice: 'Голосовое сообщение', voiceRec: 'Записать голосовое', recording: 'Запись', cancel: 'Отмена', reply: 'Ответить', copy: 'Скопировать', copied: 'Скопировано', actions: 'Действия',
+      noMic: 'Этот браузер не умеет записывать голос.', micDenied: 'Нет доступа к микрофону. Разрешите его в настройках браузера.', voiceErr: 'Не удалось воспроизвести.',
+      err: { chatVoiceBad: 'Не удалось отправить запись.', chatFast: 'Слишком часто. Подождите пару секунд.', chatBlocked: 'Сообщение не отправлено: чат заблокирован.', chatFriendsOnly: 'Этот человек принимает сообщения только от друзей.', chatEmpty: 'Пустое сообщение.', chatNoUser: 'Такого пользователя нет.' }
     },
     kk: {
       title: 'Чаттар', newPh: 'Логин немесе аты бойынша іздеу', school: 'Мектеп чаты', klass: 'Сынып чаты', noLast: 'Хабарлама әлі жоқ', you: 'Сіз: ',
@@ -21,9 +23,11 @@ window.CHAT = (() => {
       add: 'Досқа қосу', sent: 'Өтінім жіберілді', accept: 'Өтінімді қабылдау', friend: 'Достар тізімінде', block: 'Бұғаттау', unblock: 'Бұғаттан шығару', profile: 'Профиль',
       blockedMe: 'Сіз бұл адамды бұғаттадыңыз. Жазу үшін бұғаттан шығарыңыз.', blockedPeer: 'Бұл адам сізден келетін хабарламаларды шектеген.',
       onlyFriends: 'Маған тек достарым жаза алады', noUsers: 'Ешкім табылмады', teacher: 'мұғалім', back: 'Барлық чат', online: 'желіде',
-      rules: 'Сыпайы жазыңыз. Дөрекілікке шағымдануға болады — үш шағым хабарламаны жасырады.',
+      rules: 'Хабарламаны басып тұрыңыз немесе тінтуірдің оң жағымен басыңыз — реакция, жауап, шағым.',
       noRooms: 'Чаттар әлі жоқ. Профильде мектепті көрсетіңіз немесе сыныпқа қосылыңыз — олар осында шығады.',
-      err: { chatFast: 'Тым жиі. Бірнеше секунд күтіңіз.', chatBlocked: 'Хабарлама жіберілмеді: чат бұғатталған.', chatFriendsOnly: 'Бұл адам тек достарынан хабарлама қабылдайды.', chatEmpty: 'Бос хабарлама.', chatNoUser: 'Мұндай пайдаланушы жоқ.' }
+      voice: 'Дауыстық хабарлама', voiceRec: 'Дауыстық жазу', recording: 'Жазылуда', cancel: 'Бас тарту', reply: 'Жауап беру', copy: 'Көшіру', copied: 'Көшірілді', actions: 'Әрекеттер',
+      noMic: 'Бұл браузер дауыс жаза алмайды.', micDenied: 'Микрофонға рұқсат жоқ. Браузер баптауларында рұқсат беріңіз.', voiceErr: 'Ойнату мүмкін болмады.',
+      err: { chatVoiceBad: 'Жазбаны жіберу мүмкін болмады.', chatFast: 'Тым жиі. Бірнеше секунд күтіңіз.', chatBlocked: 'Хабарлама жіберілмеді: чат бұғатталған.', chatFriendsOnly: 'Бұл адам тек достарынан хабарлама қабылдайды.', chatEmpty: 'Бос хабарлама.', chatNoUser: 'Мұндай пайдаланушы жоқ.' }
     }
   };
   const t = () => T[X.lang()] || T.ru;
@@ -84,7 +88,7 @@ window.CHAT = (() => {
       <section class="chat__main" id="chMain"><div class="ch-pick">${t().pick}</div></section>
     </div></div></div>`;
     cur = id ? { id } : null;
-    X.onCleanup(() => { cur = null; });
+    X.onCleanup(() => { cur = null; stopRec(true); if (player) { player.a.pause(); player = null; } document.querySelector('.ch-menu-back')?.remove(); closeMenu(); });
     bindSide();
     loadList();
     if (id) openRoom(id);
@@ -112,21 +116,147 @@ window.CHAT = (() => {
   }
 
   // ---------- переписка ----------
+  const EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
   const mine = m => m.from.username && m.from.username === X.me().username;
+  const SVG = (d, w = 20) => `<svg viewBox="0 0 24 24" width="${w}" height="${w}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const I = {
+    send: '<path d="M4 12 20 4l-5 16-3-7z"/>', mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    play: '<path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/>', pause: '<path d="M8 5v14M16 5v14" stroke-width="3"/>',
+    more: '<circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
+    reply: '<path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 6 6"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    del: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>', flag: '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>', stop: '<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/>'
+  };
+  const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const bars = id => Array.from({ length: 28 }, (_, i) => 25 + ((id * 9301 + i * 49297) % 233280) / 233280 * 75);
+  function voiceHtml(m) {
+    return `<div class="ch-voice" data-audio="${esc(m.audio)}" data-dur="${m.dur || 0}"><button type="button" class="ch-voice__play" aria-label="▶">${SVG(I.play, 18)}</button>
+      <span class="ch-voice__wave">${bars(m.id).map(h => `<i style="height:${h.toFixed(0)}%"></i>`).join('')}</span><span class="ch-voice__t">${mmss(m.dur || 0)}</span></div>`;
+  }
+  const reactHtml = m => (m.reactions?.length ? `<div class="ch-reacts">${m.reactions.map(r => `<button type="button" class="ch-react${r.users.includes(X.me().username) ? ' on' : ''}" data-react="${r.e}" data-mid="${m.id}" title="${esc(r.users.map(u => '@' + u).join(', '))}">${r.e}<b>${r.users.length}</b></button>`).join('')}</div>` : '');
+  const replyHtml = r => (r ? `<button type="button" class="ch-quote" data-goto="${r.id}"><b>${esc(r.name)}</b><span>${r.text == null ? t().deleted : r.kind === 'voice' ? '🎤 ' + t().voice : esc(r.text)}</span></button>` : '');
   function msgHtml(m, prev, room) {
     const me = mine(m), group = room.kind !== 'dm';
     const head = !prev || dayKey(prev.at) !== dayKey(m.at) ? `<div class="ch-day"><span>${dayLabel(m.at)}</span></div>` : '';
     const first = !prev || prev.from.username !== m.from.username || head || new Date(m.at) - new Date(prev.at) > 5 * 60000;
-    const acts = m.deleted ? '' : `<span class="ch-acts">${me || room.moderate ? `<button type="button" data-del="${m.id}" title="${t().del}" aria-label="${t().del}">✕</button>` : ''}${!me ? `<button type="button" data-rep="${m.id}" title="${t().report}" aria-label="${t().report}">!</button>` : ''}</span>`;
+    const body = m.deleted ? `<span class="ch-bub__text">${t().deleted}</span>` : m.kind === 'voice' ? voiceHtml(m) : `<span class="ch-bub__text">${linkify(m.text)}</span>`;
     return `${head}<div class="ch-msg${me ? ' me' : ''}${first ? ' first' : ''}" data-id="${m.id}">
       ${group && !me ? (first ? `<a href="/u/${esc(m.from.username || '')}" data-link class="ch-msg__ava">${ava(m.from, 'sm')}</a>` : '<span class="ch-msg__ava"></span>') : ''}
-      <div class="ch-bub${m.deleted ? ' del' : ''}">${group && !me && first ? `<b class="ch-bub__name">${esc(m.from.name)}${m.from.teacher ? ` <i>${t().teacher}</i>` : ''}</b>` : ''}<span class="ch-bub__text">${m.deleted ? t().deleted : linkify(m.text)}</span><time>${hhmm(m.at)}</time></div>${acts}</div>`;
+      <div class="ch-col"><div class="ch-bub${m.deleted ? ' del' : ''}${m.kind === 'voice' ? ' voice' : ''}" tabindex="0">${group && !me && first ? `<b class="ch-bub__name">${esc(m.from.name)}${m.from.teacher ? ` <i>${t().teacher}</i>` : ''}</b>` : ''}${m.deleted ? '' : replyHtml(m.reply)}${body}<time>${hhmm(m.at)}</time></div>${m.deleted ? '' : reactHtml(m)}</div>
+      ${m.deleted ? '' : `<button type="button" class="ch-more-btn" data-menu="${m.id}" aria-label="${t().actions}">${SVG(I.more, 18)}</button>`}</div>`;
   }
+
+  // Меню действий: реакции, ответить, скопировать, удалить, пожаловаться.
+  function closeMenu() { document.querySelector('.ch-menu')?.remove(); document.querySelector('.ch-msg.sel')?.classList.remove('sel'); }
+  function openMenu(id, anchor) {
+    closeMenu();
+    const m = cur?.messages?.find(x => x.id === id); if (!m || m.deleted) return;
+    const el = document.querySelector(`.ch-msg[data-id="${id}"]`); el?.classList.add('sel');
+    const me = mine(m), my = m.reactions?.find(r => r.users.includes(X.me().username))?.e;
+    const item = (k, ic, label, cls = '') => `<button type="button" class="ch-menu__it ${cls}" data-act="${k}">${SVG(ic, 18)}<span>${label}</span></button>`;
+    const menu = document.createElement('div');
+    menu.className = 'ch-menu'; menu.setAttribute('role', 'menu');
+    menu.innerHTML = `<div class="ch-menu__emoji">${EMOJI.map(e => `<button type="button" data-e="${e}" class="${e === my ? 'on' : ''}" aria-label="${e}">${e}</button>`).join('')}</div>
+      ${item('reply', I.reply, t().reply)}${m.kind === 'text' ? item('copy', I.copy, t().copy) : ''}${me || cur.moderate ? item('del', I.del, t().del, 'bad') : ''}${!me ? item('report', I.flag, t().report, 'bad') : ''}`;
+    document.body.appendChild(menu);
+    const touch = window.matchMedia('(max-width: 760px)').matches;
+    if (touch) menu.classList.add('sheet');
+    else {
+      const r = (anchor || el.querySelector('.ch-bub')).getBoundingClientRect(), mw = menu.offsetWidth, mh = menu.offsetHeight;
+      let x = mine(m) ? r.right - mw : r.left, y = r.bottom + 6;
+      if (y + mh > innerHeight - 8) y = Math.max(8, r.top - mh - 6);
+      menu.style.left = Math.max(8, Math.min(x, innerWidth - mw - 8)) + 'px'; menu.style.top = y + 'px';
+    }
+    const back = document.createElement('div'); back.className = 'ch-menu-back'; document.body.insertBefore(back, menu);
+    const done = () => { back.remove(); closeMenu(); };
+    back.onclick = done;
+    back.oncontextmenu = e => { e.preventDefault(); done(); };
+    menu.onclick = async e => {
+      const em = e.target.closest('[data-e]'), act = e.target.closest('[data-act]')?.dataset.act;
+      if (em) { done(); return react(id, em.dataset.e); }
+      if (!act) return;
+      done();
+      if (act === 'reply') setReply(m);
+      if (act === 'copy') { try { await navigator.clipboard.writeText(m.text); X.toast(t().copied); } catch {} }
+      if (act === 'del' && window.confirm(t().delAsk)) { try { await X.api('/api/chat/message/' + id, { method: 'DELETE' }); hideMsg(id); } catch {} }
+      if (act === 'report') { try { await X.api('/api/chat/report', { method: 'POST', body: { id } }); X.toast(t().reported); } catch {} }
+    };
+    const esc_ = e => { if (e.key === 'Escape') { done(); document.removeEventListener('keydown', esc_); } };
+    document.addEventListener('keydown', esc_);
+    menu.querySelector('button')?.focus({ preventScroll: true });
+  }
+  async function react(id, e) {
+    try { const r = await X.api('/api/chat/react', { method: 'POST', body: { id, e } }); setReacts(r); } catch {}
+  }
+  function setReacts(ev) {
+    const m = cur?.messages?.find(x => x.id === ev.id); if (!m) return;
+    m.reactions = ev.reactions;
+    const col = document.querySelector(`.ch-msg[data-id="${ev.id}"] .ch-col`); if (!col) return;
+    col.querySelector('.ch-reacts')?.remove();
+    col.insertAdjacentHTML('beforeend', reactHtml(m));
+  }
+  let replyTo = null;
+  function setReply(m) {
+    replyTo = m;
+    const bar = $('#chReply'); if (!bar) return;
+    bar.hidden = !m;
+    if (m) { bar.querySelector('b').textContent = m.from.name; bar.querySelector('span').textContent = m.kind === 'voice' ? '🎤 ' + t().voice : m.text.slice(0, 90); $('#chText')?.focus(); }
+  }
+
+  // Голосовые: запись (MediaRecorder) и проигрывание — одно за раз.
+  let player = null;
+  function playVoice(box) {
+    const btn = box.querySelector('.ch-voice__play'), tl = box.querySelector('.ch-voice__t'), dur = +box.dataset.dur || 0;
+    if (player && player.box === box) { if (player.a.paused) player.a.play(); else player.a.pause(); return; }
+    if (player) { player.a.pause(); player.reset(); }
+    const a = new Audio(box.dataset.audio);
+    const wave = [...box.querySelectorAll('.ch-voice__wave i')];
+    const paint = () => { const p = a.duration && isFinite(a.duration) ? a.currentTime / a.duration : a.currentTime / (dur || 1); wave.forEach((w, i) => w.classList.toggle('on', i / wave.length < p)); tl.textContent = mmss(a.paused && !a.currentTime ? dur : a.currentTime); };
+    const reset = () => { btn.innerHTML = SVG(I.play, 18); wave.forEach(w => w.classList.remove('on')); tl.textContent = mmss(dur); };
+    a.onplay = () => { btn.innerHTML = SVG(I.pause, 18); };
+    a.onpause = () => { btn.innerHTML = SVG(I.play, 18); };
+    a.ontimeupdate = paint;
+    a.onended = () => { reset(); player = null; };
+    a.onerror = () => { reset(); player = null; X.toast(t().voiceErr); };
+    player = { a, box, reset };
+    a.play().catch(() => { reset(); player = null; });
+  }
+  let rec = null;
+  async function startRec(d) {
+    if (rec) return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') return X.toast(t().noMic);
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); } catch { return X.toast(t().micDenied); }
+    const type = ['audio/webm;codecs=opus', 'audio/ogg;codecs=opus', 'audio/mp4', 'audio/webm'].find(x => MediaRecorder.isTypeSupported?.(x)) || '';
+    const mr = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : undefined);
+    const chunks = [];
+    rec = { mr, stream, chunks, start: Date.now(), cancel: false, room: d.id };
+    mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+    mr.onstop = async () => {
+      stream.getTracks().forEach(tr => tr.stop());
+      const r = rec; rec = null; clearInterval(r.tick); drawComposer();
+      const secs = Math.round((Date.now() - r.start) / 1000);
+      if (r.cancel || secs < 1) return;
+      const blob = new Blob(chunks, { type: mr.mimeType || type || 'audio/webm' });
+      try {
+        const q = new URLSearchParams({ room: r.room, dur: Math.min(60, secs), ...(replyTo ? { reply_to: replyTo.id } : {}) });
+        const res = await fetch('/api/chat/voice?' + q, { method: 'POST', headers: { 'Content-Type': blob.type.split(';')[0], Authorization: 'Bearer ' + X.token() }, body: blob });
+        const j = await res.json();
+        if (!res.ok) throw Object.assign(new Error(), { code: j.error });
+        setReply(null); addMsg(j.message);
+      } catch (x) { X.toast(errText(x)); }
+    };
+    mr.start(250);
+    rec.tick = setInterval(() => { const s = (Date.now() - rec.start) / 1000; const el = $('#chRecT'); if (el) el.textContent = mmss(s); if (s >= 60) stopRec(false); }, 200);
+    drawComposer();
+  }
+  function stopRec(cancel) { if (!rec) return; rec.cancel = cancel; if (rec.mr.state !== 'inactive') rec.mr.stop(); }
+  let drawComposer = () => {};
+
   async function openRoom(id) {
     const box = $('#chMain'); if (!box) return;
     let d; try { d = await X.api('/api/chat/room?id=' + encodeURIComponent(id)); } catch { box.innerHTML = `<div class="ch-pick">${t().pick}</div>`; return; }
     if (!cur || cur.id !== id) return;
-    cur = d;
+    cur = d; replyTo = null; stopRec(true);
     const draw = () => {
       const dm = d.kind === 'dm';
       const rel = d.relation;
@@ -136,35 +266,71 @@ window.CHAT = (() => {
           ${dm ? `<a href="/u/${esc(d.peer.username)}" data-link class="ch-head__who">${ava(d.peer)}<span><b>${esc(d.title)}</b><small>${esc(d.sub)}${d.peer.online ? ' · ' + t().online : ''}</small></span></a>`
             : `<div class="ch-head__who">${roomIcon(d.kind)}<span><b>${esc(titleOf(d))}</b><small>${d.kind === 'school' ? t().school : t().klass}${d.sub ? ' · ' + esc(d.kind === 'class' ? schoolName(d.sub) : d.sub) : ''}</small></span></div>`}
           ${dm ? `<div class="ch-head__acts">${rel === 'friend' ? `<span class="tag tag--ok">${t().friend}</span>` : rel === 'outgoing' ? `<span class="tag">${t().sent}</span>` : `<button class="btn btn--sm btn--ghost" id="chFr">${rel === 'incoming' ? t().accept : t().add}</button>`}
-            <button class="linkbtn" id="chBlock">${d.blocked ? t().unblock : t().block}</button></div>` : ''}
+            <button class="linkbtn ch-blockbtn" id="chBlock" title="${d.blocked ? t().unblock : t().block}" aria-label="${d.blocked ? t().unblock : t().block}">${SVG('<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', 18)}<span>${d.blocked ? t().unblock : t().block}</span></button></div>` : ''}
         </header>
         <div class="ch-body" id="chBody">${d.more ? `<button class="linkbtn ch-more" id="chMore">${t().earlier}</button>` : ''}<div id="chMsgs">${d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1], d)).join('') : `<p class="ch-empty">${t().emptyRoom}</p>`}</div></div>
-        ${d.blocked || d.blockedByPeer ? `<p class="ch-note">${d.blocked ? t().blockedMe : t().blockedPeer}</p>` : `<form class="ch-form" id="chForm"><textarea id="chText" rows="1" maxlength="500" placeholder="${t().ph}" aria-label="${t().ph}"></textarea><button class="btn" aria-label="${t().send}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-5 16-3-7z"/></svg></button></form>
+        ${d.blocked || d.blockedByPeer ? `<p class="ch-note">${d.blocked ? t().blockedMe : t().blockedPeer}</p>` : `<div class="ch-reply" id="chReply" hidden>${SVG(I.reply, 18)}<div><b></b><span></span></div><button type="button" id="chReplyX" aria-label="${t().cancel}">${SVG(I.x, 18)}</button></div><div id="chComposer"></div>
         ${dm ? '' : `<p class="ch-rules">${t().rules}</p>`}`}`;
       const body = $('#chBody'); body.scrollTop = body.scrollHeight;
-      bindRoom();
+      drawComposer = composer;
+      composer(); bindRoom();
+    };
+    // Поле ввода: пустое — кнопка микрофона, с текстом — отправить; во время записи — таймер, отмена и отправка.
+    const composer = () => {
+      const c = $('#chComposer'); if (!c) return;
+      if (rec && rec.room === d.id) {
+        c.innerHTML = `<div class="ch-form ch-form--rec"><button type="button" class="ch-ibtn" id="chRecX" aria-label="${t().cancel}">${SVG(I.x)}</button><span class="ch-rec"><i></i>${t().recording} <b id="chRecT">0:00</b></span><button type="button" class="btn" id="chRecSend" aria-label="${t().send}">${SVG(I.send)}</button></div>`;
+        $('#chRecX').onclick = () => stopRec(true);
+        $('#chRecSend').onclick = () => stopRec(false);
+        return;
+      }
+      const keep = $('#chText')?.value || '';
+      c.innerHTML = `<form class="ch-form" id="chForm"><textarea id="chText" rows="1" maxlength="500" placeholder="${t().ph}" aria-label="${t().ph}"></textarea><button type="button" class="ch-ibtn" id="chMic" aria-label="${t().voiceRec}" title="${t().voiceRec}">${SVG(I.mic)}</button><button class="btn" id="chSend" aria-label="${t().send}">${SVG(I.send)}</button></form>`;
+      const form = $('#chForm'), ta = $('#chText');
+      ta.value = keep;
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; form.classList.toggle('has-text', !!ta.value.trim()); };
+      ta.oninput = grow; grow();
+      ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !window.matchMedia('(max-width: 760px)').matches) { e.preventDefault(); form.requestSubmit(); } };
+      form.onsubmit = async e => {
+        e.preventDefault();
+        const text = ta.value.trim(); if (!text) return;
+        const rp = replyTo;
+        ta.value = ''; grow(); setReply(null);
+        try { const r = await X.api('/api/chat/send', { method: 'POST', body: { room: d.id, text, reply_to: rp?.id } }); addMsg(r.message); }
+        catch (x) { ta.value = text; grow(); setReply(rp); X.toast(errText(x)); }
+        ta.focus();
+      };
+      $('#chMic').onclick = () => startRec(d);
+      if (window.matchMedia('(min-width: 761px)').matches) ta.focus();
     };
     const bindRoom = () => {
-      const form = $('#chForm'), ta = $('#chText'), body = $('#chBody');
-      if (form) {
-        const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; };
-        ta.oninput = grow;
-        ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); } };
-        form.onsubmit = async e => {
-          e.preventDefault();
-          const text = ta.value.trim(); if (!text) return;
-          ta.value = ''; grow();
-          try { const r = await X.api('/api/chat/send', { method: 'POST', body: { room: d.id, text } }); addMsg(r.message); }
-          catch (x) { ta.value = text; grow(); X.toast(errText(x)); }
-          ta.focus();
-        };
-        if (window.matchMedia('(min-width: 761px)').matches) ta.focus();
-      }
+      const body = $('#chBody');
+      const rx = $('#chReplyX'); if (rx) rx.onclick = () => setReply(null);
       body.onclick = async e => {
-        const del = e.target.closest('[data-del]'), rep = e.target.closest('[data-rep]');
-        if (del && window.confirm(t().delAsk)) { try { await X.api('/api/chat/message/' + del.dataset.del, { method: 'DELETE' }); hideMsg(+del.dataset.del); } catch {} }
-        if (rep) { try { await X.api('/api/chat/report', { method: 'POST', body: { id: +rep.dataset.rep } }); X.toast(t().reported); rep.remove(); } catch {} }
+        const play = e.target.closest('.ch-voice'); if (play) return playVoice(play);
+        const rb = e.target.closest('[data-react]'); if (rb) return react(+rb.dataset.mid, rb.dataset.react);
+        const mb = e.target.closest('[data-menu]'); if (mb) return openMenu(+mb.dataset.menu, mb.closest('.ch-msg').querySelector('.ch-bub'));
+        const q = e.target.closest('[data-goto]');
+        if (q) { const el = document.querySelector(`.ch-msg[data-id="${q.dataset.goto}"]`); if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1200); } }
       };
+      // Компьютер: правая кнопка мыши или двойной клик (быстрый 👍). Телефон: долгое нажатие или двойное касание.
+      body.oncontextmenu = e => { const b = e.target.closest('.ch-bub'); if (!b || b.classList.contains('del')) return; e.preventDefault(); openMenu(+b.closest('.ch-msg').dataset.id, b); };
+      body.ondblclick = e => { const b = e.target.closest('.ch-bub'); if (!b || b.classList.contains('del') || e.target.closest('.ch-voice,a,button')) return; window.getSelection()?.removeAllRanges(); react(+b.closest('.ch-msg').dataset.id, '👍'); };
+      let pt = null;
+      body.addEventListener('touchstart', e => {
+        const b = e.target.closest('.ch-bub'); if (!b || b.classList.contains('del') || e.target.closest('.ch-voice__play,a')) return;
+        const t0 = e.touches[0];
+        pt = { b, x: t0.clientX, y: t0.clientY, timer: setTimeout(() => { pt = null; navigator.vibrate?.(15); openMenu(+b.closest('.ch-msg').dataset.id, b); }, 450) };
+      }, { passive: true });
+      const cancel = () => { if (pt) { clearTimeout(pt.timer); pt = null; } };
+      body.addEventListener('touchmove', e => { if (pt && Math.hypot(e.touches[0].clientX - pt.x, e.touches[0].clientY - pt.y) > 10) cancel(); }, { passive: true });
+      body.addEventListener('touchend', cancel); body.addEventListener('touchcancel', cancel);
+      // Свайп сообщения вправо на телефоне — ответить.
+      let sw = null;
+      body.addEventListener('touchstart', e => { const msg = e.target.closest('.ch-msg'); if (msg && !e.target.closest('.ch-voice')) sw = { msg, x: e.touches[0].clientX, y: e.touches[0].clientY, dx: 0 }; }, { passive: true });
+      body.addEventListener('touchmove', e => { if (!sw) return; const dx = e.touches[0].clientX - sw.x, dy = Math.abs(e.touches[0].clientY - sw.y); if (dy > 30) { sw.msg.style.transform = ''; sw = null; return; } sw.dx = Math.max(0, Math.min(70, dx)); sw.msg.style.transform = `translateX(${sw.dx}px)`; }, { passive: true });
+      body.addEventListener('touchend', () => { if (!sw) return; const { msg, dx } = sw; sw = null; msg.style.transition = 'transform .15s'; msg.style.transform = ''; setTimeout(() => { msg.style.transition = ''; }, 160); if (dx > 55) { const m = cur?.messages?.find(x => x.id === +msg.dataset.id); if (m && !m.deleted) { navigator.vibrate?.(10); setReply(m); } } });
+      body.onkeydown = e => { const b = e.target.closest('.ch-bub'); if (b && (e.key === 'Enter' || e.key === 'ContextMenu')) { e.preventDefault(); openMenu(+b.closest('.ch-msg').dataset.id, b); } };
       const more = $('#chMore');
       if (more) more.onclick = async () => {
         more.disabled = true;
@@ -203,9 +369,9 @@ window.CHAT = (() => {
   }
   function hideMsg(id) {
     const m = cur?.messages?.find(x => x.id === id); if (!m) return;
-    m.deleted = true; m.text = null;
+    m.deleted = true; m.text = null; m.reactions = [];
     const el = document.querySelector(`.ch-msg[data-id="${id}"]`);
-    if (el) { el.querySelector('.ch-bub').classList.add('del'); el.querySelector('.ch-bub__text').textContent = t().deleted; el.querySelector('.ch-acts')?.remove(); }
+    if (el) el.outerHTML = msgHtml(m, cur.messages[cur.messages.indexOf(m) - 1], cur);
   }
 
   function onChat(m) {
@@ -214,13 +380,13 @@ window.CHAT = (() => {
     if (shown && !isMine && document.visibilityState === 'visible') X.api('/api/chat/read', { method: 'POST', body: { room: m.room, id: m.id } }).catch(() => {});
     let row = rooms.find(r => r.id === m.room);
     if (row) {
-      row.last = { text: m.text.slice(0, 80), at: m.at, mine: isMine, name: m.from.name };
+      row.last = { text: m.kind === 'voice' ? '🎤' : m.text.slice(0, 80), at: m.at, mine: isMine, name: m.from.name };
       if (!shown && !isMine) row.unread = (row.unread || 0) + 1;
       if (row.kind === 'dm') rooms = [...rooms.filter(r => r.kind !== 'dm'), row, ...rooms.filter(r => r.kind === 'dm' && r !== row)];
       drawList();
     } else if ($('#chList')) loadList();
     if (!shown && !isMine) {
-      if (m.room.startsWith('d:') && !location.pathname.startsWith('/chat')) X.toast(`${m.from.name}: ${m.text.slice(0, 60)}`);
+      if (m.room.startsWith('d:') && !location.pathname.startsWith('/chat')) X.toast(`${m.from.name}: ${m.kind === 'voice' ? '🎤 ' + t().voice : m.text.slice(0, 60)}`);
       if (!m.room.startsWith('s:')) refreshBadge();
     }
   }
@@ -230,6 +396,7 @@ window.CHAT = (() => {
       X = ctx;
       X.socket.on('chat', onChat);
       X.socket.on('chat_hide', d => hideMsg(d.id));
+      X.socket.on('chat_react', setReacts);
       X.socket.on('connect', () => refreshBadge());
     },
     view, refreshBadge,

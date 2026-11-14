@@ -7,10 +7,11 @@ const crypto = require('crypto');
 const pv = ph => (ph ? crypto.createHash('md5').update(ph).digest('hex') : null);
 const sess = r => r && ({ ...r, starts_at: iso(r.starts_at), ends_at: iso(r.ends_at), reg_until: iso(r.reg_until), created_at: iso(r.created_at) });
 const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
+const fixMsg = r => ({ ...r, id: Number(r.id), reply_to: r.reply_to == null ? null : Number(r.reply_to), created_at: iso(r.created_at) });
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= []; db.daily ||= []; db.tstats ||= {}; db.chat ||= { seq: 0, msgs: [], reads: {}, blocks: [], reports: [] };
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= []; db.daily ||= []; db.tstats ||= {}; db.chat ||= { seq: 0, msgs: [], reads: {}, blocks: [], reports: [] }; db.chat.reacts ||= {}; db.chat.media ||= {};
   const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
@@ -20,8 +21,13 @@ function memory(db, save) {
   return {
     async kvGet(k) { return db.kv[k] || null; },
     // чаты
-    async chatAdd(room, sender_id, text) { const m = { id: ++db.chat.seq, room, sender_id, text, created_at: new Date().toISOString(), deleted: false }; db.chat.msgs.push(m); if (db.chat.msgs.length > 20000) db.chat.msgs.splice(0, 2000); save(); return { ...m }; },
+    async chatAdd(room, sender_id, text, x = {}) { const m = { id: ++db.chat.seq, room, sender_id, text, kind: x.kind || 'text', media: x.media || null, dur: x.dur || null, reply_to: x.reply_to || null, created_at: new Date().toISOString(), deleted: false }; db.chat.msgs.push(m); if (db.chat.msgs.length > 20000) db.chat.msgs.splice(0, 2000); save(); return { ...m }; },
     async chatGet(id) { const m = db.chat.msgs.find(x => x.id === id); return m ? { ...m } : null; },
+    async chatGetMany(ids) { const set = new Set(ids); return db.chat.msgs.filter(m => set.has(m.id)).map(m => ({ ...m })); },
+    async chatReact(mid, pid, emoji) { const r = db.chat.reacts[mid] ||= {}; if (!emoji || r[pid] === emoji) delete r[pid]; else r[pid] = emoji; save(); },
+    async chatReactions(ids) { const out = []; for (const id of ids) for (const [pid, e] of Object.entries(db.chat.reacts[id] || {})) out.push({ message_id: id, player_id: pid, emoji: e }); return out; },
+    async mediaPut(id, mime, buf) { db.chat.media[id] = { mime, b64: buf.toString('base64') }; save(); },
+    async mediaGet(id) { const m = db.chat.media[id]; return m ? { mime: m.mime, data: Buffer.from(m.b64, 'base64') } : null; },
     async chatList(room, before, limit) { return db.chat.msgs.filter(m => m.room === room && (!before || m.id < before)).slice(-limit).map(m => ({ ...m })); },
     async chatLast(rooms) { const out = {}; for (const m of db.chat.msgs) if (rooms.includes(m.room) && !m.deleted) out[m.room] = { ...m }; return out; },
     async chatHide(id) { const m = db.chat.msgs.find(x => x.id === id); if (m) { m.deleted = true; save(); } },
@@ -157,10 +163,15 @@ function pg(q) {
   return {
     async kvGet(k) { const r = (await q('select val, updated_at from kv where key=$1', [k])).rows[0]; return r ? { val: r.val, updated_at: iso(r.updated_at) } : null; },
     // чаты
-    async chatAdd(room, sender_id, text) { const r = (await q('insert into chat_messages (room, sender_id, text) values ($1,$2,$3) returning id, room, sender_id, text, created_at, deleted', [room, sender_id, text])).rows[0]; return { ...r, id: Number(r.id), created_at: iso(r.created_at) }; },
-    async chatGet(id) { const r = (await q('select id, room, sender_id, text, created_at, deleted from chat_messages where id=$1', [id])).rows[0]; return r ? { ...r, id: Number(r.id), created_at: iso(r.created_at) } : null; },
-    async chatList(room, before, limit) { const rows = (await q('select id, room, sender_id, text, created_at, deleted from chat_messages where room=$1 and ($2::bigint is null or id < $2) order by id desc limit $3', [room, before || null, limit])).rows; return rows.reverse().map(r => ({ ...r, id: Number(r.id), created_at: iso(r.created_at) })); },
-    async chatLast(rooms) { if (!rooms.length) return {}; const rows = (await q('select distinct on (room) id, room, sender_id, text, created_at from chat_messages where room = any($1) and not deleted order by room, id desc', [rooms])).rows; return Object.fromEntries(rows.map(r => [r.room, { ...r, id: Number(r.id), created_at: iso(r.created_at) }])); },
+    async chatAdd(room, sender_id, text, x = {}) { const r = (await q('insert into chat_messages (room, sender_id, text, kind, media, dur, reply_to) values ($1,$2,$3,$4,$5,$6,$7) returning *', [room, sender_id, text, x.kind || 'text', x.media || null, x.dur || null, x.reply_to || null])).rows[0]; return fixMsg(r); },
+    async chatGet(id) { const r = (await q('select * from chat_messages where id=$1', [id])).rows[0]; return r ? fixMsg(r) : null; },
+    async chatGetMany(ids) { if (!ids.length) return []; return (await q('select * from chat_messages where id = any($1)', [ids])).rows.map(fixMsg); },
+    async chatReact(mid, pid, emoji) { if (!emoji) { await q('delete from chat_reactions where message_id=$1 and player_id=$2', [mid, pid]); return; } const cur = (await q('select emoji from chat_reactions where message_id=$1 and player_id=$2', [mid, pid])).rows[0]; if (cur?.emoji === emoji) await q('delete from chat_reactions where message_id=$1 and player_id=$2', [mid, pid]); else await q('insert into chat_reactions (message_id, player_id, emoji) values ($1,$2,$3) on conflict (message_id, player_id) do update set emoji=excluded.emoji', [mid, pid, emoji]); },
+    async chatReactions(ids) { if (!ids.length) return []; return (await q('select message_id, player_id, emoji from chat_reactions where message_id = any($1)', [ids])).rows.map(r => ({ ...r, message_id: Number(r.message_id) })); },
+    async mediaPut(id, mime, buf) { await q('insert into chat_media (id, mime, data) values ($1,$2,$3)', [id, mime, buf]); },
+    async mediaGet(id) { return (await q('select mime, data from chat_media where id=$1', [id])).rows[0] || null; },
+    async chatList(room, before, limit) { const rows = (await q('select * from chat_messages where room=$1 and ($2::bigint is null or id < $2) order by id desc limit $3', [room, before || null, limit])).rows; return rows.reverse().map(fixMsg); },
+    async chatLast(rooms) { if (!rooms.length) return {}; const rows = (await q('select distinct on (room) id, room, sender_id, text, kind, created_at from chat_messages where room = any($1) and not deleted order by room, id desc', [rooms])).rows; return Object.fromEntries(rows.map(r => [r.room, { ...r, id: Number(r.id), created_at: iso(r.created_at) }])); },
     async chatHide(id) { await q('update chat_messages set deleted = true where id=$1', [id]); },
     async chatRead(pid, room, id) { await q('insert into chat_reads (player_id, room, last_id) values ($1,$2,$3) on conflict (player_id, room) do update set last_id = greatest(chat_reads.last_id, excluded.last_id)', [pid, room, id]); },
     async chatReads(pid) { return Object.fromEntries((await q('select room, last_id from chat_reads where player_id=$1', [pid])).rows.map(r => [r.room, Number(r.last_id)])); },
@@ -192,6 +203,12 @@ function pg(q) {
       await q(`create index if not exists minigames_mode_time on minigames (mode, created_at)`);
       await q(`create table if not exists chat_messages (id bigserial primary key, room text not null, sender_id text not null references players(id) on delete cascade, text text not null, created_at timestamptz not null default now(), deleted boolean not null default false)`);
       await q(`create index if not exists chat_messages_room on chat_messages (room, id)`);
+      await q(`alter table chat_messages add column if not exists kind text not null default 'text'`);
+      await q(`alter table chat_messages add column if not exists media text`);
+      await q(`alter table chat_messages add column if not exists dur int`);
+      await q(`alter table chat_messages add column if not exists reply_to bigint`);
+      await q(`create table if not exists chat_reactions (message_id bigint not null references chat_messages(id) on delete cascade, player_id text not null references players(id) on delete cascade, emoji text not null, primary key (message_id, player_id))`);
+      await q(`create table if not exists chat_media (id text primary key, mime text not null, data bytea not null, created_at timestamptz not null default now())`);
       await q(`create table if not exists chat_reads (player_id text not null references players(id) on delete cascade, room text not null, last_id bigint not null default 0, primary key (player_id, room))`);
       await q(`create table if not exists chat_blocks (a text not null references players(id) on delete cascade, b text not null references players(id) on delete cascade, primary key (a, b))`);
       await q(`create table if not exists chat_reports (message_id bigint not null references chat_messages(id) on delete cascade, player_id text not null references players(id) on delete cascade, created_at timestamptz not null default now(), primary key (message_id, player_id))`);

@@ -2,6 +2,10 @@
 // Защита: лимит частоты, фильтр брани, жалобы (3 жалобы скрывают сообщение), блокировка собеседника,
 // настройка «писать мне могут только друзья», учитель удаляет сообщения в чатах своего класса и школы.
 const crypto = require('crypto');
+const express = require('express');
+
+const EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
+const AUDIO = /^audio\/(webm|ogg|mp4|mpeg|aac|x-m4a)(;.*)?$/;
 
 const MAX_LEN = 500;
 const BAD = /(?<![а-яёa-z])(?:(?:на|за|по|вы|у|до|отъ|при|разъ|съ|про)?[её]б(?:а|у|и|л|н|т|ё|е)|(?:на|по|от|при|о)?ху[йеёяи]|(?:рас|рос|ис|с)?пизд|бля(?:д|т|$|[^а-яё])|муда[кч]|муди[лк]|пид[ао]р|ганд[оа]н|долбо[её]б|шлюх|қотақ|көтен|сігі[лнп]|fuck|shit(?![a-z])|bitch)[а-яёәіңғүұқөһa-z]*/gi;
@@ -38,7 +42,34 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     const rows = await db.chatBlocks(pid);
     return { byMe: rows.some(x => x.a === pid && x.b === peerId), byPeer: rows.some(x => x.a === peerId && x.b === pid) };
   }
-  const view = (m, people) => ({ id: m.id, room: m.room, text: m.deleted ? null : m.text, deleted: !!m.deleted, at: m.created_at, from: people.get(m.sender_id) || { username: null, name: '—' } });
+  const short = m => (m.deleted ? null : m.kind === 'voice' ? '🎤' : m.text.slice(0, 90));
+  const view = (m, people, ex = {}) => ({
+    id: m.id, room: m.room, kind: m.kind || 'text', text: m.deleted ? null : m.text, deleted: !!m.deleted, at: m.created_at,
+    audio: m.kind === 'voice' && !m.deleted ? '/chat-audio/' + m.media : null, dur: m.dur || null,
+    from: people.get(m.sender_id) || { username: null, name: '—' },
+    reply: ex.reply || null, reactions: ex.reactions || []
+  });
+  // Реакции группами: [{ e: '👍', users: ['ali', 'dana'] }].
+  function groupReacts(rows, names) {
+    const m = new Map();
+    for (const r of rows) { const g = m.get(r.emoji) || []; g.push(names.get(r.player_id) || ''); m.set(r.emoji, g); }
+    return EMOJI.filter(e => m.has(e)).map(e => ({ e, users: m.get(e) }));
+  }
+  // Полные карточки сообщений: ответы и реакции подтягиваем одним запросом на пачку.
+  async function full(msgs) {
+    const replyIds = [...new Set(msgs.map(m => m.reply_to).filter(Boolean))];
+    const [replies, reacts] = await Promise.all([db.chatGetMany(replyIds), db.chatReactions(msgs.map(m => m.id))]);
+    const people = await peopleOf([...msgs, ...replies]);
+    const reactors = new Map((await db.playersByIds([...new Set(reacts.map(r => r.player_id))])).map(p => [p.id, p.username]));
+    const rmap = new Map(replies.map(r => [r.id, r]));
+    return msgs.map(m => {
+      const r = m.reply_to && rmap.get(m.reply_to);
+      return view(m, people, {
+        reply: r ? { id: r.id, name: people.get(r.sender_id)?.name || '—', text: short(r), kind: r.kind } : null,
+        reactions: groupReacts(reacts.filter(x => x.message_id === m.id), reactors)
+      });
+    });
+  }
   async function peopleOf(msgs) {
     const ids = [...new Set(msgs.map(m => m.sender_id))];
     return new Map((await db.playersByIds(ids)).map(p => [p.id, brief(p)]));
@@ -58,7 +89,7 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     const [last, unread, peers, blocks] = await Promise.all([db.chatLast(ids), db.chatUnread(me.id, ids), db.playersByIds(dms.map(r => dmPeer(r, me.id))), db.chatBlocks(me.id)]);
     const peerMap = new Map(peers.map(p => [p.id, p]));
     const names = await peopleOf(Object.values(last));
-    const lastOf = id => { const m = last[id]; return m ? { text: m.text.slice(0, 80), at: m.created_at, mine: m.sender_id === me.id, name: names.get(m.sender_id)?.name || '' } : null; };
+    const lastOf = id => { const m = last[id]; return m ? { text: m.kind === 'voice' ? '🎤' : m.text.slice(0, 80), at: m.created_at, mine: m.sender_id === me.id, name: names.get(m.sender_id)?.name || '' } : null; };
     const rooms = [
       ...auto.map(r => ({ id: r.id, kind: r.kind, title: r.title, sub: r.sub, last: lastOf(r.id), unread: unread[r.id] || 0 })),
       ...dms.map(id => { const p = peerMap.get(dmPeer(id, me.id)); return p?.username ? { id, kind: 'dm', title: p.name, sub: '@' + p.username, peer: brief(p), last: lastOf(id), unread: unread[id] || 0, blocked: blocks.some(x => x.a === me.id && x.b === p.id) } : null; })
@@ -79,8 +110,7 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     if (!r) return res.status(404).json({ error: 'notfound' });
     const before = Number(req.query.before) > 0 ? Number(req.query.before) : null;
     const msgs = await db.chatList(r.id, before, 40);
-    const people = await peopleOf(msgs);
-    const out = { id: r.id, kind: r.kind, title: r.kind === 'dm' ? r.peer.name : r.title, sub: r.kind === 'dm' ? '@' + r.peer.username : r.sub, moderate: canModerate(req.player, r), more: msgs.length === 40, messages: msgs.map(m => view(m, people)) };
+    const out = { id: r.id, kind: r.kind, title: r.kind === 'dm' ? r.peer.name : r.title, sub: r.kind === 'dm' ? '@' + r.peer.username : r.sub, moderate: canModerate(req.player, r), more: msgs.length === 40, messages: await full(msgs) };
     if (r.kind === 'dm') {
       const [b, fr] = await Promise.all([blockState(req.player.id, r.peer.id), db.friendRow(req.player.id, r.peer.id)]);
       out.peer = brief(r.peer);
@@ -105,27 +135,70 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     if (a.length >= 20 || (a.length && now - a[a.length - 1] < 700)) { sent.set(pid, a); return true; }
     a.push(now); sent.set(pid, a); return false;
   }
+  // Можно ли писать в комнату: блокировки и «только друзья». Возвращает код ошибки или null.
+  async function canSend(me, r) {
+    if (r.kind !== 'dm') return null;
+    const b = await blockState(me.id, r.peer.id);
+    if (b.byMe || b.byPeer) return 'chatBlocked';
+    if (r.peer.settings?.dm === 'friends' && !(await social.isFriend(me.id, r.peer.id))) return 'chatFriendsOnly';
+    return null;
+  }
+  const toRoom = (r, ev, data) => {
+    if (r.kind === 'dm' || r.id.startsWith('d:')) { const [, a, b] = r.id.split(':'); emitTo(a, ev, data); emitTo(b, ev, data); } else io.to('chat:' + r.id).emit(ev, data);
+  };
+  async function deliver(me, r, text, extra) {
+    let reply_to = Math.round(Number(extra.reply_to)) || null;
+    if (reply_to) { const t = await db.chatGet(reply_to); if (!t || t.room !== r.id) reply_to = null; }
+    const m = await db.chatAdd(r.id, me.id, text, { ...extra, reply_to });
+    const [msg] = await full([m]);
+    await db.chatRead(me.id, r.id, m.id);
+    if (r.kind === 'dm' && !(r.id in (await db.chatReads(r.peer.id)))) await db.chatRead(r.peer.id, r.id, 0);
+    toRoom(r, 'chat', msg);
+    return msg;
+  }
   app.post('/api/chat/send', auth, wrap(async (req, res) => {
     const me = req.player;
     const r = await access(me, String(req.body?.room || ''));
     if (!r) return res.status(404).json({ error: 'notfound' });
     const text = clean(req.body?.text);
     if (!text) return res.status(400).json({ error: 'chatEmpty' });
-    if (r.kind === 'dm') {
-      const b = await blockState(me.id, r.peer.id);
-      if (b.byMe || b.byPeer) return res.status(403).json({ error: 'chatBlocked' });
-      if (r.peer.settings?.dm === 'friends' && !(await social.isFriend(me.id, r.peer.id))) return res.status(403).json({ error: 'chatFriendsOnly' });
-    }
+    const err = await canSend(me, r); if (err) return res.status(403).json({ error: err });
     if (tooFast(me.id)) return res.status(429).json({ error: 'chatFast' });
-    const m = await db.chatAdd(r.id, me.id, text);
-    const [mine] = await db.playersByIds([me.id]);
-    const msg = view(m, new Map([[me.id, brief(mine || me)]]));
-    await db.chatRead(me.id, r.id, m.id);
-    if (r.kind === 'dm') {
-      if (!(r.id in (await db.chatReads(r.peer.id)))) await db.chatRead(r.peer.id, r.id, 0);
-      emitTo(r.peer.id, 'chat', msg); emitTo(me.id, 'chat', msg);
-    } else io.to('chat:' + r.id).emit('chat', msg);
-    res.json({ message: msg });
+    res.json({ message: await deliver(me, r, text, { reply_to: req.body?.reply_to }) });
+  }));
+  // Голосовое: до 60 секунд, до 600 КБ, аудио из браузера (webm/ogg/mp4).
+  app.post('/api/chat/voice', auth, express.raw({ type: () => true, limit: '600kb' }), wrap(async (req, res) => {
+    const me = req.player;
+    const r = await access(me, String(req.query.room || ''));
+    if (!r) return res.status(404).json({ error: 'notfound' });
+    const mime = String(req.get('content-type') || '').toLowerCase();
+    const buf = req.body;
+    if (!AUDIO.test(mime) || !Buffer.isBuffer(buf) || buf.length < 500) return res.status(400).json({ error: 'chatVoiceBad' });
+    const dur = Math.max(1, Math.min(60, Math.round(Number(req.query.dur) || 1)));
+    const err = await canSend(me, r); if (err) return res.status(403).json({ error: err });
+    if (tooFast(me.id)) return res.status(429).json({ error: 'chatFast' });
+    const id = crypto.randomBytes(16).toString('hex');
+    await db.mediaPut(id, mime.split(';')[0], buf);
+    res.json({ message: await deliver(me, r, '', { kind: 'voice', media: id, dur, reply_to: req.query.reply_to }) });
+  }));
+  app.get('/chat-audio/:id', wrap(async (req, res) => {
+    const id = String(req.params.id || '');
+    const m = /^[a-f0-9]{32}$/.test(id) ? await db.mediaGet(id) : null;
+    if (!m) return res.status(404).end();
+    res.set({ 'Cache-Control': 'private, max-age=31536000, immutable', 'X-Robots-Tag': 'noindex' }).type(m.mime).send(m.data);
+  }));
+  // Реакция: одна на человека; повторное нажатие того же смайла снимает её.
+  app.post('/api/chat/react', auth, wrap(async (req, res) => {
+    const m = await db.chatGet(Number(req.body?.id));
+    const r = m && !m.deleted && await access(req.player, m.room);
+    const e = String(req.body?.e || '');
+    if (!r || (e && !EMOJI.includes(e))) return res.status(404).json({ error: 'notfound' });
+    await db.chatReact(m.id, req.player.id, e || null);
+    const rows = await db.chatReactions([m.id]);
+    const names = new Map((await db.playersByIds([...new Set(rows.map(x => x.player_id))])).map(p => [p.id, p.username]));
+    const ev = { id: m.id, room: m.room, reactions: groupReacts(rows, names) };
+    toRoom(r, 'chat_react', ev);
+    res.json(ev);
   }));
   app.post('/api/chat/read', auth, wrap(async (req, res) => {
     const r = await access(req.player, String(req.body?.room || ''));
@@ -136,8 +209,7 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
 
   async function hide(m) {
     await db.chatHide(m.id);
-    const ev = { id: m.id, room: m.room };
-    if (m.room.startsWith('d:')) { const [, a, b] = m.room.split(':'); emitTo(a, 'chat_hide', ev); emitTo(b, 'chat_hide', ev); } else io.to('chat:' + m.room).emit('chat_hide', ev);
+    toRoom({ id: m.room, kind: m.room.startsWith('d:') ? 'dm' : 'room' }, 'chat_hide', { id: m.id, room: m.room });
   }
   app.delete('/api/chat/message/:id', auth, wrap(async (req, res) => {
     const m = await db.chatGet(Number(req.params.id));
