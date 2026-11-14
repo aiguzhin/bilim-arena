@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|games\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|games\.js))"/g, `$1?v=${VERSION}"`);
 // Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
 const SITE = 'https://bilimarena.com';
 const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -122,7 +122,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/plan', '/parent/:token', '/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
+app.get(['/chat', '/chat/:room', '/plan', '/parent/:token', '/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -231,7 +231,7 @@ app.put('/api/me/photo', auth, wrap(async (req, res) => {
   res.json({ user: store.PUBLIC(await db.setPhoto(req.player.id, ph)) });
 }));
 
-const SETTINGS = { theme: ['system', 'light', 'dark'], accent: ['classic', 'emerald', 'garnet', 'indigo'], fs: ['md', 'lg'], lang: ['ru', 'kk'], examLang: ['kk', 'ru', 'en'], timer: ['show', 'hide'], confirmNext: ['on', 'off'] };
+const SETTINGS = { dm: ['all', 'friends'], theme: ['system', 'light', 'dark'], accent: ['classic', 'emerald', 'garnet', 'indigo'], fs: ['md', 'lg'], lang: ['ru', 'kk'], examLang: ['kk', 'ru', 'en'], timer: ['show', 'hide'], confirmNext: ['on', 'off'] };
 app.put('/api/me/settings', auth, wrap(async (req, res) => {
   const b = req.body || {}, st = { ...(req.player.settings || {}) };
   for (const [k, vals] of Object.entries(SETTINGS)) if (vals.includes(b[k])) st[k] = b[k];
@@ -651,6 +651,7 @@ const card = p => ({ id: p.id, name: p.name, school: p.school, city: p.city, use
 const online = new Map();
 const emitTo = (pid, ev, data) => { for (const sid of online.get(pid) || []) io.to(sid).emit(ev, data); };
 const social = require('./social')(app, { db, auth, wrap, store, online, emitTo, cardOf: p => { const c = card(p); delete c.id; return c; } });
+const chat = require('./chat')(app, { db, auth, wrap, io, online, emitTo, social });
 require('./unis')(app, db);
 require('./minigames')(app, { db, auth, wrap, BANK, QUICK, shuffle });
 require('./plan')(app, { db, auth, wrap, edu, BANK });
@@ -685,8 +686,10 @@ io.on('connection', socket => {
   online.get(pl.id).add(socket.id);
   socket.on('profile_updated', async () => {
     const p = await db.get(profile.id).catch(() => null);
-    if (p) profile = card(p);
+    if (p) { profile = card(p); chat.joinSocket(socket, p).catch(() => {}); }
   });
+  chat.joinSocket(socket, pl).catch(() => {});
+  socket.on('chat_sync', async () => { const p = await db.get(pl.id).catch(() => null); if (p) chat.joinSocket(socket, p).catch(() => {}); });
 
   const join = (r, team) => {
     for (const p of r.players.values()) {

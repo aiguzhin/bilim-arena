@@ -161,7 +161,7 @@
     window.scrollTo(0, 0);
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
     if (!me && getToken()) {
-      try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); SOC.refreshBadge(); } catch {}
+      try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); SOC.refreshBadge(); CHAT.refreshBadge(); } catch {}
     }
     if (path === '/privacy') return viewPrivacy();
     if (path === '/login') return viewAuth(true);
@@ -173,6 +173,7 @@
     if (path === '/friends') return SOC.view();
     if (path === '/games') return GAMES.view(path);
     if (path === '/plan') return PLAN.view(path);
+    if (path === '/chat' || path.startsWith('/chat/')) return CHAT.view(path);
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
@@ -213,6 +214,7 @@
   accCtx.edu = eduCtx;
   const socCtx = { ...eduCtx, socket, joinRoom: code => { if (room) leaveRoom(); reset(); joinFlow(code, true); } };
   SOC.init(socCtx);
+  CHAT.init(socCtx);
   SES.init(eduCtx);
   UNI.init(eduCtx);
   GAMES.init(eduCtx);

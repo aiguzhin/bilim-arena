@@ -61,7 +61,7 @@ window.ACC = (() => {
     $('#menuList').innerHTML = `
       ${item('/me', A().tabProfile)}${item('/me/achievements', A().tabAch)}${item('/me/results', A().tabResults)}${me.role === 'teacher' ? item('/teacher', A().menuTeacher) : item('/me/class', A().tabClass)}${item('/settings', A().tabSettings)}
       <hr>
-      ${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/ent/register', A().menuEntReg)}${item('/games', L.navGames)}${item('/unis', L.navUnis)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
+      ${item('/chat', X.lang() === 'kk' ? 'Чаттар' : 'Чаты')}${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/ent/register', A().menuEntReg)}${item('/games', L.navGames)}${item('/unis', L.navUnis)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
       <hr>
       <button type="button" id="menuSwitch">${A().switchAcc}</button>
       <button type="button" id="menuLogout">${A().logout}</button>`;
@@ -416,7 +416,7 @@ window.ACC = (() => {
           ${since ? `<p class="phead__since">${L.memberSince(since)}</p>` : ''}
         </div>
       </header>
-      <div class="uactions"><span id="uFriend"></span><a class="btn" href="/play?mode=duel" data-link id="uDuel">${A().duel}</a><button class="btn btn--ghost" id="uShare">${A().share}</button></div>
+      <div class="uactions"><span id="uFriend"></span><button class="btn btn--ghost" id="uWrite">${X.lang() === 'kk' ? 'Жазу' : 'Написать'}</button><a class="btn" href="/play?mode=duel" data-link id="uDuel">${A().duel}</a><button class="btn btn--ghost" id="uShare">${A().share}</button></div>
       ${u.goal ? `<p class="ugoal">${A().goalTitle}: <b>${u.goal}</b>${u.goalCombo ? ` · ${X.esc(X.topicName('combo:' + u.goalCombo))}` : ''}</p>` : ''}
       <h2 class="me__h2">${A().compareTitle}</h2>
       <table class="table cmp"><thead><tr><th></th><th class="num">${X.esc(u.name)}</th><th class="num">${A().you}</th></tr></thead>
@@ -426,6 +426,7 @@ window.ACC = (() => {
         <div class="acc__bar"><i style="width:${x.pct}%" class="${x.pct < 50 ? 'low' : x.pct < 75 ? 'mid' : ''}"></i></div></li>`).join('')}</ul>` : ''}
     </div></div>${X.footer()}`;
     SOC.userButton($('#uFriend'), u.username);
+    $('#uWrite').onclick = () => CHAT.open(u.username);
     $('#uDuel').onclick = () => { try { sessionStorage.setItem('ba_invite', u.username); } catch {} };
     $('#uShare').onclick = async () => { try { await navigator.clipboard.writeText(location.href); X.toast(A().copied); } catch { X.toast(location.href); } };
   }
