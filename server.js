@@ -47,7 +47,41 @@ function validTopic(t) {
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
 const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js))"/g, `$1?v=${VERSION}"`);
-const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
+// Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
+const SITE = 'https://bilimarena.com';
+const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const LD = JSON.stringify({ '@context': 'https://schema.org', '@graph': [
+  { '@type': 'WebSite', name: 'Bilim Arena', alternateName: ['Білім Арена', 'Bilim Arena ЕНТ', 'bilimarena.com'], url: SITE + '/', inLanguage: ['ru', 'kk'] },
+  { '@type': 'Organization', name: 'Bilim Arena', url: SITE + '/', logo: SITE + '/icon-512.png' }
+] });
+let seoUnis = null;
+const seoFor = async req => {
+  const p = req.path;
+  if (p === '/unis') return { t: 'Вузы и гранты: пороговые и проходные баллы ЕНТ — Bilim Arena', d: 'Проходные баллы на грант 2025 по всем вузам Казахстана, пороговые баллы ЕНТ-2026, стоимость обучения и зарубежные вузы, которые принимают ЕНТ. Узнайте свой шанс на грант.' };
+  const m = p.match(/^\/unis\/(\d+)$/);
+  if (m) {
+    try { if (!seoUnis || Date.now() - seoUnis.at > 600000) seoUnis = { at: Date.now(), v: (await db.kvGet('unis'))?.val }; } catch {}
+    const u = seoUnis?.v?.unis?.find(x => String(x.id) === m[1]);
+    if (u) return { t: `${u.name}: проходные баллы на грант и стоимость — Bilim Arena`, d: `${u.name} (${u.city}): проходные баллы на грант 2025 по группам программ, сельская квота, порог для платного${u.price ? `, обучение от ${u.price[0].toLocaleString('ru-RU')} ₸ в год` : ''}.` };
+  }
+  if (p === '/about') return { t: 'О проекте — Bilim Arena', d: 'Bilim Arena — подготовка к ЕНТ в формате дуэлей: пробный ЕНТ, турниры, рейтинг школ и разбор ошибок на казахском и русском.' };
+  return null;
+};
+const sendIndex = async (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  let html = INDEX.replace('</head>', `<link rel="canonical" href="${SITE}${req.path === '/index.html' ? '/' : req.path}">\n<script type="application/ld+json">${LD}</script>\n</head>`);
+  const s = await seoFor(req).catch(() => null);
+  if (s) html = html.replace(/<title>[^<]*<\/title>/, `<title>${escAttr(s.t)}</title>`).replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${escAttr(s.d)}">`)
+    .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escAttr(s.t)}">`).replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escAttr(s.d)}">`);
+  res.type('html').send(html);
+};
+app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /b/\n\nSitemap: ${SITE}/sitemap.xml\n`));
+app.get('/sitemap.xml', async (req, res) => {
+  let ids = [];
+  try { ids = ((await db.kvGet('unis'))?.val?.unis || []).map(u => u.id); } catch {}
+  const urls = ['/', '/unis', '/unis?tab=rules', '/unis?tab=kz', '/unis?tab=abroad', '/about', ...ids.map(i => `/unis/${i}`)];
+  res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `<url><loc>${SITE}${u.replace(/&/g, '&amp;')}</loc></url>`).join('\n')}\n</urlset>\n`);
+});
 // Переезд на свой сервер. CANONICAL_HOST (задаётся на старом хостинге) — все страницы пересылаются на основной домен.
 const CANON = (process.env.CANONICAL_HOST || '').trim();
 if (CANON) app.use((req, res, next) => {
