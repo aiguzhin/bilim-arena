@@ -169,6 +169,7 @@
     if (!me) return viewAuth();
     if (me.needsProfile) return viewRequired();
     if (path === '/friends') return SOC.view();
+    if (path === '/games') return GAMES.view(path);
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
@@ -211,6 +212,7 @@
   SOC.init(socCtx);
   SES.init(eduCtx);
   UNI.init(eduCtx);
+  GAMES.init(eduCtx);
 
   // ---------- главная ----------
   // Полоса «Сегодня»: серия дней, задание дня и шанс на грант.
@@ -249,20 +251,7 @@
             <div><b class="num" id="onlineNow">—</b>${L.factOnline}</div>
           </div>
         </div>
-        <div class="board" aria-hidden="true">
-          <div class="board__head"><span class="board__live"><i></i>${L.boardLive}</span><span>${esc(pick(meta.subjects.math) || '')}</span></div>
-          <div class="board__score">
-            <div class="side"><div class="side__name">${lang === 'kk' ? 'Айгерім' : 'Айгерим'}</div><div class="side__school">${lang === 'kk' ? '№21 мектеп-лицей, Ақтөбе' : 'Школа-лицей № 21, Актобе'}</div></div>
-            <div class="score"><span id="dA">0</span><span>:</span><span id="dB">0</span></div>
-            <div class="side side--r"><div class="side__name">Нұрсұлтан</div><div class="side__school">${lang === 'kk' ? 'НЗМ, Ақтөбе' : 'НИШ, Актобе'}</div></div>
-          </div>
-          <div class="board__q">
-            <div class="board__meta"><span id="dN"></span><span id="dT">20 ${L.sec}</span></div>
-            <div class="board__text" id="dQ"></div>
-            <div class="board__opts" id="dO"></div>
-            <div class="timer"><i id="dBar"></i></div>
-          </div>
-        </div>
+        <div class="board board--live" id="liveBoard" aria-live="polite"><div class="board__head"><span class="board__live"><i></i>…</span></div><div class="board__empty"></div></div>
       </div>
     </section>
 
@@ -282,6 +271,13 @@
           <div class="mode"><h3>${L.classTitle}</h3><p>${L.classText}</p><a href="/play?mode=class" data-link class="btn btn--ghost">${L.classBtn}</a></div>
           <div class="mode"><h3>${L.soloTitle}</h3><p>${L.soloText}</p><a href="/play?mode=solo" data-link class="btn btn--ghost">${L.soloBtn}</a></div>
         </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <div class="wrap">
+        <div class="block__head"><h2>${lang === 'kk' ? '1 минуттық ойындар' : 'Игры на одну минуту'}</h2><a href="/games" data-link class="btn btn--ghost btn--sm">${lang === 'kk' ? 'Барлық ойындар' : 'Все игры'}</a></div>
+        <div class="mini-row">${(lang === 'kk' ? [['Блиц', '60 секундта мүмкіндігінше көп жауап'], ['Аман қалу', '3 өмір: үш қатеге дейін ойнаңыз'], ['Дұрыс па, жоқ па', 'Бір секундта шешім қабылдаңыз']] : [['Блиц', 'Как можно больше ответов за 60 секунд'], ['Выживание', '3 жизни: играйте до трёх ошибок'], ['Верно или нет', 'Решение за одну секунду']]).map(([h, p]) => `<a class="mini" href="/games" data-link><b>${h}</b><span>${p}</span></a>`).join('')}</div>
       </div>
     </section>
 
@@ -321,7 +317,7 @@
     loadTop();
     EDU.homeBlock(eduCtx, $('#homeTour'));
     fetch('/api/stats').then(r => r.json()).then(s => { const el = $('#onlineNow'); if (el) el.textContent = Math.max(1, s.online); }).catch(() => {});
-    demo();
+    liveBoard();
   }
 
   function footer() {
@@ -337,35 +333,44 @@
     } catch { box.innerHTML = `<div class="empty">${L.loadFail}</div>`; }
   }
 
-  function demo() {
-    const qs = [
-      { t: { ru: 'Найдите корни уравнения x² − 5x + 6 = 0', kk: 'x² − 5x + 6 = 0 теңдеуінің түбірлерін табыңыз' }, o: { ru: ['1 и 6', '2 и 3', '−2 и −3', '−1 и 6'], kk: ['1 және 6', '2 және 3', '−2 және −3', '−1 және 6'] }, a: 1, w: 0 },
-      { t: { ru: 'Вычислите log₂ 32', kk: 'log₂ 32 мәнін есептеңіз' }, o: { ru: ['4', '5', '6', '16'], kk: ['4', '5', '6', '16'] }, a: 1, w: 1 },
-      { t: { ru: 'Чему равен sin 30°?', kk: 'sin 30° неге тең?' }, o: { ru: ['√3/2', '1/2', '√2/2', '1'], kk: ['√3/2', '1/2', '√2/2', '1'] }, a: 1, w: 2 }
-    ];
-    let k = 0, A = 0, B = 0, alive = true;
+  // Настоящие баттлы на главной: что идёт прямо сейчас, иначе — последние сыгранные.
+  function liveBoard() {
+    const T = lang === 'kk'
+      ? { now: 'Қазір жүріп жатыр', last: 'Соңғы баттлдар', arena: 'Арена', q: (i, n) => `${n}-ден ${i}-сұрақ`, more: n => `Тағы ${n} баттл жүріп жатыр`, ago: m => m < 1 ? 'жаңа ғана' : m < 60 ? `${m} мин бұрын` : m < 1440 ? `${Math.round(m / 60)} сағ бұрын` : `${Math.round(m / 1440)} күн бұрын`, none: 'Қазір ешкім ойнап жатқан жоқ. Бірінші баттлды бастаңыз — қарсылас сілтеме арқылы қосылады.', play: 'Ойнау', online: n => `Сайтта қазір: ${n}`, teamA: 'А командасы', teamB: 'Б командасы', win: 'жеңіс' }
+      : { now: 'Идёт сейчас', last: 'Последние баттлы', arena: 'Арена', q: (i, n) => `Вопрос ${i} из ${n}`, more: n => `Ещё ${n} баттл(а) идут`, ago: m => m < 1 ? 'только что' : m < 60 ? `${m} мин назад` : m < 1440 ? `${Math.round(m / 60)} ч назад` : `${Math.round(m / 1440)} дн. назад`, none: 'Сейчас никто не играет. Начните первый баттл — соперник подключится по ссылке.', play: 'Играть', online: n => `Сейчас на сайте: ${n}`, teamA: 'Команда А', teamB: 'Команда Б', win: 'победа' };
+    let alive = true, prev = '';
     cleanup.push(() => { alive = false; });
-    const step = () => {
-      if (!alive || !$('#dQ')) return;
-      const q = qs[k % qs.length];
-      $('#dN').textContent = L.boardQ((k % 10) + 1, 10);
-      $('#dQ').textContent = pick(q.t);
-      $('#dO').innerHTML = pick(q.o).map((o, i) => `<div>${LETTERS[i]}. ${esc(o)}</div>`).join('');
-      const bar = $('#dBar');
-      bar.style.transition = 'none'; bar.style.transform = 'scaleX(1)';
-      if (reduced) return;
-      requestAnimationFrame(() => { bar.style.transition = 'transform 2.6s linear'; bar.style.transform = 'scaleX(.35)'; });
-      let t = 20; const ti = setInterval(() => { if (!alive) return clearInterval(ti); t = Math.max(13, t - 1); const el = $('#dT'); if (el) el.textContent = `${t} ${L.sec}`; }, 370);
-      setTimeout(() => {
-        clearInterval(ti);
-        if (!alive || !$('#dO')) return;
-        $('#dO').children[q.a].classList.add('ok');
-        if (q.w === 1) B += 12; else { A += 13 + (k % 2); B += q.w === 0 ? 0 : 11; }
-        $('#dA').textContent = A; $('#dB').textContent = B;
-        k++; setTimeout(step, 1600);
-      }, 2700);
+    const side = (p, r) => p ? `<div class="side${r ? ' side--r' : ''}"><div class="side__who">${ACC.avatar(p, 'sm')}<div><div class="side__name">${esc(p.name)}</div><div class="side__school">${esc([p.school, cityName(p.city)].filter(Boolean).join(', '))}</div></div></div></div>` : '<div class="side"></div>';
+    const duel = (g, final) => {
+      if (g.mode === 'class' && g.teams) return `<div class="board__score"><div class="side"><div class="side__name">${T.teamA}</div><div class="side__school">${g.teams.A.players}</div></div><div class="score"><span>${g.teams.A.avg}</span><span>:</span><span>${g.teams.B.avg}</span></div><div class="side side--r"><div class="side__name">${T.teamB}</div><div class="side__school">${g.teams.B.players}</div></div></div>`;
+      const [a, b] = g.players;
+      return `<div class="board__score">${side(a)}<div class="score${final ? ' score--final' : ''}"><span>${a?.score ?? 0}</span><span>:</span><span>${b?.score ?? 0}</span></div>${side(b, true)}</div>`;
     };
-    step();
+    const subj = g => esc(g.subject ? pick(g.subject) : '');
+    const draw = d => {
+      const box = $('#liveBoard'); if (!box) return;
+      let html;
+      if (d.live.length) {
+        const g = d.live[0];
+        html = `<div class="board__head"><span class="board__live"><i></i>${T.now}</span><span>${subj(g)}</span></div>${duel(g)}
+          <div class="board__q"><div class="board__meta"><span>${T.q(Math.min(g.i + 1, g.total), g.total)}</span><span>${g.players.length > 2 ? `+${g.players.length - 2}` : ''}</span></div>
+          <div class="board__steps">${Array.from({ length: g.total }, (_, k) => `<i class="${k < g.i ? 'done' : k === g.i ? 'cur' : ''}"></i>`).join('')}</div>
+          ${d.live.length > 1 ? `<p class="board__more">${T.more(d.live.length - 1)}</p>` : ''}</div>`;
+      } else if (d.recent.length) {
+        const g = d.recent[0], ago = T.ago(Math.round((Date.now() - new Date(g.at)) / 60000));
+        html = `<div class="board__head"><span class="board__live board__live--off"><i></i>${T.last}</span><span>${ago}</span></div>${duel(g, true)}
+          <div class="board__q board__q--list">${d.recent.slice(1, 4).map(r => `<div class="board__row"><span>${esc(r.players[0]?.name || '')}</span><b class="num">${r.players[0]?.score ?? 0} : ${r.players[1]?.score ?? 0}</b><span>${esc(r.players[1]?.name || '')}</span></div>`).join('') || `<p class="board__more">${subj(g)}</p>`}</div>`;
+      } else {
+        html = `<div class="board__head"><span class="board__live board__live--off"><i></i>${T.arena}</span><span>${T.online(d.online)}</span></div><div class="board__empty"><p>${T.none}</p><a href="/play" data-link class="btn btn--light">${T.play}</a></div>`;
+      }
+      if (html !== prev) { box.innerHTML = html; prev = html; }
+    };
+    const load = async () => {
+      if (!alive) return;
+      if (!document.hidden) { try { draw(await fetch('/api/arena/live').then(r => r.json())); } catch {} }
+      setTimeout(load, 4000);
+    };
+    load();
   }
 
   // ---------- выбор языка сдачи ----------

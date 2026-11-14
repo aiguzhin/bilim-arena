@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|games\.js))"/g, `$1?v=${VERSION}"`);
 // Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
 const SITE = 'https://bilimarena.com';
 const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -117,7 +117,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -647,6 +647,22 @@ const online = new Map();
 const emitTo = (pid, ev, data) => { for (const sid of online.get(pid) || []) io.to(sid).emit(ev, data); };
 const social = require('./social')(app, { db, auth, wrap, store, online, emitTo, cardOf: p => { const c = card(p); delete c.id; return c; } });
 require('./unis')(app, db);
+require('./minigames')(app, { db, auth, wrap, BANK, QUICK, shuffle });
+// Живые баттлы для главной: что идёт прямо сейчас и чем закончились последние. Без текста вопросов и ответов.
+const photoUrl = (u, v) => (v ? `/p/${u}?v=${String(v).slice(0, 8)}` : null);
+app.get('/api/arena/live', wrap(async (req, res) => {
+  const live = [...rooms.values()].filter(r => ['countdown', 'playing'].includes(r.state) && r.mode !== 'solo' && r.players.size >= 2)
+    .sort((a, b) => b.players.size - a.players.size).slice(0, 3).map(r => ({
+      mode: r.mode, subject: topicName(r.subject), i: Math.max(0, r.i), total: r.questions.length || ROUND, teams: r.mode === 'class' ? teamScores(r) : null,
+      players: [...r.players.values()].sort((a, b) => b.score - a.score).slice(0, 4).map(p => ({ name: p.name, username: p.username, avatar: p.avatar, photo: p.photo ? photoUrl(p.username, crypto.createHash('md5').update(p.photo).digest('hex')) : null, school: p.school, city: p.city, score: p.score }))
+    }));
+  let recent = [];
+  if (live.length < 1) {
+    recent = (await db.recentBattles(4).catch(() => [])).map(g => ({ ...g, subject: validTopic(g.topic) ? topicName(g.topic) : null, players: g.players.slice(0, 4).map(p => ({ ...p, photo: photoUrl(p.username, p.photo_v), photo_v: undefined })) }));
+  }
+  const playing = [...rooms.values()].filter(r => r.state === 'playing').length;
+  res.set('Cache-Control', 'no-store').json({ live, recent, playing, online: io.engine.clientsCount });
+}));
 
 // ---------- сокеты ----------
 io.use(async (socket, next) => {

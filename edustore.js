@@ -10,7 +10,7 @@ const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {};
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= [];
   const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
@@ -19,6 +19,19 @@ function memory(db, save) {
     .sort((a, b) => b.score - a.score || a.time_ms - b.time_ms);
   return {
     async kvGet(k) { return db.kv[k] || null; },
+    async addMini(r) { db.minis.push({ ...r, created_at: new Date().toISOString() }); save(); },
+    async miniTop(mode, since, limit = 10) {
+      const best = {};
+      for (const m of db.minis) if (m.mode === mode && m.score > 0 && m.created_at >= since && (!best[m.player_id] || m.score > best[m.player_id].score)) best[m.player_id] = m;
+      return Object.values(best).sort((a, b) => b.score - a.score).slice(0, limit).map(m => ({ ...entryPlayer({ player_id: m.player_id }), score: m.score, subject: m.subject }));
+    },
+    async miniBest(pid, mode) { return db.minis.filter(m => m.player_id === pid && m.mode === mode).reduce((b, m) => Math.max(b, m.score), 0); },
+    async recentBattles(n) {
+      return db.games.filter(g => g.mode !== 'solo' && g.players.length >= 2).slice(-n).reverse().map(g => ({
+        mode: g.mode, topic: g.topic, at: g.created_at,
+        players: g.players.slice().sort((a, b) => b.score - a.score).map(p => { const pl = db.players[p.id] || {}; return { username: pl.username, name: pl.name, school: pl.school, city: pl.city, avatar: pl.avatar || null, photo_v: pv(pl.photo), score: p.score, won: !!p.win }; })
+      }));
+    },
     async kvSet(k, v) { db.kv[k] = { val: v, updated_at: new Date().toISOString() }; save(); },
     async setRole(id, role) { db.players[id].role = role; save(); return db.players[id]; },
     async setClass(id, cid) { db.players[id].class_id = cid; save(); return db.players[id]; },
@@ -126,9 +139,23 @@ function pg(q) {
   const entry = r => r && ({ ...r, served_at: r.served_at == null ? null : Number(r.served_at), registered_at: iso(r.registered_at), started_at: iso(r.started_at), finished_at: iso(r.finished_at), time_ms: r.time_ms == null ? null : Number(r.time_ms) });
   return {
     async kvGet(k) { const r = (await q('select val, updated_at from kv where key=$1', [k])).rows[0]; return r ? { val: r.val, updated_at: iso(r.updated_at) } : null; },
+    async addMini(r) { await q('insert into minigames (player_id, mode, subject, score, correct, total) values ($1,$2,$3,$4,$5,$6)', [r.player_id, r.mode, r.subject, r.score, r.correct, r.total]); },
+    async miniTop(mode, since, limit = 10) {
+      return (await q(`select distinct on (m.player_id) m.player_id, m.score, m.subject, p.username, p.name, p.school, p.city, p.avatar, md5(p.photo) as photo_v
+        from minigames m join players p on p.id=m.player_id where m.mode=$1 and m.score > 0 and m.created_at >= $2 order by m.player_id, m.score desc`, [mode, since])).rows
+        .sort((a, b) => b.score - a.score).slice(0, limit);
+    },
+    async miniBest(pid, mode) { return (await q('select coalesce(max(score),0) as b from minigames where player_id=$1 and mode=$2', [pid, mode])).rows[0].b; },
+    async recentBattles(n) {
+      return (await q(`select g.mode, g.topic, g.created_at as at, json_agg(json_build_object('username',p.username,'name',p.name,'school',p.school,'city',p.city,'avatar',p.avatar,'photo_v',md5(p.photo),'score',gp.score,'won',gp.won) order by gp.score desc) as players
+        from games g join game_players gp on gp.game_id=g.id join players p on p.id=gp.player_id where g.mode <> 'solo' and g.created_at > now() - interval '30 days'
+        group by g.id having count(*) >= 2 order by g.created_at desc limit $1`, [n])).rows.map(r => ({ ...r, at: iso(r.at) }));
+    },
     async kvSet(k, v) { await q('insert into kv (key, val, updated_at) values ($1,$2,now()) on conflict (key) do update set val=excluded.val, updated_at=now()', [k, JSON.stringify(v)]); },
     async init() {
       await q(`create table if not exists kv (key text primary key, val jsonb not null, updated_at timestamptz not null default now())`);
+      await q(`create table if not exists minigames (id bigserial primary key, player_id text not null references players(id) on delete cascade, mode text not null, subject text not null, score int not null, correct int not null, total int not null, created_at timestamptz not null default now())`);
+      await q(`create index if not exists minigames_mode_time on minigames (mode, created_at)`);
       await q(`alter table players add column if not exists role text`);
       await q(`alter table players add column if not exists class_id text`);
       await q(`alter table mock_tests add column if not exists meta jsonb`);
