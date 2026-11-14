@@ -1908,7 +1908,7 @@ section.block--tour { padding: 48px 0 0; }
 .inv .flist { margin-top: 14px; }
 
 /* Домашние задания */
-.hw-form { display: grid; grid-template-columns: 1.2fr 1.4fr .7fr 1fr auto; gap: 12px; align-items: end; margin: 18px 0 20px; }
+.hw-form { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.4fr) minmax(0, .6fr) minmax(0, 1fr) auto; gap: 12px; align-items: end; margin: 18px 0 20px; }
 .hw-form h3 { grid-column: 1 / -1; margin: 0; font-size: 17px; }
 .hw-item { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; background: var(--card); }
 .hw-item__head { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
@@ -1981,3 +1981,8 @@ section.block--tour { padding: 48px 0 0; }
 :root[data-theme="dark"] .nav > a.is-active:not(.btn) { color: #A9C7FF; background: rgba(90, 140, 255, .18); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav > a.is-active:not(.btn) { color: #A9C7FF; background: rgba(90, 140, 255, .18); } }
 .tcard__in { display: block; }
+.hw-form > * { min-width: 0; } .hw-form select, .hw-form input { width: 100%; min-width: 0; box-sizing: border-box; }
+
+.top--tight .logo__w, .top--tight .logo span { display: none !important; }
+@media (max-width: 700px) { .top__in { gap: 12px; } }
+@media (max-width: 700px) { .nav { gap: 2px; } .nav > .lang-seg { margin: 0 4px 0 0; } }

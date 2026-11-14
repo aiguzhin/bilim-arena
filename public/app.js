@@ -170,8 +170,10 @@
     if (!inner || !nav) return;
     const links = DROP.map(s => nav.querySelector(s)).filter(Boolean);
     links.forEach(a => a.classList.remove('nav--fold'));
-    const fits = () => nav.scrollWidth <= nav.clientWidth + 1 && logo.getBoundingClientRect().right + 24 <= nav.getBoundingClientRect().left && nav.getBoundingClientRect().right <= inner.getBoundingClientRect().right + 1;
+    const fits = () => nav.scrollWidth <= nav.clientWidth + 1 && logo.getBoundingClientRect().right + (innerWidth < 700 ? 12 : 24) <= nav.getBoundingClientRect().left && nav.getBoundingClientRect().right <= inner.getBoundingClientRect().right + 1;
+    const top = inner.closest('.top'); top?.classList.remove('top--tight');
     for (const a of links) { if (fits()) break; a.classList.add('nav--fold'); }
+    if (!fits()) top?.classList.add('top--tight'); // совсем узко: прячем надпись у логотипа, остаётся значок
   }
   const refit = () => { cancelAnimationFrame(fitNav.f); fitNav.f = requestAnimationFrame(fitNav); };
   addEventListener('resize', refit);
