@@ -1980,3 +1980,4 @@ section.block--tour { padding: 48px 0 0; }
 @media (max-width: 1320px) { .nav > a:not(.btn):not(.friends-btn) { padding: 8px 10px; } }
 :root[data-theme="dark"] .nav > a.is-active:not(.btn) { color: #A9C7FF; background: rgba(90, 140, 255, .18); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav > a.is-active:not(.btn) { color: #A9C7FF; background: rgba(90, 140, 255, .18); } }
+.tcard__in { display: block; }

@@ -328,7 +328,7 @@
   async function dailyQ() {
     const box = document.getElementById('homeDaily'); if (!box) return;
     const T = lang === 'kk'
-      ? { h: 'Күн сұрағы', stat: (p, n) => `${n} адамның ${p}% дұрыс жауап берді`, first: 'Сіз бірінші жауап бердіңіз', ok: 'Дұрыс!', no: 'Қате', ans: 'Дұрыс жауап', next: 'Жаңа сұрақ ертең' }
+      ? { h: 'Күн сұрағы', stat: (p, n) => `Дұрыс жауап бергендер: ${p}% (${n} адам)`, first: 'Сіз бірінші жауап бердіңіз', ok: 'Дұрыс!', no: 'Қате', ans: 'Дұрыс жауап', next: 'Жаңа сұрақ ертең' }
       : { h: 'Вопрос дня', stat: (p, n) => `Верно ответили ${p}% из ${n}`, first: 'Вы ответили первым', ok: 'Верно!', no: 'Неверно', ans: 'Правильный ответ', next: 'Новый вопрос завтра' };
     let d; try { d = await api('/api/daily?lang=' + lang); } catch { return; }
     if (!document.body.contains(box) || !d.q) return;
@@ -339,7 +339,7 @@
         <div class="daily__head"><span>${T.h} · ${esc(d.subject)}</span>${r ? `<span>${statLine(d.stat)}</span>` : ''}</div>
         <p class="daily__q">${esc(d.q.t).replace(/\n/g, '<br>')}</p>${d.q.img ? `<div class="qfig">${d.q.img}</div>` : ''}
         <div class="daily__opts">${d.q.o.map((o, i) => `<button class="g-opt${r ? (i === r.a ? ' ok' : i === r.choice ? ' no' : '') : ''}" data-i="${i}" ${r ? 'disabled' : ''}><span>${'ABCD'[i]}</span>${esc(o)}</button>`).join('')}</div>
-        ${r ? `<p class="daily__res ${r.ok ? 'ok' : 'no'}"><b>${r.ok ? T.ok : T.no}</b>${r.e ? ` ${esc(r.e)}` : ''} <span class="muted">${T.next}</span></p>` : ''}
+        ${r ? `<p class="daily__res ${r.ok ? 'ok' : 'no'}"><b>${r.ok ? T.ok : T.no}</b>${r.e ? ` — ${esc(r.e)}` : ''} <span class="muted">${T.next}</span></p>` : ''}
       </div></div>`;
       box.querySelectorAll('[data-i]:not([disabled])').forEach(b => b.onclick = async () => {
         box.querySelectorAll('[data-i]').forEach(x => x.disabled = true);
@@ -366,7 +366,7 @@
   // Настоящие баттлы на главной: что идёт прямо сейчас, иначе — последние сыгранные.
   function liveBoard() {
     const T = lang === 'kk'
-      ? { now: 'Қазір жүріп жатыр', last: 'Соңғы баттлдар', arena: 'Арена', q: (i, n) => `${n}-ден ${i}-сұрақ`, more: n => `Тағы ${n} баттл жүріп жатыр`, ago: m => m < 1 ? 'жаңа ғана' : m < 60 ? `${m} мин бұрын` : m < 1440 ? `${Math.round(m / 60)} сағ бұрын` : `${Math.round(m / 1440)} күн бұрын`, none: 'Қазір ешкім ойнап жатқан жоқ. Бірінші баттлды бастаңыз — қарсылас сілтеме арқылы қосылады.', play: 'Ойнау', online: n => `Сайтта қазір: ${n}`, teamA: 'А командасы', teamB: 'Б командасы', win: 'жеңіс' }
+      ? { now: 'Қазір жүріп жатыр', last: 'Соңғы баттлдар', arena: 'Арена', q: (i, n) => `Сұрақ ${i} / ${n}`, more: n => `Тағы ${n} баттл жүріп жатыр`, ago: m => m < 1 ? 'жаңа ғана' : m < 60 ? `${m} мин бұрын` : m < 1440 ? `${Math.round(m / 60)} сағ бұрын` : `${Math.round(m / 1440)} күн бұрын`, none: 'Қазір ешкім ойнап жатқан жоқ. Бірінші баттлды бастаңыз — қарсылас сілтеме арқылы қосылады.', play: 'Ойнау', online: n => `Сайтта қазір: ${n}`, teamA: 'А командасы', teamB: 'Б командасы', win: 'жеңіс' }
       : { now: 'Идёт сейчас', last: 'Последние баттлы', arena: 'Арена', q: (i, n) => `Вопрос ${i} из ${n}`, more: n => `Ещё ${n} баттл(а) идут`, ago: m => m < 1 ? 'только что' : m < 60 ? `${m} мин назад` : m < 1440 ? `${Math.round(m / 60)} ч назад` : `${Math.round(m / 1440)} дн. назад`, none: 'Сейчас никто не играет. Начните первый баттл — соперник подключится по ссылке.', play: 'Играть', online: n => `Сейчас на сайте: ${n}`, teamA: 'Команда А', teamB: 'Команда Б', win: 'победа' };
     let alive = true, prev = '';
     cleanup.push(() => { alive = false; });
