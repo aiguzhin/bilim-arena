@@ -362,7 +362,7 @@ window.ENT = (() => {
         <div class="eres__main">
           <p class="eres__combo">${X.esc(comboName(test.combo))} · ${X.LANGN[test.lang] || ''}</p>
           <h1>${E().resultTitle}</h1>
-          <div class="eres__score"><b class="num">${r.total}</b><span>${E().of} ${r.max}</span></div>
+          <div class="eres__score"><b class="num" id="eresTotal">0</b><span>${E().of} ${r.max}</span></div>
           <p class="eres__verdict ${r.pass ? 'is-ok' : 'is-bad'}">${r.pass ? E().passAll : E().failAll}</p>
           <p class="hint">${E().passNote}</p>
           ${test.flag ? `<p class="eres__flag">${E().flagged(test.flag)}</p>` : ''}
@@ -370,7 +370,7 @@ window.ENT = (() => {
         <table class="table eres__table">
           <thead><tr><th>${E().colSubject}</th><th>${E().colScore}</th><th>${E().colRight}</th><th>${E().colMin}</th></tr></thead>
           <tbody>${r.subjects.map(s => `<tr class="${s.pass ? '' : 'is-fail'}">
-            <td>${X.esc(sname(s.k))}<div class="ebar"><i style="width:${Math.round(100 * s.score / s.max)}%"></i></div></td>
+            <td>${X.esc(sname(s.k))}<div class="ebar"><i data-w="${Math.round(100 * s.score / s.max)}"></i></div></td>
             <td class="num"><b>${s.score}</b> / ${s.max}</td><td class="num">${s.right} / ${s.count}</td><td class="num">${s.min}</td></tr>`).join('')}</tbody>
         </table>
       </div>
@@ -381,6 +381,9 @@ window.ENT = (() => {
         <div id="erList"></div>
       </section>
     </div></div>${X.footer()}`;
+    FX.countTo($('#eresTotal'), r.total, { ms: 1100 });
+    FX.bars(X.app.querySelector('.eres__table'));
+    if (r.pass && !test.session) setTimeout(() => FX.confetti({ count: 80 }), 900);
     const pr = $('#certPrint'); if (pr) pr.onclick = () => window.print();
     $('.ereview__tabs').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; reviewSec = +b.dataset.s; document.querySelectorAll('.ereview__tabs [data-s]').forEach(x => x.setAttribute('aria-selected', x === b)); renderReview(); };
     renderReview();

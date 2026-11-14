@@ -6,6 +6,7 @@ const express = require('express');
 
 const EMOJI = ['👍', '❤️', '😂', '😮', '😢', '🔥'];
 const AUDIO = /^audio\/(webm|ogg|mp4|mpeg|aac|x-m4a)(;.*)?$/;
+const IMAGE = /^image\/(jpeg|png|webp)$/;
 
 const MAX_LEN = 500;
 const BAD = /(?<![а-яёa-z])(?:(?:на|за|по|вы|у|до|отъ|при|разъ|съ|про)?[её]б(?:а|у|и|л|н|т|ё|е)|(?:на|по|от|при|о)?ху[йеёяи]|(?:рас|рос|ис|с)?пизд|бля(?:д|т|$|[^а-яё])|муда[кч]|муди[лк]|пид[ао]р|ганд[оа]н|долбо[её]б|шлюх|қотақ|көтен|сігі[лнп]|fuck|shit(?![a-z])|bitch)[а-яёәіңғүұқөһa-z]*/gi;
@@ -42,10 +43,11 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     const rows = await db.chatBlocks(pid);
     return { byMe: rows.some(x => x.a === pid && x.b === peerId), byPeer: rows.some(x => x.a === peerId && x.b === pid) };
   }
-  const short = m => (m.deleted ? null : m.kind === 'voice' ? '🎤' : m.text.slice(0, 90));
+  const short = m => (m.deleted ? null : m.kind === 'voice' ? '🎤' : m.kind === 'image' ? '🖼' : m.text.slice(0, 90));
   const view = (m, people, ex = {}) => ({
     id: m.id, room: m.room, kind: m.kind || 'text', text: m.deleted ? null : m.text, deleted: !!m.deleted, at: m.created_at,
     audio: m.kind === 'voice' && !m.deleted ? '/chat-audio/' + m.media : null, dur: m.dur || null,
+    image: m.kind === 'image' && !m.deleted ? '/chat-audio/' + m.media : null,
     from: people.get(m.sender_id) || { username: null, name: '—' },
     reply: ex.reply || null, reactions: ex.reactions || []
   });
@@ -89,7 +91,7 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     const [last, unread, peers, blocks] = await Promise.all([db.chatLast(ids), db.chatUnread(me.id, ids), db.playersByIds(dms.map(r => dmPeer(r, me.id))), db.chatBlocks(me.id)]);
     const peerMap = new Map(peers.map(p => [p.id, p]));
     const names = await peopleOf(Object.values(last));
-    const lastOf = id => { const m = last[id]; return m ? { text: m.kind === 'voice' ? '🎤' : m.text.slice(0, 80), at: m.created_at, mine: m.sender_id === me.id, name: names.get(m.sender_id)?.name || '' } : null; };
+    const lastOf = id => { const m = last[id]; return m ? { text: m.kind === 'voice' ? '🎤' : m.kind === 'image' ? '🖼' : m.text.slice(0, 80), at: m.created_at, mine: m.sender_id === me.id, name: names.get(m.sender_id)?.name || '' } : null; };
     const rooms = [
       ...auto.map(r => ({ id: r.id, kind: r.kind, title: r.title, sub: r.sub, last: lastOf(r.id), unread: unread[r.id] || 0 })),
       ...dms.map(id => { const p = peerMap.get(dmPeer(id, me.id)); return p?.username ? { id, kind: 'dm', title: p.name, sub: '@' + p.username, peer: brief(p), last: lastOf(id), unread: unread[id] || 0, blocked: blocks.some(x => x.a === me.id && x.b === p.id) } : null; })
@@ -116,8 +118,9 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
       out.peer = brief(r.peer);
       out.blocked = b.byMe; out.blockedByPeer = b.byPeer;
       out.relation = !fr ? null : fr.status === 'accepted' ? 'friend' : fr.requester === req.player.id ? 'outgoing' : 'incoming';
+      out.peerRead = (await db.chatReads(r.peer.id))[r.id] || 0;
     }
-    if (msgs.length && !before) await db.chatRead(req.player.id, r.id, msgs[msgs.length - 1].id);
+    if (msgs.length && !before) await markRead(req.player, r.id, msgs[msgs.length - 1].id);
     res.json(out);
   }));
 
@@ -153,6 +156,7 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     const [msg] = await full([m]);
     await db.chatRead(me.id, r.id, m.id);
     if (r.kind === 'dm' && !(r.id in (await db.chatReads(r.peer.id)))) await db.chatRead(r.peer.id, r.id, 0);
+    typingOff(me, r.id);
     toRoom(r, 'chat', msg);
     return msg;
   }
@@ -200,11 +204,31 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     toRoom(r, 'chat_react', ev);
     res.json(ev);
   }));
+  // Прочитано: в личном чате сообщаем собеседнику, докуда дочитано.
+  async function markRead(me, room, id) {
+    await db.chatRead(me.id, room, id);
+    if (room.startsWith('d:')) { const peer = dmPeer(room, me.id); if (peer) emitTo(peer, 'chat_seen', { room, id }); }
+  }
   app.post('/api/chat/read', auth, wrap(async (req, res) => {
     const r = await access(req.player, String(req.body?.room || ''));
     const id = Math.round(Number(req.body?.id));
-    if (r && id > 0) await db.chatRead(req.player.id, r.id, id);
+    if (r && id > 0) await markRead(req.player, r.id, id);
     res.json({ ok: true });
+  }));
+  // Картинка: браузер заранее уменьшает её до 1280 px; храним до 1,5 МБ.
+  app.post('/api/chat/image', auth, express.raw({ type: () => true, limit: '1600kb' }), wrap(async (req, res) => {
+    const me = req.player;
+    const r = await access(me, String(req.query.room || ''));
+    if (!r) return res.status(404).json({ error: 'notfound' });
+    const mime = String(req.get('content-type') || '').toLowerCase().split(';')[0];
+    const buf = req.body;
+    const magic = Buffer.isBuffer(buf) && buf.length > 200 && (buf[0] === 0xff && buf[1] === 0xd8 || buf[0] === 0x89 && buf[1] === 0x50 || buf.slice(8, 12).toString() === 'WEBP');
+    if (!IMAGE.test(mime) || !magic) return res.status(400).json({ error: 'chatImageBad' });
+    const err = await canSend(me, r); if (err) return res.status(403).json({ error: err });
+    if (tooFast(me.id)) return res.status(429).json({ error: 'chatFast' });
+    const id = crypto.randomBytes(16).toString('hex');
+    await db.mediaPut(id, mime, buf);
+    res.json({ message: await deliver(me, r, clean(req.query.caption || ''), { kind: 'image', media: id, reply_to: req.query.reply_to }) });
   }));
 
   async function hide(m) {
@@ -233,6 +257,22 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     res.json({ blocked: req.body?.on !== false });
   }));
 
-  return { joinSocket };
+  // «Печатает…»: сокет шлёт сигнал не чаще раза в 2 секунды, собеседники видят его 4 секунды.
+  const typingAt = new Map();
+  function typingOff(me, room) { typingAt.delete(me.id + room); }
+  function bindSocket(socket, pid) {
+    socket.on('chat_typing', async ({ room } = {}) => {
+      const key = pid + room, now = Date.now();
+      if (now - (typingAt.get(key) || 0) < 1800) return;
+      typingAt.set(key, now);
+      const me = await db.get(pid).catch(() => null);
+      const r = me && await access(me, String(room || ''));
+      if (!r) return;
+      const ev = { room: r.id, username: me.username, name: me.name };
+      if (r.kind === 'dm') emitTo(r.peer.id, 'chat_typing', ev); else socket.to('chat:' + r.id).emit('chat_typing', ev);
+    });
+  }
+
+  return { joinSocket, bindSocket };
 };
 module.exports.clean = clean;

@@ -159,6 +159,7 @@
     const tab = path === '/' ? 'home' : path.startsWith('/ent') ? 'ent' : path === '/play' || path.startsWith('/b/') ? 'play' : path.startsWith('/tournaments') || path.startsWith('/t/') ? 'tours' : path === '/rating' ? 'rating' : '';
     document.querySelectorAll('#tabbar [data-tab]').forEach(a => a.toggleAttribute('aria-current', a.dataset.tab === tab));
     window.scrollTo(0, 0);
+    app.classList.remove('fx-page'); void app.offsetWidth; app.classList.add('fx-page');
     if (!meta.count) meta = await fetch('/api/subjects').then(r => r.json()).catch(() => meta);
     if (!me && getToken()) {
       try { const r = await api('/api/me'); me = r.user; useSettings(me.settings); renderChip(); socket.connect(); SOC.refreshBadge(); CHAT.refreshBadge(); } catch {}
@@ -651,7 +652,15 @@
     return `<div class="board__score"><div class="side"><div class="side__name">${esc(mine?.name)}</div><div class="side__school">${L.practice}</div></div><div class="score"><span>${mine?.score ?? 0}</span></div><div></div></div>`;
   }
 
-  function updateGameBar() { const g = $('#gbar'); if (g) g.innerHTML = gameBarHTML(); }
+  // Обновление табло: изменившиеся цифры счёта «подпрыгивают».
+  function updateGameBar() {
+    const g = $('#gbar'); if (!g) return;
+    const nums = () => [...g.querySelectorAll('.score > span, .arena__p .num')].map(x => x.textContent);
+    const before = nums();
+    g.innerHTML = gameBarHTML();
+    const now = [...g.querySelectorAll('.score > span, .arena__p .num')];
+    now.forEach((el, i) => { if (before[i] !== undefined && before[i] !== el.textContent && /\d/.test(el.textContent)) FX.pop(el); });
+  }
 
   function viewQuestion(keepState) {
     reset();
@@ -700,6 +709,10 @@
     clearInterval(tick);
     app.querySelectorAll('.answer').forEach(b => { b.disabled = true; const i = +b.dataset.i; if (i === d.a) b.classList.add('right'); else if (i === picked) b.classList.add('wrong'); });
     const mine = d.picks[socket.id];
+    const myBtn = picked !== null ? app.querySelector(`.answer[data-i="${picked}"]`) : null;
+    if (mine?.gained) FX.floatText(myBtn, '+' + mine.gained);
+    else if (myBtn) FX.shake(myBtn);
+    FX.glow(app.querySelector(`.answer[data-i="${d.a}"]`));
     $('#explain').innerHTML = `<div class="explain">${mine?.gained ? `<span class="gained">+${mine.gained}</span> ` : picked === null ? `<b>${L.timeUp}</b> ` : `<b>${L.wrong}</b> `}${esc(qp(d.e))}</div>`;
     updateGameBar();
   }
@@ -724,7 +737,7 @@
       <div class="result__head">
         <h1>${title}</h1>
         <p class="page__lead">${lead} ${L.correctN(correct, n)}</p>
-        ${d.mode !== 'solo' ? `<span class="delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero'} num">${delta > 0 ? '+' : ''}${delta} ${L.toRating}</span>` : ''}
+        ${d.mode !== 'solo' ? `<span class="delta ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'zero'} num"><span id="resDelta">${delta > 0 ? '+' : ''}${delta}</span> ${L.toRating}</span>` : ''}
       </div>
       <div class="result__actions">
         ${d.mode === 'duel' ? `<button class="btn" id="rematch">${L.again}</button>` : d.mode === 'arena' ? `<a href="/play?mode=duel" data-link class="btn">${L.again}</a>` : `<a href="/play?mode=${d.mode}" data-link class="btn">${d.mode === 'solo' ? L.again : L.newBattle}</a>`}
@@ -754,6 +767,11 @@
       }).join('') : `<div class="empty">${L.noMistakes}</div>`;
     };
     $('#onlyMiss').onchange = drawReview; drawReview();
+    // Победа — конфетти; рейтинг набегает.
+    const won = title === L.win || title === L.teamWin;
+    app.querySelector('.result__head')?.classList.add('fx-rise', won ? 'is-win' : 'is-other');
+    if (won) setTimeout(() => FX.confetti(), 250);
+    if (delta) FX.countTo($('#resDelta'), delta, { ms: 800, fmt: v => (delta > 0 ? '+' : '') + Math.round(v) });
 
     $('#rematch')?.addEventListener('click', () => {
       const subject = room.subject, from = room.code, rlang = room.lang;
@@ -1045,7 +1063,7 @@
   // ---------- кабинет ----------
   async function viewMe() {
     setTitle(L.meTitle);
-    app.innerHTML = `<div class="page"><div class="wrap narrow"><p class="muted">${L.loading}</p></div></div>`;
+    app.innerHTML = `<div class="page"><div class="wrap narrow">${SKEL()}</div></div>`;
     let d;
     try { d = await api('/api/me'); } catch { return; }
     me = { ...me, ...d.user }; renderChip();
@@ -1148,7 +1166,7 @@
           <button role="tab" data-tab="players" aria-selected="false">${L.tabPlayers}</button>
           <button role="tab" data-tab="cities" aria-selected="false">${L.tabCities}</button>
         </div>
-        <div id="rTable"><p class="muted">${L.loading}</p></div>
+        <div id="rTable">${SKEL()}</div>
       </div>
     </div></div>${footer()}`;
     let data;

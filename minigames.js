@@ -121,6 +121,19 @@ module.exports = function (app, { db, auth, wrap, BANK, QUICK, shuffle }) {
     res.json({ mine: { choice: mine.choice, ok: mine.ok, a: d.a, e: d.e }, stat: await db.dailyStat(d.day) });
   }));
 
+  // Турнир недели по Блицу: неделя с понедельника 00:00 по времени Казахстана.
+  const weekBounds = () => {
+    const d = new Date(Date.now() + TZ_MS); d.setUTCHours(0, 0, 0, 0);
+    const start = new Date(d.getTime() - ((d.getUTCDay() + 6) % 7) * 864e5 - TZ_MS);
+    return { start: start.toISOString(), end: new Date(start.getTime() + 7 * 864e5).toISOString(), prev: new Date(start.getTime() - 7 * 864e5).toISOString() };
+  };
+  app.get('/api/mini/weekly', auth, wrap(async (req, res) => {
+    const w = weekBounds();
+    const [top, last] = await Promise.all([db.miniTop('blitz', w.start, 10, w.end), db.miniTop('blitz', w.prev, 3, w.start)]);
+    const mine = top.findIndex(r => r.username === req.player.username);
+    res.json({ ends: w.end, top, last, place: mine >= 0 ? mine + 1 : null });
+  }));
+
   app.get('/api/mini/top', auth, wrap(async (req, res) => {
     const mode = MODES[req.query.mode] ? req.query.mode : 'blitz';
     const [today, week, best] = await Promise.all([db.miniTop(mode, dayStart()), db.miniTop(mode, weekStart()), db.miniBest(req.player.id, mode)]);

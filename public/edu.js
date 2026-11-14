@@ -78,7 +78,7 @@ window.EDU = (() => {
       teacherMode: 'Вы учитель: классы — в кабинете учителя.', toCabinet: 'Кабинет учителя',
 
       // достижения
-      achTitle: 'Достижения', streak: 'Серия', streakDays: n => `${n} дн. подряд`, bestStreak: n => `Лучшая серия — ${n} дн.`, activeDays: n => `Дней с занятиями: ${n}`,
+      achNew: 'Новое достижение', achTitle: 'Достижения', streak: 'Серия', streakDays: n => `${n} дн. подряд`, bestStreak: n => `Лучшая серия — ${n} дн.`, activeDays: n => `Дней с занятиями: ${n}`,
       achCount: (a, b) => `Получено ${a} из ${b}`, streakHint: 'Занимайтесь каждый день: пробный ЕНТ, турнир, баттл или работа над ошибками.',
       ach: {
         mock1: ['Первый шаг', 'Решить первый пробный ЕНТ'], mock5: ['Система', 'Решить 5 пробных ЕНТ'], mock15: ['Марафонец', 'Решить 15 пробных ЕНТ'],
@@ -87,7 +87,7 @@ window.EDU = (() => {
         tour1: ['Дебют', 'Сыграть в турнире'], tour5: ['Турнирный боец', 'Сыграть в 5 турнирах'], podium: ['Призёр', 'Войти в тройку турнира'],
         duel1: ['Первая победа', 'Выиграть дуэль'], duel10: ['Дуэлянт', 'Выиграть 10 дуэлей'],
         fix50: ['Над ошибками', 'Исправить 50 ошибок'], fix200: ['Без пробелов', 'Исправить 200 ошибок'],
-        streak3: ['Три дня', 'Заниматься 3 дня подряд'], streak7: ['Неделя', 'Заниматься 7 дней подряд'], streak30: ['Месяц', 'Заниматься 30 дней подряд'],
+        streak3: ['Три дня', 'Заниматься 3 дня подряд'], streak7: ['Неделя', 'Заниматься 7 дней подряд'], streak30: ['Месяц', 'Заниматься 30 дней подряд'], streak100: ['Сто дней', 'Заниматься 100 дней подряд'],
         team: ['В команде', 'Вступить в класс']
       },
 
@@ -171,7 +171,7 @@ window.EDU = (() => {
       matesNote: '30 күндік белсенділік бойынша сұрыпталған.', classTours: 'Сынып турнирлері', joinPage: 'Сыныпқа шақыру', joinAsk: 'Сізді сыныпқа шақырды', joined: 'Сіз сыныптасыз',
       teacherMode: 'Сіз мұғалімсіз: сыныптар — мұғалім кабинетінде.', toCabinet: 'Мұғалім кабинеті',
 
-      achTitle: 'Жетістіктер', streak: 'Серия', streakDays: n => `${n} күн қатарынан`, bestStreak: n => `Ең ұзақ серия — ${n} күн`, activeDays: n => `Сабақ болған күндер: ${n}`,
+      achNew: 'Жаңа жетістік', achTitle: 'Жетістіктер', streak: 'Серия', streakDays: n => `${n} күн қатарынан`, bestStreak: n => `Ең ұзақ серия — ${n} күн`, activeDays: n => `Сабақ болған күндер: ${n}`,
       achCount: (a, b) => `${b}-нің ${a}-і алынды`, streakHint: 'Күн сайын айналысыңыз: сынақ ҰБТ, турнир, баттл немесе қатемен жұмыс.',
       ach: {
         mock1: ['Алғашқы қадам', 'Алғашқы сынақ ҰБТ-ны шешу'], mock5: ['Жүйелілік', '5 сынақ ҰБТ шешу'], mock15: ['Марафоншы', '15 сынақ ҰБТ шешу'],
@@ -180,7 +180,7 @@ window.EDU = (() => {
         tour1: ['Дебют', 'Турнирге қатысу'], tour5: ['Турнир жауынгері', '5 турнирге қатысу'], podium: ['Жүлдегер', 'Турнирде үздік үштікке кіру'],
         duel1: ['Алғашқы жеңіс', 'Дуэльде жеңу'], duel10: ['Дуэлянт', '10 дуэльде жеңу'],
         fix50: ['Қатемен жұмыс', '50 қатені түзету'], fix200: ['Олқылықсыз', '200 қатені түзету'],
-        streak3: ['Үш күн', '3 күн қатарынан айналысу'], streak7: ['Апта', '7 күн қатарынан айналысу'], streak30: ['Ай', '30 күн қатарынан айналысу'],
+        streak3: ['Үш күн', '3 күн қатарынан айналысу'], streak7: ['Апта', '7 күн қатарынан айналысу'], streak30: ['Ай', '30 күн қатарынан айналысу'], streak100: ['Жүз күн', '100 күн қатарынан айналысу'],
         team: ['Командада', 'Сыныпқа қосылу']
       },
 
@@ -202,7 +202,7 @@ window.EDU = (() => {
   const esc = s => X.esc(s);
   const errText = x => t().err[x?.code] || X.L().err?.[x?.code] || X.L().err?.server || 'Error';
   const page = (body, cls = 'narrow') => `<div class="page"><div class="wrap ${cls}">${body}</div></div>${X.footer()}`;
-  const loading = () => { X.app.innerHTML = page(`<p class="muted">${t().loading}</p>`); };
+  const loading = () => { X.app.innerHTML = page(`${SKEL()}`); };
   const ava = (u, s = 'sm') => ACC.avatar({ username: u.username || u.name || '?', name: u.name, photo: u.photo, avatar: u.avatar }, s);
   const subj = k => X.pick(X.meta().subjects[k]) || k;
   const topicOf = k => (k === 'mandatory' ? t().mandatory : k?.startsWith('combo:') ? X.topicName(k) : subj(k));
@@ -337,7 +337,7 @@ window.EDU = (() => {
       <h1>${t().toursTitle}</h1><p class="page__lead">${t().toursLead}</p>
       ${live.length ? `<h2 class="me__h2">${t().live}</h2><div class="tlist">${live.map(x => tourCard(x)).join('')}</div>` : ''}
       <h2 class="me__h2">${t().soon}</h2>
-      ${soon.length ? `<div class="tlist">${soon.map(x => tourCard(x)).join('')}</div>` : `<div class="empty">${t().none}</div>`}
+      ${soon.length ? `<div class="tlist">${soon.map(x => tourCard(x)).join('')}</div>` : `<div class="empty">${t().none}<br><a class="btn" href="/games" data-link>${X.lang() === 'kk' ? 'Апта турниріне — Блиц' : 'Турнир недели — Блиц'}</a></div>`}
       <p class="muted tnote">${t().schedule}</p>
       <section class="trules"><h2>${t().rulesTitle}</h2><ul>${t().rules.map(r => `<li>${r}</li>`).join('')}</ul></section>
       ${past.length ? `<h2 class="me__h2">${t().past}</h2><div class="tlist">${past.map(x => tourCard({ ...x, me: 'finished' })).join('')}</div>` : ''}
@@ -719,13 +719,26 @@ window.EDU = (() => {
   }
 
   // ---------- достижения ----------
+  // Ступень значка внутри группы: первое — бронза, второе — серебро, третье и дальше — золото.
+  const tierOf = (list, a) => Math.min(3, list.filter(x => x.group === a.group).sort((x, y) => x.target - y.target).indexOf(a) + 1);
+  const medal = a => `<span class="bdg__ico bdg__ico--${a.group} tier${a.tier || 1} medal">${glyph(a.group)}</span>`;
+  // Новое достижение — показываем награду один раз (на этом устройстве).
+  async function checkAwards() {
+    let d; try { d = await X.api('/api/me/achievements'); } catch { return; }
+    const key = 'ba_ach_' + (X.me()?.username || ''), done = d.list.filter(a => a.done);
+    let seen = null; try { seen = JSON.parse(localStorage.getItem(key) || 'null'); } catch {}
+    try { localStorage.setItem(key, JSON.stringify(done.map(a => a.key))); } catch {}
+    if (!seen) return;
+    const fresh = done.find(a => !seen.includes(a.key));
+    if (fresh) { const [n] = t().ach[fresh.key] || [fresh.key]; FX.award(medal({ ...fresh, tier: tierOf(d.list, fresh) }), `${t().achNew}: ${n}`); }
+  }
   async function achBody() {
     let d; try { d = await X.api('/api/me/achievements'); } catch { return ''; }
     const done = d.list.filter(a => a.done).length;
     return `<section class="streak"><div class="streak__ico">${glyph('streak')}</div><div><span class="streak__k">${t().streak}</span><b>${t().streakDays(d.streak)}</b><p class="muted">${t().bestStreak(d.bestStreak)} · ${t().activeDays(d.days)}</p></div><p class="muted streak__hint">${t().streakHint}</p></section>
       <div class="goal__head"><h2>${t().achTitle}</h2><span class="muted">${t().achCount(done, d.list.length)}</span></div>
       <ul class="badges">${d.list.sort((a, b) => b.done - a.done).map(a => { const [n, desc] = t().ach[a.key] || [a.key, '']; return `<li class="bdg ${a.done ? 'is-done' : ''}">
-        <span class="bdg__ico bdg__ico--${a.group}">${glyph(a.group)}</span><div><b>${esc(n)}</b><p>${esc(desc)}</p>
+        <span class="bdg__ico bdg__ico--${a.group} tier${tierOf(d.list, a)}">${glyph(a.group)}</span><div><b>${esc(n)}</b><p>${esc(desc)}</p>
         ${a.done ? '' : `<div class="bdg__bar"><i style="width:${Math.round(a.cur / a.target * 100)}%"></i></div><small class="num">${a.cur} / ${a.target}</small>`}</div></li>`; }).join('')}</ul>`;
   }
 
@@ -733,7 +746,7 @@ window.EDU = (() => {
   const rs = { scope: 'schools', kind: 'results', season: null, league: 'all', city: false };
   async function viewRatings() {
     X.setTitle(t().rTitle);
-    X.app.innerHTML = page(`<h1>${t().rTitle}</h1><p class="page__lead">${t().rLead}</p><div id="rBox" style="margin-top:24px"><p class="muted">${t().loading}</p></div>`);
+    X.app.innerHTML = page(`<h1>${t().rTitle}</h1><p class="page__lead">${t().rLead}</p><div id="rBox" style="margin-top:24px">${SKEL()}</div>`);
     let data, battle;
     const load = async () => {
       try { data = await fetch(`/api/ratings?season=${rs.season || ''}`).then(r => r.json()); rs.season ||= data.season; } catch { $('#rBox').innerHTML = `<div class="empty">${X.L().loadFail}</div>`; return; }
@@ -781,6 +794,7 @@ window.EDU = (() => {
   }
 
   return {
+    checkAwards: ctx => { X = ctx; return checkAwards(); },
     homeBlock: (ctx, el) => { X = ctx; return homeBlock(el); },
     // Вкладки профиля: «Класс» и «Достижения» (оболочку даёт ACC).
     async tab(ctx, which, shell) {

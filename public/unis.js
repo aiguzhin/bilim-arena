@@ -71,7 +71,7 @@ window.UNI = (() => {
     tab = ['chance', 'rules', 'kz', 'abroad'].includes(q) ? q : 'chance';
     const m = path.match(/^\/unis\/(\d+)$/);
     if (m) tab = 'kz';
-    shell(`<p class="muted">${t().loading}</p>`);
+    shell(`${SKEL()}`);
     try { await load(); } catch { $('#uBody').innerHTML = `<div class="empty">${t().empty}</div>`; return; }
     if (m) return uni(m[1]);
     ({ chance, rules, kz, abroad })[tab]();

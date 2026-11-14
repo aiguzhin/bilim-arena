@@ -48,6 +48,7 @@ window.GAMES = (() => {
     const mode = new URLSearchParams(location.search).get('top') || 'blitz';
     X.app.innerHTML = `<div class="page"><div class="wrap">
       <h1>${t().title}</h1><p class="page__lead">${t().lead}</p>
+      <section class="g-week" id="gWeekT" hidden></section>
       <label class="field g-subj">${t().subject}<select id="gSub">${subjects().map(([k]) => `<option value="${k}">${esc(sname(k))}</option>`).join('')}</select></label>
       <div class="g-modes">${['blitz', 'survival', 'tf'].map(m => `<article class="g-mode g-mode--${m}">
         <i>${icon(m, 26)}</i><h3>${t()[m][0]}</h3><p>${t()[m][1]}</p>
@@ -60,6 +61,23 @@ window.GAMES = (() => {
     X.app.querySelectorAll('[data-play]').forEach(b => b.onclick = () => play(b.dataset.play, sel.value));
     X.app.querySelectorAll('[data-top]').forEach(b => b.onclick = () => { X.app.querySelectorAll('[data-top]').forEach(x => x.setAttribute('aria-selected', x === b)); top(b.dataset.top); });
     top(mode);
+    weekly();
+  }
+  async function weekly() {
+    let d; try { d = await X.api('/api/mini/weekly'); } catch { return; }
+    const box = $('#gWeekT'); if (!box) return;
+    const W = X.lang() === 'kk'
+      ? { h: 'Апта турнирі: Блиц', left: (dd, hh) => `Аяқталуына ${dd} күн ${hh} сағ`, lead: 'Дүйсенбіден жексенбіге дейінгі ең үздік Блиц нәтижесі есептеледі. Жексенбі түнде жеңімпаздар анықталады.', me: p => `Сіз ${p}-орындасыз`, none: 'Әзірге ешкім ойнаған жоқ — бірінші болыңыз', last: 'Өткен апта жеңімпаздары', play: 'Блиц ойнау' }
+      : { h: 'Турнир недели: Блиц', left: (dd, hh) => `До конца ${dd} дн. ${hh} ч`, lead: 'Засчитывается лучший результат в Блице с понедельника по воскресенье. Победители — в ночь на понедельник.', me: p => `Вы на ${p}-м месте`, none: 'Пока никто не играл — будьте первым', last: 'Победители прошлой недели', play: 'Играть в Блиц' };
+    const ms = Math.max(0, new Date(d.ends) - Date.now()), dd = Math.floor(ms / 864e5), hh = Math.floor(ms % 864e5 / 36e5);
+    const medal = i => ['🥇', '🥈', '🥉'][i] || `${i + 1}.`;
+    const who = r => `<a href="/u/${esc(r.username)}" data-link>${esc(r.name)}</a>`;
+    box.innerHTML = `<div class="g-week__head"><div><h2>${W.h}</h2><p class="muted">${W.lead}</p></div><span class="g-week__left">${W.left(dd, hh)}</span></div>
+      ${d.top.length ? `<ol class="g-week__podium">${d.top.slice(0, 3).map((r, i) => `<li class="p${i + 1}"><span>${medal(i)}</span>${ACC.avatar({ ...r, photo: r.photo_v ? `/p/${r.username}?v=${String(r.photo_v).slice(0, 8)}` : null }, 'md')}${who(r)}<b class="num">${r.score}</b></li>`).join('')}</ol>` : `<p class="muted">${W.none}</p>`}
+      <div class="g-week__foot">${d.place ? `<b>${W.me(d.place)}</b>` : ''}<button class="btn btn--sm" data-play="blitz">${W.play}</button></div>
+      ${d.last.length ? `<p class="g-week__last">${W.last}: ${d.last.map((r, i) => `${medal(i)} ${who(r)} ${r.score}`).join(' · ')}</p>` : ''}`;
+    box.hidden = false;
+    box.querySelector('[data-play]').onclick = () => play('blitz', $('#gSub').value);
   }
   async function top(mode) {
     let d; try { d = await X.api('/api/mini/top?mode=' + mode); } catch { return; }
@@ -92,7 +110,7 @@ window.GAMES = (() => {
       if (left <= 0 && !busy) { if (mode === 'survival') send({ choice: -1 }); else end_(); }
     };
     const head = () => {
-      $('#gScore').textContent = s.score;
+      FX.roll($('#gScore'), s.score);
       $('#gLives').innerHTML = mode === 'survival' ? [0, 1, 2].map(i => heart(i < s.lives)).join('') : '';
     };
     const draw = q => {
@@ -115,6 +133,8 @@ window.GAMES = (() => {
         if (mode === 'tf') { btn?.classList.add(r.reveal.ok ? 'ok' : 'no'); if (!r.reveal.ok) card.insertAdjacentHTML('beforeend', `<p class="g-right">${t().answer}: <b>${esc(r.reveal.right)}</b></p>`); }
         else { card.querySelector(`[data-c="${r.reveal.a}"]`)?.classList.add('ok'); if (!r.reveal.ok && btn) btn.classList.add('no'); }
         card.classList.add(r.reveal.ok ? 'g-flash-ok' : 'g-flash-no');
+        if (r.reveal.ok) { FX.floatText(btn || card, '+1'); setTimeout(() => FX.pop($('#gScore')), 120); }
+        else { FX.shake(btn || card); if (mode === 'survival') setTimeout(() => FX.shake($('#gLives')), 80); }
       }
       Object.assign(s, r); head();
       const wait = r.reveal?.ok ? (mode === 'survival' ? 500 : 280) : (mode === 'survival' ? 1500 : 900);
@@ -145,9 +165,11 @@ window.GAMES = (() => {
     X.app.innerHTML = `<div class="page"><div class="wrap narrow"><div class="g-result">
       <i class="g-result__ico">${icon(mode, 30)}</i><p class="muted">${t().over} · ${t()[mode][0]}</p>
       ${r.record && r.score ? `<p class="g-record">${t().record}</p>` : ''}
-      <div class="g-result__score num">${r.score}</div><p>${t().correct(r.correct, r.answered)}</p><p class="muted">${t().best(r.best)}</p>
+      <div class="g-result__score num" id="gFinal">0</div><p>${t().correct(r.correct, r.answered)}</p><p class="muted">${t().best(r.best)}</p>
       <div class="g-result__btns"><button class="btn" id="gAgain">${t().again}</button><a class="btn btn--ghost" href="/games?top=${mode}" data-link>${t().other}</a></div>
     </div>${review}</div></div>${X.footer()}`;
+    FX.countTo($('#gFinal'), r.score, { ms: Math.min(1200, 300 + r.score * 40) });
+    if (r.record && r.score) setTimeout(() => FX.confetti(), 350);
     $('#gAgain').onclick = () => { X.onCleanup(stop); play(mode, subject); };
   }
 

@@ -12,9 +12,10 @@ window.CHAT = (() => {
       onlyFriends: 'Писать мне могут только друзья', noUsers: 'Никого не нашли', teacher: 'учитель', back: 'Все чаты', online: 'в сети',
       rules: 'Удерживайте или нажмите правой кнопкой на сообщение — реакции, ответ, жалоба.',
       noRooms: 'Чатов пока нет. Укажите школу в профиле или вступите в класс — и они появятся здесь.',
+      photo: 'Фото', attach: 'Отправить фото', typing: n => `${n} печатает…`, typingMany: 'Печатают…', seen: 'Прочитано', delivered: 'Отправлено', imgErr: 'Не удалось отправить фото.', close: 'Закрыть',
       voice: 'Голосовое сообщение', voiceRec: 'Записать голосовое', recording: 'Запись', cancel: 'Отмена', reply: 'Ответить', copy: 'Скопировать', copied: 'Скопировано', actions: 'Действия',
       noMic: 'Этот браузер не умеет записывать голос.', micDenied: 'Нет доступа к микрофону. Разрешите его в настройках браузера.', voiceErr: 'Не удалось воспроизвести.',
-      err: { chatVoiceBad: 'Не удалось отправить запись.', chatFast: 'Слишком часто. Подождите пару секунд.', chatBlocked: 'Сообщение не отправлено: чат заблокирован.', chatFriendsOnly: 'Этот человек принимает сообщения только от друзей.', chatEmpty: 'Пустое сообщение.', chatNoUser: 'Такого пользователя нет.' }
+      err: { chatImageBad: 'Это не картинка (подойдут JPG, PNG, WEBP).', chatVoiceBad: 'Не удалось отправить запись.', chatFast: 'Слишком часто. Подождите пару секунд.', chatBlocked: 'Сообщение не отправлено: чат заблокирован.', chatFriendsOnly: 'Этот человек принимает сообщения только от друзей.', chatEmpty: 'Пустое сообщение.', chatNoUser: 'Такого пользователя нет.' }
     },
     kk: {
       title: 'Чаттар', newPh: 'Логин немесе аты бойынша іздеу', school: 'Мектеп чаты', klass: 'Сынып чаты', noLast: 'Хабарлама әлі жоқ', you: 'Сіз: ',
@@ -25,9 +26,10 @@ window.CHAT = (() => {
       onlyFriends: 'Маған тек достарым жаза алады', noUsers: 'Ешкім табылмады', teacher: 'мұғалім', back: 'Барлық чат', online: 'желіде',
       rules: 'Хабарламаны басып тұрыңыз немесе тінтуірдің оң жағымен басыңыз — реакция, жауап, шағым.',
       noRooms: 'Чаттар әлі жоқ. Профильде мектепті көрсетіңіз немесе сыныпқа қосылыңыз — олар осында шығады.',
+      photo: 'Фото', attach: 'Фото жіберу', typing: n => `${n} жазып жатыр…`, typingMany: 'Жазып жатыр…', seen: 'Оқылды', delivered: 'Жіберілді', imgErr: 'Фотоны жіберу мүмкін болмады.', close: 'Жабу',
       voice: 'Дауыстық хабарлама', voiceRec: 'Дауыстық жазу', recording: 'Жазылуда', cancel: 'Бас тарту', reply: 'Жауап беру', copy: 'Көшіру', copied: 'Көшірілді', actions: 'Әрекеттер',
       noMic: 'Бұл браузер дауыс жаза алмайды.', micDenied: 'Микрофонға рұқсат жоқ. Браузер баптауларында рұқсат беріңіз.', voiceErr: 'Ойнату мүмкін болмады.',
-      err: { chatVoiceBad: 'Жазбаны жіберу мүмкін болмады.', chatFast: 'Тым жиі. Бірнеше секунд күтіңіз.', chatBlocked: 'Хабарлама жіберілмеді: чат бұғатталған.', chatFriendsOnly: 'Бұл адам тек достарынан хабарлама қабылдайды.', chatEmpty: 'Бос хабарлама.', chatNoUser: 'Мұндай пайдаланушы жоқ.' }
+      err: { chatImageBad: 'Бұл сурет емес (JPG, PNG, WEBP жарайды).', chatVoiceBad: 'Жазбаны жіберу мүмкін болмады.', chatFast: 'Тым жиі. Бірнеше секунд күтіңіз.', chatBlocked: 'Хабарлама жіберілмеді: чат бұғатталған.', chatFriendsOnly: 'Бұл адам тек достарынан хабарлама қабылдайды.', chatEmpty: 'Бос хабарлама.', chatNoUser: 'Мұндай пайдаланушы жоқ.' }
     }
   };
   const t = () => T[X.lang()] || T.ru;
@@ -62,7 +64,7 @@ window.CHAT = (() => {
   const titleOf = r => (r.kind === 'school' ? schoolName(r.title) : r.title);
   const rowHtml = r => `<a class="ch-row${cur?.id === r.id ? ' on' : ''}" href="${href(r.id)}" data-link data-room="${esc(r.id)}">
       ${r.kind === 'dm' ? ava(r.peer) : roomIcon(r.kind)}
-      <span class="ch-row__main"><b>${esc(titleOf(r))}</b><small>${r.last ? `${r.last.mine ? t().you : r.kind !== 'dm' && r.last.name ? esc(r.last.name) + ': ' : ''}${esc(r.last.text)}` : esc(kindLabel(r))}</small></span>
+      <span class="ch-row__main"><b>${esc(titleOf(r))}</b><small class="${r.typing && Date.now() - r.typing < 4000 ? 'is-typing' : ''}">${r.typing && Date.now() - r.typing < 4000 ? t().typingMany : r.last ? `${r.last.mine ? t().you : r.kind !== 'dm' && r.last.name ? esc(r.last.name) + ': ' : ''}${esc(r.last.text)}` : esc(kindLabel(r))}</small></span>
       <span class="ch-row__side">${r.last ? `<time>${when(r.last.at)}</time>` : ''}${r.unread ? `<i class="badge">${r.unread > 99 ? '99+' : r.unread}</i>` : ''}</span></a>`;
   function drawList() {
     const box = $('#chList'); if (!box) return;
@@ -124,7 +126,7 @@ window.CHAT = (() => {
     play: '<path d="M7 4.5v15l12-7.5z" fill="currentColor" stroke="none"/>', pause: '<path d="M8 5v14M16 5v14" stroke-width="3"/>',
     more: '<circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/>',
     reply: '<path d="M9 7 4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 6 6"/>', copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
-    del: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>', flag: '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>', stop: '<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/>'
+    del: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>', flag: '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>', x: '<path d="M6 6l12 12M18 6 6 18"/>', clip: '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.8"/><path d="m20.5 16-5-5L6 19"/>', stop: '<rect x="7" y="7" width="10" height="10" rx="1.5" fill="currentColor" stroke="none"/>'
   };
   const mmss = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   const bars = id => Array.from({ length: 28 }, (_, i) => 25 + ((id * 9301 + i * 49297) % 233280) / 233280 * 75);
@@ -133,15 +135,16 @@ window.CHAT = (() => {
       <span class="ch-voice__wave">${bars(m.id).map(h => `<i style="height:${h.toFixed(0)}%"></i>`).join('')}</span><span class="ch-voice__t">${mmss(m.dur || 0)}</span></div>`;
   }
   const reactHtml = m => (m.reactions?.length ? `<div class="ch-reacts">${m.reactions.map(r => `<button type="button" class="ch-react${r.users.includes(X.me().username) ? ' on' : ''}" data-react="${r.e}" data-mid="${m.id}" title="${esc(r.users.map(u => '@' + u).join(', '))}">${r.e}<b>${r.users.length}</b></button>`).join('')}</div>` : '');
-  const replyHtml = r => (r ? `<button type="button" class="ch-quote" data-goto="${r.id}"><b>${esc(r.name)}</b><span>${r.text == null ? t().deleted : r.kind === 'voice' ? '🎤 ' + t().voice : esc(r.text)}</span></button>` : '');
+  const replyHtml = r => (r ? `<button type="button" class="ch-quote" data-goto="${r.id}"><b>${esc(r.name)}</b><span>${r.text == null ? t().deleted : r.kind === 'voice' ? '🎤 ' + t().voice : r.kind === 'image' ? '🖼 ' + (r.text || t().photo) : esc(r.text)}</span></button>` : '');
   function msgHtml(m, prev, room) {
     const me = mine(m), group = room.kind !== 'dm';
     const head = !prev || dayKey(prev.at) !== dayKey(m.at) ? `<div class="ch-day"><span>${dayLabel(m.at)}</span></div>` : '';
     const first = !prev || prev.from.username !== m.from.username || head || new Date(m.at) - new Date(prev.at) > 5 * 60000;
-    const body = m.deleted ? `<span class="ch-bub__text">${t().deleted}</span>` : m.kind === 'voice' ? voiceHtml(m) : `<span class="ch-bub__text">${linkify(m.text)}</span>`;
+    const body = m.deleted ? `<span class="ch-bub__text">${t().deleted}</span>` : m.kind === 'voice' ? voiceHtml(m) : m.kind === 'image' ? `<button type="button" class="ch-img" data-img="${esc(m.image)}" aria-label="${t().photo}"><img src="${esc(m.image)}" alt="" loading="lazy" decoding="async"></button>${m.text ? `<span class="ch-bub__text">${linkify(m.text)}</span>` : ''}` : `<span class="ch-bub__text">${linkify(m.text)}</span>`;
+    const tick = me && room.kind === 'dm' && !m.deleted ? `<i class="ch-tick${m.id <= (room.peerRead || 0) ? ' seen' : ''}" title="${m.id <= (room.peerRead || 0) ? t().seen : t().delivered}">${m.id <= (room.peerRead || 0) ? '✓✓' : '✓'}</i>` : '';
     return `${head}<div class="ch-msg${me ? ' me' : ''}${first ? ' first' : ''}" data-id="${m.id}">
       ${group && !me ? (first ? `<a href="/u/${esc(m.from.username || '')}" data-link class="ch-msg__ava">${ava(m.from, 'sm')}</a>` : '<span class="ch-msg__ava"></span>') : ''}
-      <div class="ch-col"><div class="ch-bub${m.deleted ? ' del' : ''}${m.kind === 'voice' ? ' voice' : ''}" tabindex="0">${group && !me && first ? `<b class="ch-bub__name">${esc(m.from.name)}${m.from.teacher ? ` <i>${t().teacher}</i>` : ''}</b>` : ''}${m.deleted ? '' : replyHtml(m.reply)}${body}<time>${hhmm(m.at)}</time></div>${m.deleted ? '' : reactHtml(m)}</div>
+      <div class="ch-col"><div class="ch-bub${m.deleted ? ' del' : ''}${m.kind === 'voice' ? ' voice' : ''}${m.kind === 'image' && !m.deleted ? ' image' : ''}" tabindex="0">${group && !me && first ? `<b class="ch-bub__name">${esc(m.from.name)}${m.from.teacher ? ` <i>${t().teacher}</i>` : ''}</b>` : ''}${m.deleted ? '' : replyHtml(m.reply)}${body}<time>${hhmm(m.at)}${tick}</time></div>${m.deleted ? '' : reactHtml(m)}</div>
       ${m.deleted ? '' : `<button type="button" class="ch-more-btn" data-menu="${m.id}" aria-label="${t().actions}">${SVG(I.more, 18)}</button>`}</div>`;
   }
 
@@ -156,7 +159,7 @@ window.CHAT = (() => {
     const menu = document.createElement('div');
     menu.className = 'ch-menu'; menu.setAttribute('role', 'menu');
     menu.innerHTML = `<div class="ch-menu__emoji">${EMOJI.map(e => `<button type="button" data-e="${e}" class="${e === my ? 'on' : ''}" aria-label="${e}">${e}</button>`).join('')}</div>
-      ${item('reply', I.reply, t().reply)}${m.kind === 'text' ? item('copy', I.copy, t().copy) : ''}${me || cur.moderate ? item('del', I.del, t().del, 'bad') : ''}${!me ? item('report', I.flag, t().report, 'bad') : ''}`;
+      ${item('reply', I.reply, t().reply)}${m.text ? item('copy', I.copy, t().copy) : ''}${me || cur.moderate ? item('del', I.del, t().del, 'bad') : ''}${!me ? item('report', I.flag, t().report, 'bad') : ''}`;
     document.body.appendChild(menu);
     const touch = window.matchMedia('(max-width: 760px)').matches;
     if (touch) menu.classList.add('sheet');
@@ -191,15 +194,17 @@ window.CHAT = (() => {
     const m = cur?.messages?.find(x => x.id === ev.id); if (!m) return;
     m.reactions = ev.reactions;
     const col = document.querySelector(`.ch-msg[data-id="${ev.id}"] .ch-col`); if (!col) return;
+    const before = new Map([...col.querySelectorAll('.ch-react')].map(b => [b.dataset.react, b.querySelector('b').textContent]));
     col.querySelector('.ch-reacts')?.remove();
     col.insertAdjacentHTML('beforeend', reactHtml(m));
+    col.querySelectorAll('.ch-react').forEach(b => { if (before.get(b.dataset.react) !== b.querySelector('b').textContent) FX.pop(b); });
   }
   let replyTo = null;
   function setReply(m) {
     replyTo = m;
     const bar = $('#chReply'); if (!bar) return;
     bar.hidden = !m;
-    if (m) { bar.querySelector('b').textContent = m.from.name; bar.querySelector('span').textContent = m.kind === 'voice' ? '🎤 ' + t().voice : m.text.slice(0, 90); $('#chText')?.focus(); }
+    if (m) { bar.querySelector('b').textContent = m.from.name; bar.querySelector('span').textContent = m.kind === 'voice' ? '🎤 ' + t().voice : m.kind === 'image' ? '🖼 ' + (m.text || t().photo) : m.text.slice(0, 90); $('#chText')?.focus(); }
   }
 
   // Голосовые: запись (MediaRecorder) и проигрывание — одно за раз.
@@ -256,7 +261,7 @@ window.CHAT = (() => {
     const box = $('#chMain'); if (!box) return;
     let d; try { d = await X.api('/api/chat/room?id=' + encodeURIComponent(id)); } catch { box.innerHTML = `<div class="ch-pick">${t().pick}</div>`; return; }
     if (!cur || cur.id !== id) return;
-    cur = d; replyTo = null; stopRec(true);
+    cur = d; replyTo = null; stopRec(true); typers.clear();
     const draw = () => {
       const dm = d.kind === 'dm';
       const rel = d.relation;
@@ -268,7 +273,7 @@ window.CHAT = (() => {
           ${dm ? `<div class="ch-head__acts">${rel === 'friend' ? `<span class="tag tag--ok">${t().friend}</span>` : rel === 'outgoing' ? `<span class="tag">${t().sent}</span>` : `<button class="btn btn--sm btn--ghost" id="chFr">${rel === 'incoming' ? t().accept : t().add}</button>`}
             <button class="linkbtn ch-blockbtn" id="chBlock" title="${d.blocked ? t().unblock : t().block}" aria-label="${d.blocked ? t().unblock : t().block}">${SVG('<circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/>', 18)}<span>${d.blocked ? t().unblock : t().block}</span></button></div>` : ''}
         </header>
-        <div class="ch-body" id="chBody">${d.more ? `<button class="linkbtn ch-more" id="chMore">${t().earlier}</button>` : ''}<div id="chMsgs">${d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1], d)).join('') : `<p class="ch-empty">${t().emptyRoom}</p>`}</div></div>
+        <div class="ch-body" id="chBody">${d.more ? `<button class="linkbtn ch-more" id="chMore">${t().earlier}</button>` : ''}<div id="chMsgs">${d.messages.length ? d.messages.map((m, i) => msgHtml(m, d.messages[i - 1], d)).join('') : `<p class="ch-empty">${t().emptyRoom}</p>`}</div><div class="ch-typing" id="chTyping" hidden><i></i><i></i><i></i><span></span></div></div>
         ${d.blocked || d.blockedByPeer ? `<p class="ch-note">${d.blocked ? t().blockedMe : t().blockedPeer}</p>` : `<div class="ch-reply" id="chReply" hidden>${SVG(I.reply, 18)}<div><b></b><span></span></div><button type="button" id="chReplyX" aria-label="${t().cancel}">${SVG(I.x, 18)}</button></div><div id="chComposer"></div>
         ${dm ? '' : `<p class="ch-rules">${t().rules}</p>`}`}`;
       const body = $('#chBody'); body.scrollTop = body.scrollHeight;
@@ -285,11 +290,15 @@ window.CHAT = (() => {
         return;
       }
       const keep = $('#chText')?.value || '';
-      c.innerHTML = `<form class="ch-form" id="chForm"><textarea id="chText" rows="1" maxlength="500" placeholder="${t().ph}" aria-label="${t().ph}"></textarea><button type="button" class="ch-ibtn" id="chMic" aria-label="${t().voiceRec}" title="${t().voiceRec}">${SVG(I.mic)}</button><button class="btn" id="chSend" aria-label="${t().send}">${SVG(I.send)}</button></form>`;
+      c.innerHTML = `<form class="ch-form" id="chForm"><button type="button" class="ch-ibtn ch-attach" id="chAttach" aria-label="${t().attach}" title="${t().attach}">${SVG(I.clip)}</button><input type="file" id="chFile" accept="image/*" hidden><textarea id="chText" rows="1" maxlength="500" placeholder="${t().ph}" aria-label="${t().ph}"></textarea><button type="button" class="ch-ibtn" id="chMic" aria-label="${t().voiceRec}" title="${t().voiceRec}">${SVG(I.mic)}</button><button class="btn" id="chSend" aria-label="${t().send}">${SVG(I.send)}</button></form>`;
       const form = $('#chForm'), ta = $('#chText');
       ta.value = keep;
       const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(140, ta.scrollHeight) + 'px'; form.classList.toggle('has-text', !!ta.value.trim()); };
-      ta.oninput = grow; grow();
+      let lastType = 0;
+      ta.oninput = () => { grow(); if (ta.value.trim() && Date.now() - lastType > 2000) { lastType = Date.now(); X.socket.emit('chat_typing', { room: d.id }); } };
+      grow();
+      $('#chAttach').onclick = () => $('#chFile').click();
+      $('#chFile').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if (f) sendImage(d, f, ta); };
       ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !window.matchMedia('(max-width: 760px)').matches) { e.preventDefault(); form.requestSubmit(); } };
       form.onsubmit = async e => {
         e.preventDefault();
@@ -308,6 +317,7 @@ window.CHAT = (() => {
       const rx = $('#chReplyX'); if (rx) rx.onclick = () => setReply(null);
       body.onclick = async e => {
         const play = e.target.closest('.ch-voice'); if (play) return playVoice(play);
+        const im = e.target.closest('[data-img]'); if (im) return lightbox(im.dataset.img);
         const rb = e.target.closest('[data-react]'); if (rb) return react(+rb.dataset.mid, rb.dataset.react);
         const mb = e.target.closest('[data-menu]'); if (mb) return openMenu(+mb.dataset.menu, mb.closest('.ch-msg').querySelector('.ch-bub'));
         const q = e.target.closest('[data-goto]');
@@ -357,13 +367,66 @@ window.CHAT = (() => {
     document.querySelector(`.ch-row[data-room="${CSS.escape(id)}"]`)?.classList.add('on');
     refreshBadge();
   }
+  // «Печатает…»: внизу переписки, пропадает через 4 секунды.
+  const typers = new Map();
+  function typingDraw() {
+    const box = $('#chTyping'); if (!box) return;
+    const now = Date.now();
+    for (const [u, x] of typers) if (now - x.at > 4000) typers.delete(u);
+    const names = [...typers.values()].map(x => x.name);
+    box.hidden = !names.length;
+    if (names.length) box.querySelector('span').textContent = names.length > 1 ? t().typingMany : t().typing(names[0]);
+  }
+  function typingShow(ev) { typers.set(ev.username, { name: ev.name, at: Date.now() }); typingDraw(); clearTimeout(typingShow.tm); typingShow.tm = setTimeout(typingDraw, 4100); }
+  function typingHide(u) { if (typers.delete(u)) typingDraw(); }
+
+  // Фото: уменьшаем в браузере до 1280 px (JPEG), подпись берём из поля ввода.
+  async function shrink(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; });
+      const k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+      return await new Promise(ok => c.toBlob(ok, 'image/jpeg', 0.82));
+    } finally { URL.revokeObjectURL(url); }
+  }
+  async function sendImage(d, file, ta) {
+    if (!/^image\//.test(file.type)) return X.toast(t().err.chatImageBad);
+    let blob; try { blob = await shrink(file); } catch { return X.toast(t().imgErr); }
+    if (!blob) return X.toast(t().imgErr);
+    const caption = ta.value.trim().slice(0, 500), rp = replyTo;
+    const q = new URLSearchParams({ room: d.id, ...(caption ? { caption } : {}), ...(rp ? { reply_to: rp.id } : {}) });
+    const btn = $('#chAttach'); if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/api/chat/image?' + q, { method: 'POST', headers: { 'Content-Type': 'image/jpeg', Authorization: 'Bearer ' + X.token() }, body: blob });
+      const j = await res.json();
+      if (!res.ok) throw Object.assign(new Error(), { code: j.error });
+      ta.value = ''; ta.dispatchEvent(new Event('input')); setReply(null); addMsg(j.message);
+    } catch (x) { X.toast(errText(x)); }
+    if (btn) btn.disabled = false;
+  }
+  function lightbox(src) {
+    const box = document.createElement('div');
+    box.className = 'ch-lightbox';
+    box.innerHTML = `<img src="${esc(src)}" alt=""><button type="button" aria-label="${t().close}">${SVG(I.x, 22)}</button>`;
+    const close = () => { box.remove(); document.removeEventListener('keydown', k); };
+    const k = e => { if (e.key === 'Escape') close(); };
+    box.onclick = close; document.addEventListener('keydown', k);
+    document.body.appendChild(box);
+  }
+
   function addMsg(m) {
     if (!cur || cur.id !== m.room || !cur.messages || cur.messages.some(x => x.id === m.id)) return false;
     const body = $('#chBody'), list = $('#chMsgs'); if (!body || !list) return false;
     const near = body.scrollHeight - body.scrollTop - body.clientHeight < 120;
     if (!cur.messages.length) list.innerHTML = '';
     list.insertAdjacentHTML('beforeend', msgHtml(m, cur.messages[cur.messages.length - 1], cur));
+    list.lastElementChild?.classList.add('fx-in');
     cur.messages.push(m);
+    if (!mine(m)) typingHide(m.from.username);
+    const img = list.lastElementChild?.querySelector('img'); if (img) img.onload = () => { if (near || mine(m)) body.scrollTop = body.scrollHeight; };
     if (near || mine(m)) body.scrollTop = body.scrollHeight;
     return true;
   }
@@ -380,13 +443,13 @@ window.CHAT = (() => {
     if (shown && !isMine && document.visibilityState === 'visible') X.api('/api/chat/read', { method: 'POST', body: { room: m.room, id: m.id } }).catch(() => {});
     let row = rooms.find(r => r.id === m.room);
     if (row) {
-      row.last = { text: m.kind === 'voice' ? '🎤' : m.text.slice(0, 80), at: m.at, mine: isMine, name: m.from.name };
+      row.last = { text: m.kind === 'voice' ? '🎤' : m.kind === 'image' ? '🖼' : m.text.slice(0, 80), at: m.at, mine: isMine, name: m.from.name };
       if (!shown && !isMine) row.unread = (row.unread || 0) + 1;
       if (row.kind === 'dm') rooms = [...rooms.filter(r => r.kind !== 'dm'), row, ...rooms.filter(r => r.kind === 'dm' && r !== row)];
       drawList();
     } else if ($('#chList')) loadList();
     if (!shown && !isMine) {
-      if (m.room.startsWith('d:') && !location.pathname.startsWith('/chat')) X.toast(`${m.from.name}: ${m.kind === 'voice' ? '🎤 ' + t().voice : m.text.slice(0, 60)}`);
+      if (m.room.startsWith('d:') && !location.pathname.startsWith('/chat')) X.toast(`${m.from.name}: ${m.kind === 'voice' ? '🎤 ' + t().voice : m.kind === 'image' ? '🖼 ' + t().photo : m.text.slice(0, 60)}`);
       if (!m.room.startsWith('s:')) refreshBadge();
     }
   }
@@ -397,6 +460,8 @@ window.CHAT = (() => {
       X.socket.on('chat', onChat);
       X.socket.on('chat_hide', d => hideMsg(d.id));
       X.socket.on('chat_react', setReacts);
+      X.socket.on('chat_seen', ev => { if (!cur || cur.id !== ev.room || cur.kind !== 'dm') return; cur.peerRead = Math.max(cur.peerRead || 0, ev.id); document.querySelectorAll('.ch-msg.me').forEach(el => { const tk = el.querySelector('.ch-tick'); if (tk && +el.dataset.id <= cur.peerRead && !tk.classList.contains('seen')) { tk.classList.add('seen'); tk.textContent = '✓✓'; tk.title = t().seen; FX.pop(tk); } }); });
+      X.socket.on('chat_typing', ev => { if (cur && cur.id === ev.room) typingShow(ev); const row = rooms.find(r => r.id === ev.room); if (row && row.kind === 'dm') { row.typing = Date.now(); drawList(); setTimeout(drawList, 4200); } });
       X.socket.on('connect', () => refreshBadge());
     },
     view, refreshBadge,

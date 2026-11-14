@@ -53,10 +53,14 @@ window.PLAN = (() => {
     const w = d.weak[0], pct = Math.min(100, Math.round(d.daily.done / d.daily.need * 100));
     box.innerHTML = `<div class="wrap today__grid">
       <div class="today__item today__streak${d.streak ? ' on' : ''}"><i>${flame}</i><div><b>${d.streak ? t().streak(d.streak) : t().noStreak}</b></div></div>
-      <a class="today__item today__task" href="${w ? trainHref(w) : '/practice'}" data-link><div><span>${t().hToday}: ${t().todayOf(Math.min(d.daily.done, d.daily.need), d.daily.need)}</span><b>${pct >= 100 ? t().todayDone : t().hTask(w ? X.pick(w.name) : null)}</b><i class="today__bar"><u style="width:${pct}%"></u></i></div><em>${t().go} →</em></a>
+      <a class="today__item today__task" href="${w ? trainHref(w) : '/practice'}" data-link><div><span>${t().hToday}: ${t().todayOf(Math.min(d.daily.done, d.daily.need), d.daily.need)}</span><b>${pct >= 100 ? t().todayDone : t().hTask(w ? X.pick(w.name) : null)}</b><i class="today__bar"><u data-w="${pct}"></u></i></div><em>${t().go} →</em></a>
       <a class="today__item" href="/plan" data-link>${d.plan ? `<div><span>${esc(t().hGoal(d.plan.target, d.plan.left))}</span><b>${esc(t().hNow(d.last))}</b></div><em>${t().hPlan} →</em>` : `<div><span>${t().hStart}</span><b>${t().hStartT}</b></div><em>${t().hSet} →</em>`}</a>
     </div>`;
     box.hidden = false;
+    const fl = box.querySelector('.today__streak');
+    if (fl && d.daily.done >= d.daily.need) { fl.classList.add('lit'); FX.pop(fl.querySelector('i')); }
+    FX.bars(box, '.today__bar u[data-w]');
+    EDU.checkAwards(X);
   }
 
   function chart(mocks, target) {
@@ -92,7 +96,7 @@ window.PLAN = (() => {
 
   async function viewPlan() {
     X.setTitle(t().title);
-    X.app.innerHTML = page(`<p class="muted">${X.L().loading}</p>`);
+    X.app.innerHTML = page(`${SKEL()}`);
     let d, link; try { [d, link] = await Promise.all([X.api('/api/plan'), X.api('/api/parent/link')]); } catch { return; }
     const today = new Date().toISOString().slice(0, 10);
     const render = () => {
@@ -125,7 +129,7 @@ window.PLAN = (() => {
   }
 
   async function viewParent(token) {
-    X.app.innerHTML = page(`<p class="muted">${X.L().loading}</p>`);
+    X.app.innerHTML = page(`${SKEL()}`);
     let d; try { d = await X.api('/api/parent/' + encodeURIComponent(token)); }
     catch { X.setTitle(t().pGone); X.app.innerHTML = page(`<h1>${t().pGone}</h1><p class="page__lead">${t().pGoneLead}</p>`); return; }
     X.setTitle(t().pTitle(d.name));

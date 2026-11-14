@@ -487,7 +487,7 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
       A('tour1', 'tour', rows.entries.length, 1), A('tour5', 'tour', rows.entries.length, 5), A('podium', 'tour', podium, 1),
       A('duel1', 'duel', wins, 1), A('duel10', 'duel', wins, 10),
       A('fix50', 'fix', fixed.length, 50), A('fix200', 'fix', fixed.length, 200),
-      A('streak3', 'streak', best_streak, 3), A('streak7', 'streak', best_streak, 7), A('streak30', 'streak', best_streak, 30),
+      A('streak3', 'streak', best_streak, 3), A('streak7', 'streak', best_streak, 7), A('streak30', 'streak', best_streak, 30), A('streak100', 'streak', best_streak, 100),
       A('team', 'team', p.class_id ? 1 : 0, 1)
     ];
     return { streak, bestStreak: best_streak, days: days.size, list };

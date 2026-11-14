@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|schoolkk\.js|games\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|schoolkk\.js|fx\.js|games\.js))"/g, `$1?v=${VERSION}"`);
 // Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
 const SITE = 'https://bilimarena.com';
 const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -692,6 +692,7 @@ io.on('connection', socket => {
     if (p) { profile = card(p); chat.joinSocket(socket, p).catch(() => {}); }
   });
   chat.joinSocket(socket, pl).catch(() => {});
+  chat.bindSocket(socket, pl.id);
   socket.on('chat_sync', async () => { const p = await db.get(pl.id).catch(() => null); if (p) chat.joinSocket(socket, p).catch(() => {}); });
 
   const join = (r, team) => {

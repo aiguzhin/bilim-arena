@@ -43,9 +43,9 @@ function memory(db, save) {
     async dailyAdd(day, pid, choice, ok) { if (db.daily.some(d => d.day === day && d.player_id === pid)) return false; db.daily.push({ day, player_id: pid, choice, ok }); save(); return true; },
     async dailyStat(day) { const l = db.daily.filter(d => d.day === day); return { n: l.length, ok: l.filter(d => d.ok).length }; },
     async addMini(r) { db.minis.push({ ...r, created_at: new Date().toISOString() }); save(); },
-    async miniTop(mode, since, limit = 10) {
+    async miniTop(mode, since, limit = 10, until = '9999') {
       const best = {};
-      for (const m of db.minis) if (m.mode === mode && m.score > 0 && m.created_at >= since && (!best[m.player_id] || m.score > best[m.player_id].score)) best[m.player_id] = m;
+      for (const m of db.minis) if (m.mode === mode && m.score > 0 && m.created_at >= since && m.created_at < until && (!best[m.player_id] || m.score > best[m.player_id].score)) best[m.player_id] = m;
       return Object.values(best).sort((a, b) => b.score - a.score).slice(0, limit).map(m => ({ ...entryPlayer({ player_id: m.player_id }), score: m.score, subject: m.subject }));
     },
     async miniBest(pid, mode) { return db.minis.filter(m => m.player_id === pid && m.mode === mode).reduce((b, m) => Math.max(b, m.score), 0); },
@@ -185,9 +185,9 @@ function pg(q) {
     async dailyAdd(day, pid, choice, ok) { return (await q('insert into daily_answers (day, player_id, choice, ok) values ($1,$2,$3,$4) on conflict do nothing', [day, pid, choice, ok])).rowCount === 1; },
     async dailyStat(day) { const r = (await q('select count(*)::int as n, count(*) filter (where ok)::int as ok from daily_answers where day=$1', [day])).rows[0]; return { n: r.n, ok: r.ok }; },
     async addMini(r) { await q('insert into minigames (player_id, mode, subject, score, correct, total) values ($1,$2,$3,$4,$5,$6)', [r.player_id, r.mode, r.subject, r.score, r.correct, r.total]); },
-    async miniTop(mode, since, limit = 10) {
+    async miniTop(mode, since, limit = 10, until = '9999-01-01') {
       return (await q(`select distinct on (m.player_id) m.player_id, m.score, m.subject, p.username, p.name, p.school, p.city, p.avatar, md5(p.photo) as photo_v
-        from minigames m join players p on p.id=m.player_id where m.mode=$1 and m.score > 0 and m.created_at >= $2 order by m.player_id, m.score desc`, [mode, since])).rows
+        from minigames m join players p on p.id=m.player_id where m.mode=$1 and m.score > 0 and m.created_at >= $2 and m.created_at < $3 order by m.player_id, m.score desc`, [mode, since, until])).rows
         .sort((a, b) => b.score - a.score).slice(0, limit);
     },
     async miniBest(pid, mode) { return (await q('select coalesce(max(score),0) as b from minigames where player_id=$1 and mode=$2', [pid, mode])).rows[0].b; },

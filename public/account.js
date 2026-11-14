@@ -160,7 +160,7 @@ window.ACC = (() => {
     try { tests = (await X.api('/api/ent')).tests; } catch { return; }
     const fmt = iso => fmtDate(iso, X.lang());
     let body = `<div class="goal__head"><h2>${A().resultsTitle}</h2><a href="/ent" data-link class="btn btn--sm">${A().takeMock}</a></div>`;
-    if (!tests.length) body += `<div class="empty">${A().resultsEmpty}</div>`;
+    if (!tests.length) body += `<div class="empty">${A().resultsEmpty}<br><a href="/ent" data-link class="btn">${A().takeMock}</a></div>`;
     else {
       const last = tests.slice(0, 10).reverse();
       const W = 600, H = 200, pad = 28, bw = Math.min(44, (W - pad * 2) / last.length - 10);
@@ -388,7 +388,7 @@ window.ACC = (() => {
 
   // ---------- профиль другого игрока ----------
   async function viewUser(username) {
-    X.app.innerHTML = `<div class="page"><div class="wrap narrow"><p class="muted">${X.L().loading}</p></div></div>`;
+    X.app.innerHTML = `<div class="page"><div class="wrap narrow">${SKEL()}</div></div>`;
     let d;
     try { d = await X.api(`/api/users/${encodeURIComponent(username)}`); }
     catch { X.app.innerHTML = `<div class="page"><div class="wrap narrow"><h1>${A().userNotFound}</h1><p style="margin-top:20px"><a class="btn" href="/rating" data-link>${X.L().navRating}</a></p></div></div>`; return; }
@@ -441,7 +441,7 @@ window.ACC = (() => {
       if (path === '/me/class' || path === '/me/achievements') {
         const which = path === '/me/class' ? 'class' : 'achievements';
         X.setTitle(which === 'class' ? A().tabClass : A().tabAch);
-        X.app.innerHTML = `<div class="page"><div class="wrap narrow"><p class="muted">${X.L().loading}</p></div></div>`;
+        X.app.innerHTML = `<div class="page"><div class="wrap narrow">${SKEL()}</div></div>`;
         return EDU.tab(X.edu, which, body => shell(X.me(), which, body)).then(bindShell);
       }
       if (path === '/me/results') return viewResults();
