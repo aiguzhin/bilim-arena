@@ -213,6 +213,24 @@
   UNI.init(eduCtx);
 
   // ---------- главная ----------
+  // Полоса «Сегодня»: серия дней, задание дня и шанс на грант.
+  async function homeToday() {
+    const box = document.getElementById('homeToday'); if (!box) return;
+    const T = lang === 'kk'
+      ? { streak: n => `${n} күн қатарынан`, start: 'Серияны бүгін бастаңыз', task: 'Бүгінгі тапсырма', taskT: 'Қатемен жұмыс — 10 сұрақ', go: 'Бастау', grant: 'Грант мүмкіндігі', grantT: s => `Соңғы сынақ: ${s} балл`, grantNo: 'Балыңыз бойынша қай ЖОО-ға өтетініңізді біліңіз', see: 'Көру' }
+      : { streak: n => `${n} дн. подряд`, start: 'Начните серию сегодня', task: 'Задание дня', taskT: 'Работа над ошибками — 10 вопросов', go: 'Начать', grant: 'Шанс на грант', grantT: s => `Последний пробный: ${s} баллов`, grantNo: 'Узнайте, в какие вузы проходите со своим баллом', see: 'Смотреть' };
+    let a = null, last = null;
+    try { [a, last] = await Promise.all([api('/api/me/achievements'), api('/api/ent').then(r => r.tests[0] || null)]); } catch { return; }
+    if (!document.body.contains(box)) return;
+    const flame = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1 1 2 2 2 3 1-2 1-4 1-7z"/></svg>';
+    box.innerHTML = `<div class="wrap today__grid">
+      <div class="today__item today__streak${a.streak ? ' on' : ''}"><i>${flame}</i><div><b>${a.streak ? T.streak(a.streak) : T.start}</b></div></div>
+      <a class="today__item" href="/practice" data-link><div><span>${T.task}</span><b>${T.taskT}</b></div><em>${T.go} →</em></a>
+      <a class="today__item" href="/unis" data-link><div><span>${T.grant}</span><b>${last ? T.grantT(last.score) : T.grantNo}</b></div><em>${T.see} →</em></a>
+    </div>`;
+    box.hidden = false;
+  }
+
   function viewHome() {
     setTitle();
     app.innerHTML = `
@@ -248,6 +266,7 @@
       </div>
     </section>
 
+    <section class="today" id="homeToday" hidden></section>
     <section class="block block--tour" id="homeTour" hidden></section>
 
     <section class="block block--field">
@@ -297,6 +316,7 @@
       </div>
     </section>
     ${footer()}`;
+    if (me) homeToday();
 
     loadTop();
     EDU.homeBlock(eduCtx, $('#homeTour'));
@@ -1130,3 +1150,4 @@
   applyStatic();
   route();
 })();
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
