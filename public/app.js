@@ -111,7 +111,7 @@
     return new Promise(resolve => {
       const dlg = $('#profileDlg'), form = $('#profileForm'), err = $('#profileError'), f = form.elements;
       attachSchoolSuggest(f.school, f.city);
-      f.name.value = me.name; f.school.value = me.school; f.city.value = me.city;
+      f.name.value = me.name; f.school.value = schoolName(me.school); f.city.value = me.city;
       err.textContent = '';
       $('#profileCancel').onclick = () => { dlg.close(); resolve(null); };
       form.onsubmit = async e => {
@@ -336,7 +336,7 @@
       : { now: 'Идёт сейчас', last: 'Последние баттлы', arena: 'Арена', q: (i, n) => `Вопрос ${i} из ${n}`, more: n => `Ещё ${n} баттл(а) идут`, ago: m => m < 1 ? 'только что' : m < 60 ? `${m} мин назад` : m < 1440 ? `${Math.round(m / 60)} ч назад` : `${Math.round(m / 1440)} дн. назад`, none: 'Сейчас никто не играет. Начните первый баттл — соперник подключится по ссылке.', play: 'Играть', online: n => `Сейчас на сайте: ${n}`, teamA: 'Команда А', teamB: 'Команда Б', win: 'победа' };
     let alive = true, prev = '';
     cleanup.push(() => { alive = false; });
-    const side = (p, r) => p ? `<div class="side${r ? ' side--r' : ''}"><div class="side__who">${ACC.avatar(p, 'sm')}<div><div class="side__name">${esc(p.name)}</div><div class="side__school">${esc([p.school, cityName(p.city)].filter(Boolean).join(', '))}</div></div></div></div>` : '<div class="side"></div>';
+    const side = (p, r) => p ? `<div class="side${r ? ' side--r' : ''}"><div class="side__who">${ACC.avatar(p, 'sm')}<div><div class="side__name">${esc(p.name)}</div><div class="side__school">${esc([schoolName(p.school), cityName(p.city)].filter(Boolean).join(', '))}</div></div></div></div>` : '<div class="side"></div>';
     const duel = (g, final) => {
       if (g.mode === 'class' && g.teams) return `<div class="board__score"><div class="side"><div class="side__name">${T.teamA}</div><div class="side__school">${g.teams.A.players}</div></div><div class="score"><span>${g.teams.A.avg}</span><span>:</span><span>${g.teams.B.avg}</span></div><div class="side side--r"><div class="side__name">${T.teamB}</div><div class="side__school">${g.teams.B.players}</div></div></div>`;
       const [a, b] = g.players;
@@ -564,7 +564,7 @@
     const isHost = room.hostSid === socket.id;
     const msg = room.mode === 'class' ? L.shareClass(topic, link) : L.shareDuel(topic, link);
     const players = room.players;
-    const playerLi = p => `<li><span class="who">${p.username ? ACC.avatar(p, 'sm') : ''}<span>${esc(p.name)}${p.sid === socket.id ? ` <span class="tag">${L.you}</span>` : ''}<br><span class="sub">${p.username ? '@' + esc(p.username) + ' · ' : ''}${esc(p.school)}${p.city ? ', ' + esc(cityName(p.city)) : ''}</span></span></span>${p.sid === room.hostSid ? `<span class="tag">${L.host}</span>` : ''}</li>`;
+    const playerLi = p => `<li><span class="who">${p.username ? ACC.avatar(p, 'sm') : ''}<span>${esc(p.name)}${p.sid === socket.id ? ` <span class="tag">${L.you}</span>` : ''}<br><span class="sub">${p.username ? '@' + esc(p.username) + ' · ' : ''}${esc(schoolName(p.school))}${p.city ? ', ' + esc(cityName(p.city)) : ''}</span></span></span>${p.sid === room.hostSid ? `<span class="tag">${L.host}</span>` : ''}</li>`;
     const mine = players.find(p => p.sid === socket.id);
 
     app.innerHTML = `
@@ -775,15 +775,19 @@
   };
   const norm = t => String(t).toLowerCase().replace(/ё/g, 'е').replace(/[«»"'.,()№-]/g, ' ').replace(/\s+/g, ' ').trim();
   // Номер школы — по номеру, слова — по началу слов: «гим 12» найдёт «Школа-гимназия № 12».
+  // Название школы на языке интерфейса: в базе — как в реестре, на казахском показываем перевод.
+  window.schoolName = s => (s && lang === 'kk' ? SCHOOLKK.toKk(s) : s || '');
   function matchSchools(list, query) {
     const q = norm(query);
-    if (!q) return list.slice(0, 8);
+    const label = [...new Set(list.map(schoolName))];
+    if (!q) return label.slice(0, 8);
     const toks = q.split(' ');
     const nums = toks.filter(t => /^\d+$/.test(t)), words = toks.filter(t => !/^\d+$/.test(t));
-    return list.filter(name => {
-      const n = norm(name), nameNums = n.match(/\d+/g) || [], nameWords = n.split(' ');
+    // Ищем и по русскому, и по казахскому названию.
+    return [...new Set(list.filter(name => {
+      const n = norm(name + ' ' + SCHOOLKK.toKk(name)), nameNums = n.match(/\d+/g) || [], nameWords = n.split(' ');
       return nums.every(x => nameNums.includes(x)) && words.every(w => nameWords.some(nw => nw.startsWith(w)) || n.includes(w));
-    }).slice(0, 8);
+    }).map(schoolName))].slice(0, 8);
   }
   // Превращает поле «Школа» в поле с выпадающими подсказками для выбранного города.
   function attachSchoolSuggest(input, citySelect) {
@@ -1056,7 +1060,7 @@
       <div class="me__head">
         <div>
           <h1>${esc(u.name)}</h1>
-          <p class="page__lead">@${esc(u.username)} · ${esc(u.school)}, ${esc(cityName(u.city))}</p>
+          <p class="page__lead">@${esc(u.username)} · ${esc(schoolName(u.school))}, ${esc(cityName(u.city))}</p>
           ${since ? `<p class="muted" style="font-size:14px;margin-top:4px">${L.memberSince(since)}</p>` : ''}
         </div>
         <div class="me__actions"><button class="btn btn--ghost btn--sm" id="editBtn">${L.editProfile}</button><button class="btn btn--ghost btn--sm" id="logoutBtn">${L.logout}</button></div>
@@ -1128,7 +1132,7 @@
   // ---------- рейтинг ----------
   function schoolTable(rows) {
     return `<table class="table"><thead><tr><th></th><th>${L.thSchool}</th><th class="hide-sm">${L.thPlayers}</th><th class="r">${L.thRating}</th></tr></thead><tbody>
-      ${rows.map((s, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(s.name)}<div class="sub">${esc(cityName(s.city || ''))}</div></td><td class="hide-sm num">${s.players}</td><td class="r">${s.rating}</td></tr>`).join('')}
+      ${rows.map((s, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(schoolName(s.name))}<div class="sub">${esc(cityName(s.city || ''))}</div></td><td class="hide-sm num">${s.players}</td><td class="r">${s.rating}</td></tr>`).join('')}
     </tbody></table>`;
   }
 
@@ -1156,7 +1160,7 @@
       if (!rows.length) { $('#rTable').innerHTML = `<div class="empty">${L.ratingEmpty}<br><a href="/play" data-link class="btn">${L.play}</a></div>`; return; }
       if (tab === 'schools') $('#rTable').innerHTML = schoolTable(rows);
       else if (tab === 'players') $('#rTable').innerHTML = `<table class="table"><thead><tr><th></th><th>${L.thPlayer}</th><th class="hide-sm">${L.thWins}</th><th class="r">${L.thRating}</th></tr></thead><tbody>
-        ${rows.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${p.username ? `<a class="plink" href="/u/${esc(p.username)}" data-link>${esc(p.name)}</a>` : esc(p.name)}<div class="sub">${esc(p.school)}${p.city ? ', ' + esc(cityName(p.city)) : ''}</div></td><td class="hide-sm num">${L.winsOf(p.wins, p.games)}</td><td class="r">${p.rating}</td></tr>`).join('')}</tbody></table>`;
+        ${rows.map((p, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${p.username ? `<a class="plink" href="/u/${esc(p.username)}" data-link>${esc(p.name)}</a>` : esc(p.name)}<div class="sub">${esc(schoolName(p.school))}${p.city ? ', ' + esc(cityName(p.city)) : ''}</div></td><td class="hide-sm num">${L.winsOf(p.wins, p.games)}</td><td class="r">${p.rating}</td></tr>`).join('')}</tbody></table>`;
       else $('#rTable').innerHTML = `<table class="table"><thead><tr><th></th><th>${L.thCity}</th><th class="hide-sm">${L.thPlayers}</th><th class="r">${L.thRating}</th></tr></thead><tbody>
         ${rows.map((c, i) => `<tr class="${i < 3 ? 'top3' : ''}"><td class="pos">${i + 1}</td><td>${esc(cityName(c.name))}</td><td class="hide-sm num">${c.players}</td><td class="r">${c.rating}</td></tr>`).join('')}</tbody></table>`;
     };

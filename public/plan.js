@@ -129,7 +129,7 @@ window.PLAN = (() => {
     let d; try { d = await X.api('/api/parent/' + encodeURIComponent(token)); }
     catch { X.setTitle(t().pGone); X.app.innerHTML = page(`<h1>${t().pGone}</h1><p class="page__lead">${t().pGoneLead}</p>`); return; }
     X.setTitle(t().pTitle(d.name));
-    X.app.innerHTML = page(`<h1>${esc(t().pTitle(d.name))}</h1><p class="page__lead">${esc([d.school, d.city && X.cityName(d.city)].filter(Boolean).join(', '))}</p><p class="muted" style="margin-top:6px">${t().pLead}</p>${body(d, false)}`);
+    X.app.innerHTML = page(`<h1>${esc(t().pTitle(d.name))}</h1><p class="page__lead">${esc([schoolName(d.school), d.city && X.cityName(d.city)].filter(Boolean).join(', '))}</p><p class="muted" style="margin-top:6px">${t().pLead}</p>${body(d, false)}`);
   }
 
   return { init: ctx => { X = ctx; }, home, view: path => (path.startsWith('/parent/') ? viewParent(path.slice(8)) : viewPlan()) };

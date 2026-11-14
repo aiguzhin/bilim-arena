@@ -55,9 +55,10 @@ window.CHAT = (() => {
 
   // ---------- список чатов ----------
   const kindLabel = r => (r.kind === 'school' ? t().school : r.kind === 'class' ? t().klass : r.sub);
+  const titleOf = r => (r.kind === 'school' ? schoolName(r.title) : r.title);
   const rowHtml = r => `<a class="ch-row${cur?.id === r.id ? ' on' : ''}" href="${href(r.id)}" data-link data-room="${esc(r.id)}">
       ${r.kind === 'dm' ? ava(r.peer) : roomIcon(r.kind)}
-      <span class="ch-row__main"><b>${esc(r.title)}</b><small>${r.last ? `${r.last.mine ? t().you : r.kind !== 'dm' && r.last.name ? esc(r.last.name) + ': ' : ''}${esc(r.last.text)}` : esc(kindLabel(r))}</small></span>
+      <span class="ch-row__main"><b>${esc(titleOf(r))}</b><small>${r.last ? `${r.last.mine ? t().you : r.kind !== 'dm' && r.last.name ? esc(r.last.name) + ': ' : ''}${esc(r.last.text)}` : esc(kindLabel(r))}</small></span>
       <span class="ch-row__side">${r.last ? `<time>${when(r.last.at)}</time>` : ''}${r.unread ? `<i class="badge">${r.unread > 99 ? '99+' : r.unread}</i>` : ''}</span></a>`;
   function drawList() {
     const box = $('#chList'); if (!box) return;
@@ -97,7 +98,7 @@ window.CHAT = (() => {
       if (q.length < 2) { box.hidden = true; return; }
       tm = setTimeout(async () => {
         let d; try { d = await X.api('/api/friends/search?q=' + encodeURIComponent(q)); } catch { return; }
-        box.innerHTML = d.users.length ? d.users.map(u => `<button type="button" class="ch-row" data-u="${esc(u.username)}">${ava(u)}<span class="ch-row__main"><b>${esc(u.name)}</b><small>@${esc(u.username)}${u.school ? ' · ' + esc(u.school) : ''}</small></span></button>`).join('') : `<p class="ch-empty">${t().noUsers}</p>`;
+        box.innerHTML = d.users.length ? d.users.map(u => `<button type="button" class="ch-row" data-u="${esc(u.username)}">${ava(u)}<span class="ch-row__main"><b>${esc(u.name)}</b><small>@${esc(u.username)}${u.school ? ' · ' + esc(schoolName(u.school)) : ''}</small></span></button>`).join('') : `<p class="ch-empty">${t().noUsers}</p>`;
         box.hidden = false;
       }, 250);
     };
@@ -133,7 +134,7 @@ window.CHAT = (() => {
         <header class="ch-head">
           <a href="/chat" data-link class="ch-back" aria-label="${t().back}">←</a>
           ${dm ? `<a href="/u/${esc(d.peer.username)}" data-link class="ch-head__who">${ava(d.peer)}<span><b>${esc(d.title)}</b><small>${esc(d.sub)}${d.peer.online ? ' · ' + t().online : ''}</small></span></a>`
-            : `<div class="ch-head__who">${roomIcon(d.kind)}<span><b>${esc(d.title)}</b><small>${d.kind === 'school' ? t().school : t().klass}${d.sub ? ' · ' + esc(d.sub) : ''}</small></span></div>`}
+            : `<div class="ch-head__who">${roomIcon(d.kind)}<span><b>${esc(titleOf(d))}</b><small>${d.kind === 'school' ? t().school : t().klass}${d.sub ? ' · ' + esc(d.kind === 'class' ? schoolName(d.sub) : d.sub) : ''}</small></span></div>`}
           ${dm ? `<div class="ch-head__acts">${rel === 'friend' ? `<span class="tag tag--ok">${t().friend}</span>` : rel === 'outgoing' ? `<span class="tag">${t().sent}</span>` : `<button class="btn btn--sm btn--ghost" id="chFr">${rel === 'incoming' ? t().accept : t().add}</button>`}
             <button class="linkbtn" id="chBlock">${d.blocked ? t().unblock : t().block}</button></div>` : ''}
         </header>

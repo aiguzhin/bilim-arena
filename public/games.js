@@ -63,7 +63,7 @@ window.GAMES = (() => {
   }
   async function top(mode) {
     let d; try { d = await X.api('/api/mini/top?mode=' + mode); } catch { return; }
-    const list = rows => rows.length ? `<ol class="g-list">${rows.map((r, i) => `<li><span class="num g-pl">${i + 1}</span><a href="/u/${esc(r.username)}" data-link class="g-who">${ACC.avatar({ ...r, photo: r.photo_v ? `/p/${r.username}?v=${String(r.photo_v).slice(0, 8)}` : null }, 'sm')}<span><b>${esc(r.name)}</b><small>${esc(r.school || '')}</small></span></a><b class="num">${r.score}</b></li>`).join('')}</ol>` : `<p class="muted">${t().noTop}</p>`;
+    const list = rows => rows.length ? `<ol class="g-list">${rows.map((r, i) => `<li><span class="num g-pl">${i + 1}</span><a href="/u/${esc(r.username)}" data-link class="g-who">${ACC.avatar({ ...r, photo: r.photo_v ? `/p/${r.username}?v=${String(r.photo_v).slice(0, 8)}` : null }, 'sm')}<span><b>${esc(r.name)}</b><small>${esc(schoolName(r.school))}</small></span></a><b class="num">${r.score}</b></li>`).join('')}</ol>` : `<p class="muted">${t().noTop}</p>`;
     if ($('#gDay')) { $('#gDay').innerHTML = list(d.today); $('#gWeek').innerHTML = list(d.week); }
   }
 

@@ -58,7 +58,7 @@ window.SOC = (() => {
     X.app.querySelectorAll('[data-ft]').forEach(b => b.onclick = () => { tab = b.dataset.ft; history.replaceState({}, '', `/friends?tab=${tab}`); view(); });
     const body = $('#fBody');
     const row = (u, actions) => `<li class="frow"><a class="frow__who" href="/u/${esc(u.username)}" data-link>${ava(u)}<span class="frow__dot ${u.online ? 'on' : ''}" title="${u.online ? t().online : t().offline}"></span>
-      <span class="frow__txt"><b>${esc(u.name)}</b><small>@${esc(u.username)} · ${esc(u.school || '')}</small></span></a><div class="frow__act">${actions}</div></li>`;
+      <span class="frow__txt"><b>${esc(u.name)}</b><small>@${esc(u.username)} · ${esc(schoolName(u.school))}</small></span></a><div class="frow__act">${actions}</div></li>`;
     if (tab === 'friends') {
       body.innerHTML = d.friends.length ? `<ul class="flist">${d.friends.map(u => row(u, `${u.online ? `<button class="btn btn--sm" data-duel="${esc(u.username)}">${t().duel}</button>` : `<span class="muted fsmall">${t().offline}</span>`}
         <button class="iconbtn" data-rm="${esc(u.username)}" data-nm="${esc(u.name)}" aria-label="${t().remove}" title="${t().remove}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`)).join('')}</ul>`

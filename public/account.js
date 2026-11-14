@@ -81,7 +81,7 @@ window.ACC = (() => {
         ${avatar(u, 'lg')}
         <div class="phead__main">
           <h1>${X.esc(u.name)}</h1>
-          <p class="phead__meta">@${X.esc(u.username)} · ${X.esc(u.school)}, ${X.esc(X.cityName(u.city))}</p>
+          <p class="phead__meta">@${X.esc(u.username)} · ${X.esc(schoolName(u.school))}, ${X.esc(X.cityName(u.city))}</p>
           <p class="phead__bio ${u.bio ? '' : 'is-empty'}">${u.bio ? X.esc(u.bio) : A().noBio}</p>
           ${since ? `<p class="phead__since">${X.L().memberSince(since)}</p>` : ''}
         </div>
@@ -258,7 +258,7 @@ window.ACC = (() => {
       <label class="field"><span>${A().fName}</span><input name="name" maxlength="24" required minlength="2" value="${X.esc(u.name)}"></label>
       <div class="pe__row">
         <label class="field"><span>${A().fCity}</span><select name="city" required>${[...CITIES.map(([ru, kk]) => `<option value="${ru}">${X.lang() === 'kk' ? kk : ru}</option>`), `<option value="Другой город">${L.otherCity}</option>`].join('')}</select></label>
-        <label class="field"><span>${A().fSchool}</span><input name="school" maxlength="60" required value="${X.esc(u.school)}"></label>
+        <label class="field"><span>${A().fSchool}</span><input name="school" maxlength="60" required value="${X.esc(schoolName(u.school))}"></label>
       </div>
       <div class="pe__row">
         <label class="field"><span>${X.L().fBirth}</span><input name="birth" type="date" required value="${u.birthDate || ''}" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
@@ -411,7 +411,7 @@ window.ACC = (() => {
         ${avatar(u, 'lg')}
         <div class="phead__main">
           <h1>${X.esc(u.name)}</h1>
-          <p class="phead__meta">@${X.esc(u.username)} · ${X.esc(u.school)}, ${X.esc(X.cityName(u.city))}</p>
+          <p class="phead__meta">@${X.esc(u.username)} · ${X.esc(schoolName(u.school))}, ${X.esc(X.cityName(u.city))}</p>
           ${u.bio ? `<p class="phead__bio">${X.esc(u.bio)}</p>` : ''}
           ${since ? `<p class="phead__since">${L.memberSince(since)}</p>` : ''}
         </div>

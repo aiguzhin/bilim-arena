@@ -408,7 +408,7 @@ window.ENT = (() => {
         <div><dt>${c.date}</dt><dd>${fmtDate(d.toISOString(), X.lang(), true)}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}</dd></div>
         <div><dt>${c.lang}</dt><dd>${X.LANGN[test.lang] || ''}</dd></div>
         <div><dt>${c.profile}</dt><dd>${X.esc(profile)}</dd></div>
-        <div class="cert__wide"><dt>${c.school}</dt><dd>${X.esc(w.school || '')}${w.city ? ', ' + X.esc(X.cityName ? X.cityName(w.city) : w.city) : ''}</dd></div>
+        <div class="cert__wide"><dt>${c.school}</dt><dd>${X.esc(schoolName(w.school))}${w.city ? ', ' + X.esc(X.cityName ? X.cityName(w.city) : w.city) : ''}</dd></div>
       </dl>
       <table class="cert__table"><thead><tr><th>${c.n}</th><th>${c.subj}</th><th class="r">${c.min}</th><th class="r">${c.got}</th></tr></thead>
         <tbody>${r.subjects.map((s, i) => `<tr class="${s.pass ? '' : 'is-fail'}"><td class="num">${i + 1}</td><td>${X.esc(sname(s.k))}</td><td class="r num">${s.min}</td><td class="r num"><b>${s.score}</b> <span class="muted">${c.of} ${s.max}</span></td></tr>`).join('')}</tbody>

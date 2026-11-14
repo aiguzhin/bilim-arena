@@ -184,7 +184,7 @@ window.SES = (() => {
       let body = '';
       if (st.step === 1) body = `<p class="muted">${t().s1lead}</p><dl class="rdata">
           <div><dt>${t().fio}</dt><dd>${esc(p.name)}</dd></div><div><dt>${t().birth}</dt><dd>${p.birthDate ? fmtDate(p.birthDate + 'T12:00:00Z', X.lang(), true) : '—'}</dd></div>
-          <div><dt>${t().phone}</dt><dd>${esc(p.phone || '—')}</dd></div><div><dt>${t().school}</dt><dd>${esc(p.school)}</dd></div>
+          <div><dt>${t().phone}</dt><dd>${esc(p.phone || '—')}</dd></div><div><dt>${t().school}</dt><dd>${esc(schoolName(p.school))}</dd></div>
           <div><dt>${t().city}</dt><dd>${esc(X.cityName(p.city))}</dd></div><div><dt>${t().login}</dt><dd>@${esc(p.username)}</dd></div></dl>
           <a href="/me" data-link class="fsmall">${t().fix}</a>
           <label class="check" style="margin-top:16px"><input type="checkbox" id="rOk" ${st.ok ? 'checked' : ''}> <span>${t().dataOk}</span></label>`;
@@ -303,7 +303,7 @@ window.SES = (() => {
         <div class="sstats"><div><b class="num">${r.registered}</b><span>${t().stReg}</span></div><div><b class="num">${r.finished}</b><span>${t().stTook}</span></div>
           <div><b class="num">${r.avg ?? '—'}</b><span>${t().stAvg}</span></div><div><b class="num">${r.passRate != null ? r.passRate + '%' : '—'}</b><span>${t().stPass}</span></div><div><b class="num">${r.best ?? '—'}</b><span>${t().stBest}</span></div></div>
         ${r.finished ? `<h3>${t().hist}</h3><div class="shist">${r.hist.map((n, i) => `<div title="${i * 10}–${i === 13 ? 140 : i * 10 + 9}: ${n}"><i style="height:${Math.round(n / max * 100)}%" class="${i < 5 ? 'low' : ''}"></i><span>${i * 10}</span></div>`).join('')}</div>` : ''}
-        ${r.top?.length ? `<h3>${t().top}</h3><table class="table"><tbody>${r.top.map(x => `<tr class="${x.me ? 'is-me' : ''} ${x.place <= 3 ? 'top3' : ''}"><td class="pos">${x.place}</td><td><span class="who">${ACC.avatar(x, 'sm')}<span><a class="plink" href="/u/${esc(x.username)}" data-link>${esc(x.name)}</a><div class="sub">${esc(x.school)} · ${esc(comboName(x.combo))}</div></span></span></td><td class="r num"><b>${x.score}</b></td></tr>`).join('')}</tbody></table>` : ''}
+        ${r.top?.length ? `<h3>${t().top}</h3><table class="table"><tbody>${r.top.map(x => `<tr class="${x.me ? 'is-me' : ''} ${x.place <= 3 ? 'top3' : ''}"><td class="pos">${x.place}</td><td><span class="who">${ACC.avatar(x, 'sm')}<span><a class="plink" href="/u/${esc(x.username)}" data-link>${esc(x.name)}</a><div class="sub">${esc(schoolName(x.school))} · ${esc(comboName(x.combo))}</div></span></span></td><td class="r num"><b>${x.score}</b></td></tr>`).join('')}</tbody></table>` : ''}
       </section>`;
     }
     X.app.innerHTML = page(`<p class="ps__top"><a href="/ent/register" data-link class="ps__back">← ${t().title}</a></p>

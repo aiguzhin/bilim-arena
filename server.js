@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|games\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|schoolkk\.js|games\.js))"/g, `$1?v=${VERSION}"`);
 // Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
 const SITE = 'https://bilimarena.com';
 const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -155,8 +155,11 @@ async function auth(req, res, next) {
 }
 const wrap = fn => (req, res) => fn(req, res).catch(e => { console.error(e); res.status(500).json({ error: 'server' }); });
 
+const SCHOOL_KK = require('./public/schoolkk.js');
+// Школа, выбранная из подсказки на казахском, сохраняется в форме реестра — чтобы ученики одной школы оказались в одном рейтинге и чате.
+const canonSchool = (school, city) => (require('./schools')[city] || []).find(x => x === school || SCHOOL_KK.toKk(x) === school) || school;
 function readProfile(b) {
-  const name = store.clean(b.name, 24), school = store.clean(b.school, 60), city = store.clean(b.city, 40);
+  const name = store.clean(b.name, 24), city = store.clean(b.city, 40), school = canonSchool(store.clean(b.school, 60), city);
   if (name.length < 2) return { error: 'name' };
   if (school.length < 2) return { error: 'school' };
   if (!city) return { error: 'city' };

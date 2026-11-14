@@ -387,10 +387,10 @@ window.EDU = (() => {
     if (d.table) {
       const rows = d.table.rows;
       table = `<h2 class="me__h2">${t().standings}</h2>${rows.length ? `<table class="table"><thead><tr><th>${t().thPlace}</th><th>${t().thName}</th><th class="r">${t().thScore}</th><th class="r hide-sm">${t().thTime}</th></tr></thead><tbody>
-        ${rows.map(r => `<tr class="${r.me ? 'is-me' : ''} ${r.place <= 3 ? 'top3' : ''}"><td class="pos">${r.place}</td><td><span class="who">${ava(r)}<span><a class="plink" href="/u/${esc(r.username)}" data-link>${esc(r.name)}</a><div class="sub">${esc(r.school)}, ${esc(X.cityName(r.city))}</div></span></span></td>
+        ${rows.map(r => `<tr class="${r.me ? 'is-me' : ''} ${r.place <= 3 ? 'top3' : ''}"><td class="pos">${r.place}</td><td><span class="who">${ava(r)}<span><a class="plink" href="/u/${esc(r.username)}" data-link>${esc(r.name)}</a><div class="sub">${esc(schoolName(r.school))}, ${esc(X.cityName(r.city))}</div></span></span></td>
         <td class="r num"><b>${r.score}</b> / ${r.max}</td><td class="r num hide-sm">${dur(r.time)}</td></tr>`).join('')}</tbody></table>` : `<div class="empty">—</div>`}
         ${d.table.schools.length > 1 ? `<h2 class="me__h2">${t().schoolsTable}</h2><p class="muted" style="margin:-6px 0 12px">${t().schoolsNote}</p><table class="table"><thead><tr><th>#</th><th>${t().thSchool}</th><th class="r hide-sm">${t().thN}</th><th class="r">${t().thAvg}</th></tr></thead><tbody>
-        ${d.table.schools.map(s => `<tr><td class="pos">${s.place}</td><td>${esc(s.name)}<div class="sub">${esc(X.cityName(s.city))}</div></td><td class="r num hide-sm">${s.n}</td><td class="r num"><b>${s.avg}</b></td></tr>`).join('')}</tbody></table>` : ''}`;
+        ${d.table.schools.map(s => `<tr><td class="pos">${s.place}</td><td>${esc(schoolName(s.name))}<div class="sub">${esc(X.cityName(s.city))}</div></td><td class="r num hide-sm">${s.n}</td><td class="r num"><b>${s.avg}</b></td></tr>`).join('')}</tbody></table>` : ''}`;
     } else if (tr.status !== 'soon') table = `<p class="muted" style="margin-top:24px">${t().waitTable}</p>`;
     let review = '';
     if (d.review) {
@@ -568,7 +568,7 @@ window.EDU = (() => {
     loading();
     let d; try { d = await X.api('/api/classes'); } catch { return; }
     X.app.innerHTML = page(`
-      <h1>${t().tTitle}</h1><p class="page__lead">${esc(me.school)}, ${esc(X.cityName(me.city))}</p>
+      <h1>${t().tTitle}</h1><p class="page__lead">${esc(schoolName(me.school))}, ${esc(X.cityName(me.city))}</p>
       <form class="tnew" id="cNew"><label class="field"><span>${t().newClass}</span><input name="name" maxlength="24" placeholder="${t().classNamePh}" required></label><button class="btn">${t().create}</button></form>
       <p class="form-error" id="cErr" role="alert"></p>
       <h2 class="me__h2">${t().classes}</h2>
@@ -594,7 +594,7 @@ window.EDU = (() => {
     const tabs = [['students', t().tabStudents], ['subjects', t().tabSubjects], ['tours', t().tabTours], ['check', t().tabCheck + (flags.length ? ` <span class="badge">${flags.length}</span>` : '')]];
     X.app.innerHTML = page(`
       <p class="ps__top"><a href="/teacher" data-link class="ps__back">← ${t().tTitle}</a></p>
-      <div class="chead"><div><h1>${esc(c.name)}</h1><p class="page__lead">${esc(c.school)}, ${esc(X.cityName(c.city))} · ${t().students(d.students.length)}</p></div>
+      <div class="chead"><div><h1>${esc(c.name)}</h1><p class="page__lead">${esc(schoolName(c.school))}, ${esc(X.cityName(c.city))} · ${t().students(d.students.length)}</p></div>
         <div class="chead__code"><span>${t().code}</span><b class="num">${c.code}</b><button class="btn btn--ghost btn--sm" id="cLink">${t().copyLink}</button></div></div>
       <p class="muted">${t().inviteHint}</p>
       <section class="cgoal"><div class="cgoal__top"><span>${t().teamGoal}</span><button class="linkbtn" id="cGoal">${t().goalEdit}</button></div>
@@ -690,7 +690,7 @@ window.EDU = (() => {
       <p class="form-error" id="jErr" role="alert"></p></section>
       <p style="margin-top:28px" class="muted">${t().becomeTitle}: <a href="/teacher" data-link>${t().tTitle}</a></p>`;
     const c = d.class, pct = Math.min(100, Math.round(d.goal.done / Math.max(1, d.goal.target) * 100));
-    return `<section class="cmine"><div class="cmine__top"><div><h2>${esc(c.name)}</h2><p class="muted">${esc(c.school)}, ${esc(X.cityName(c.city))} · ${t().teacherLbl}: ${esc(c.teacher)}</p></div><span class="tag">${t().code} ${c.code}</span></div>
+    return `<section class="cmine"><div class="cmine__top"><div><h2>${esc(c.name)}</h2><p class="muted">${esc(schoolName(c.school))}, ${esc(X.cityName(c.city))} · ${t().teacherLbl}: ${esc(c.teacher)}</p></div><span class="tag">${t().code} ${c.code}</span></div>
       <div class="cgoal"><div class="cgoal__top"><span>${t().teamGoal}</span></div><div class="goal__bar"><i style="width:${pct}%"></i></div><p class="goal__note">${t().teamGoalText(d.goal.done, d.goal.target)}</p></div></section>
       ${d.tours.length ? `<h2 class="me__h2">${t().classTours}</h2><div class="tlist">${d.tours.map(x => tourCard(x)).join('')}</div>` : ''}
       <h2 class="me__h2">${t().mates}</h2><p class="muted" style="margin:-6px 0 12px">${t().matesNote}</p>
@@ -712,7 +712,7 @@ window.EDU = (() => {
     X.setTitle(t().joinPage); loading();
     let d; try { d = await X.api(`/api/class/lookup/${encodeURIComponent(code)}`); } catch (x) { X.app.innerHTML = page(`<h1>${errText(x)}</h1><p style="margin-top:20px"><a class="btn" href="/me/class" data-link>${t().cTitle}</a></p>`); return; }
     const c = d.class, me = X.me();
-    X.app.innerHTML = page(`<div class="tbig"><p class="muted">${t().joinAsk}</p><h1>${esc(c.name)}</h1><p class="page__lead">${esc(c.school)}, ${esc(X.cityName(c.city))}<br>${t().teacherLbl}: ${esc(c.teacher)}</p>
+    X.app.innerHTML = page(`<div class="tbig"><p class="muted">${t().joinAsk}</p><h1>${esc(c.name)}</h1><p class="page__lead">${esc(schoolName(c.school))}, ${esc(X.cityName(c.city))}<br>${t().teacherLbl}: ${esc(c.teacher)}</p>
       ${me.role === 'teacher' ? `<p class="form-error">${t().err.teacherJoin}</p>` : `<button class="btn btn--lg" id="jYes">${t().joinBtn}</button>`}<p class="form-error" id="jErr"></p></div>`);
     const y = $('#jYes');
     if (y) y.onclick = async () => { try { const r = await X.api('/api/class/join', { method: 'POST', body: { code } }); X.setMe(r.user); X.toast(t().joined); X.go('/me/class'); } catch (x) { $('#jErr').textContent = errText(x); } };
@@ -765,8 +765,8 @@ window.EDU = (() => {
         </div>
         ${rows.length ? `<table class="table rtable"><thead><tr><th></th><th>${rs.scope === 'schools' ? t().thSchool : t().thStudent}</th>${rs.kind !== 'battle' && rs.scope === 'schools' ? `<th class="hide-sm">${t().thLeague}</th>` : ''}<th class="r hide-sm">${rs.scope === 'schools' ? t().thStud : rs.kind === 'battle' ? t().thWins : rs.kind === 'results' ? t().thMocks : ''}</th><th class="r">${colName}</th></tr></thead><tbody>
           ${rows.map((r, i) => `<tr class="${i < 3 ? 'top3' : ''} ${mine(r) ? 'is-me' : ''}"><td class="pos">${i + 1}</td>
-            <td>${rs.scope === 'schools' ? `${esc(r.name)}${r.verified ? ` <span class="vmark" title="${t().verified}" aria-label="${t().verified}">${glyph('fix')}</span>` : ''}<div class="sub">${esc(X.cityName(r.city || ''))}</div>`
-              : `<span class="who">${r.username ? ava(r) : ''}<span>${r.username ? `<a class="plink" href="/u/${esc(r.username)}" data-link>${esc(r.name)}</a>` : esc(r.name)}<div class="sub">${esc(r.school)}${r.city ? ', ' + esc(X.cityName(r.city)) : ''}</div></span></span>`}</td>
+            <td>${rs.scope === 'schools' ? `${esc(schoolName(r.name))}${r.verified ? ` <span class="vmark" title="${t().verified}" aria-label="${t().verified}">${glyph('fix')}</span>` : ''}<div class="sub">${esc(X.cityName(r.city || ''))}</div>`
+              : `<span class="who">${r.username ? ava(r) : ''}<span>${r.username ? `<a class="plink" href="/u/${esc(r.username)}" data-link>${esc(r.name)}</a>` : esc(r.name)}<div class="sub">${esc(schoolName(r.school))}${r.city ? ', ' + esc(X.cityName(r.city)) : ''}</div></span></span>`}</td>
             ${rs.kind !== 'battle' && rs.scope === 'schools' ? `<td class="hide-sm"><span class="lg lg--${r.league}">${t().leagues[r.league].split(' ')[0]}</span></td>` : ''}
             <td class="r num hide-sm">${nOf(r)}</td><td class="r num"><b>${fmtV(val(r))}</b></td></tr>`).join('')}</tbody></table>`
           : `<div class="empty">${t().rEmpty}<br><a class="btn" href="/ent" data-link>${t().rEmptyCta}</a></div>`}
