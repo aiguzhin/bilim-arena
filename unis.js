@@ -83,7 +83,7 @@ module.exports = function (app, db) {
   app.get('/api/unis', async (req, res) => {
     try {
       const d = await load();
-      res.set('Cache-Control', 'public, max-age=600');
+      res.set('Cache-Control', 'public, max-age=120');
       res.json({ rules: RULES, combos: COMBO_GROUPS, foreign: FOREIGN, branches: BRANCHES, branchesSrc: BRANCHES_SRC, data: d });
     } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
   });
