@@ -39,12 +39,23 @@ window.SOC = (() => {
     try { const d = await X.api('/api/friends/count'); b.textContent = d.incoming; b.hidden = !d.incoming; } catch {}
   }
 
+  // ---------- приглашения ----------
+  const IVT = {
+    ru: { tab: 'Пригласить', lead: 'Отправьте ссылку однокласснику. Когда он зарегистрируется по ней, вы увидите его здесь и получите значок.', copy: 'Скопировать', copied: 'Ссылка скопирована', more: 'Ещё…',
+      short: 'Готовлюсь к ЕНТ на Bilim Arena — пробный ЕНТ, баттлы и шанс на грант. Присоединяйся!', msg: l => `Готовлюсь к ЕНТ на Bilim Arena — пробный ЕНТ, баттлы и шанс на грант. Присоединяйся: ${l}`,
+      invited: 'Пришли по ссылке', active: 'Уже занимаются', badges: 'Значки: «Позвал друга» — 1, «Своя команда» — 5, «Амбассадор» — 20 приглашённых.', none: 'Пока никто не пришёл по вашей ссылке.', isActive: 'занимается', isNew: 'новичок' },
+    kk: { tab: 'Шақыру', lead: 'Сілтемені сыныптасыңызға жіберіңіз. Ол сілтеме арқылы тіркелгенде, осында көрінеді және сіз белгі аласыз.', copy: 'Көшіру', copied: 'Сілтеме көшірілді', more: 'Тағы…',
+      short: 'Bilim Arena-да ҰБТ-ға дайындалып жүрмін — сынақ ҰБТ, баттлдар және грант мүмкіндігі. Қосыл!', msg: l => `Bilim Arena-да ҰБТ-ға дайындалып жүрмін — сынақ ҰБТ, баттлдар және грант мүмкіндігі. Қосыл: ${l}`,
+      invited: 'Сілтемемен келді', active: 'Дайындалып жүр', badges: 'Белгілер: «Досын шақырды» — 1, «Өз командасы» — 5, «Амбассадор» — 20 шақырылған.', none: 'Сілтемеңізбен әзірге ешкім келген жоқ.', isActive: 'дайындалуда', isNew: 'жаңа' }
+  };
+  const IV = () => IVT[X.lang()] || IVT.ru;
+
   // ---------- страница «Друзья» ----------
   let tab = 'friends';
   async function view() {
     X.setTitle(t().title);
     const q0 = new URLSearchParams(location.search).get('tab');
-    if (['friends', 'requests', 'find'].includes(q0)) tab = q0;
+    if (['friends', 'requests', 'find', 'invite'].includes(q0)) tab = q0;
     let d; try { d = await X.api('/api/friends'); } catch { return; }
     const nReq = d.incoming.length;
     X.app.innerHTML = `<div class="page"><div class="wrap narrow">
@@ -53,14 +64,28 @@ window.SOC = (() => {
         <button role="tab" data-ft="friends" aria-selected="${tab === 'friends'}">${t().tabFriends} <span class="num muted">${d.friends.length || ''}</span></button>
         <button role="tab" data-ft="requests" aria-selected="${tab === 'requests'}">${t().tabReq}${nReq ? ` <span class="badge">${nReq}</span>` : ''}</button>
         <button role="tab" data-ft="find" aria-selected="${tab === 'find'}">${t().tabFind}</button>
+        <button role="tab" data-ft="invite" aria-selected="${tab === 'invite'}">${IV().tab}</button>
       </div>
       <div id="fBody"></div></div></div>${X.footer()}`;
     X.app.querySelectorAll('[data-ft]').forEach(b => b.onclick = () => { tab = b.dataset.ft; history.replaceState({}, '', `/friends?tab=${tab}`); view(); });
     const body = $('#fBody');
     const row = (u, actions) => `<li class="frow"><a class="frow__who" href="/u/${esc(u.username)}" data-link>${ava(u)}<span class="frow__dot ${u.online ? 'on' : ''}" title="${u.online ? t().online : t().offline}"></span>
       <span class="frow__txt"><b>${esc(u.name)}</b><small>@${esc(u.username)} · ${esc(schoolName(u.school))}</small></span></a><div class="frow__act">${actions}</div></li>`;
+    if (tab === 'invite') {
+      let v; try { v = await X.api('/api/me/invite'); } catch { return; }
+      const msg = IV().msg(v.link);
+      body.innerHTML = `<section class="inv"><p>${IV().lead}</p>
+        <div class="pl-link"><input readonly value="${esc(v.link)}" id="ivUrl" aria-label="${IV().tab}"><button class="btn btn--sm" id="ivCopy">${IV().copy}</button></div>
+        <div class="inv__share"><a class="btn btn--ghost btn--sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">WhatsApp</a><a class="btn btn--ghost btn--sm" target="_blank" rel="noopener" href="https://t.me/share/url?url=${encodeURIComponent(v.link)}&text=${encodeURIComponent(IV().short)}">Telegram</a>${navigator.share ? `<button class="btn btn--ghost btn--sm" id="ivShare">${IV().more}</button>` : ''}</div>
+        <div class="pl-tiles inv__tiles"><div class="pl-tile"><span>${IV().invited}</span><b>${v.invited}</b></div><div class="pl-tile"><span>${IV().active}</span><b>${v.active}</b></div></div>
+        <p class="muted">${IV().badges}</p>
+        ${v.list.length ? `<ul class="flist">${v.list.map(u => row(u, `<span class="tag ${u.active ? 'tag--ok' : ''}">${u.active ? IV().isActive : IV().isNew}</span>`)).join('')}</ul>` : `<div class="empty">${IV().none}</div>`}</section>`;
+      $('#ivCopy').onclick = async () => { try { await navigator.clipboard.writeText(v.link); } catch { $('#ivUrl').select(); } X.toast(IV().copied); };
+      const sh = $('#ivShare'); if (sh) sh.onclick = () => navigator.share({ title: 'Bilim Arena', text: IV().short, url: v.link }).catch(() => {});
+      return;
+    }
     if (tab === 'friends') {
-      body.innerHTML = d.friends.length ? `<ul class="flist">${d.friends.map(u => row(u, `${u.online ? `<button class="btn btn--sm" data-duel="${esc(u.username)}">${t().duel}</button>` : `<span class="muted fsmall">${t().offline}</span>`}
+      body.innerHTML = d.friends.length ? `<ul class="flist">${d.friends.map(u => row(u, `${u.online ? '' : `<span class="muted fsmall">${t().offline}</span> `}<button class="btn btn--sm${u.online ? '' : ' btn--ghost'}" data-duel="${esc(u.username)}">${t().duel}</button>
         <button class="iconbtn" data-rm="${esc(u.username)}" data-nm="${esc(u.name)}" aria-label="${t().remove}" title="${t().remove}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>`)).join('')}</ul>`
         : `<div class="empty">${t().noFriends}<br><button class="btn" data-go="find">${t().toFind}</button></div>`;
     } else if (tab === 'requests') {

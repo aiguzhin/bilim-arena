@@ -153,6 +153,9 @@
   function leaveRoom() { if (room) socket.emit('leave', { code: room.code }); room = null; current = null; lastEnd = null; }
 
   // ---------- маршруты ----------
+  // Пришёл по приглашению (?ref=логин) — запоминаем, чтобы засчитать при регистрации.
+  try { const rf = new URLSearchParams(location.search).get('ref'); if (rf && /^[a-z0-9_.]{3,20}$/i.test(rf)) localStorage.setItem('ba_ref', rf.toLowerCase()); } catch {}
+  const refOf = () => { try { return localStorage.getItem('ba_ref') || undefined; } catch { return undefined; } };
   async function route() {
     reset();
     const path = location.pathname;
@@ -167,6 +170,8 @@
     if (path === '/privacy') return viewPrivacy();
     if (path === '/login') return viewAuth(true);
     if (path === '/unis' || path.startsWith('/unis/')) return UNI.view(path);
+    if (path === '/theory' || path.startsWith('/theory/')) return THEORY.view(path);
+    if (path === '/admin') return ADMIN.view();
     if (path.startsWith('/parent/')) return PLAN.view(path);
     if (path === '/about') return viewAbout();
     if (!me) return viewAuth();
@@ -220,6 +225,9 @@
   UNI.init(eduCtx);
   GAMES.init(eduCtx);
   PLAN.init(eduCtx);
+  PWA.init(eduCtx);
+  THEORY.init(eduCtx);
+  ADMIN.init(eduCtx);
 
   // ---------- главная ----------
   // Полоса «Сегодня»: серия дней, норма на сегодня и цель — см. plan.js.
@@ -243,6 +251,7 @@
     </section>
 
     <section class="today" id="homeToday" hidden></section>
+    <section class="pwa-wrap" id="homePush" hidden></section>
     <section class="block block--daily" id="homeDaily" hidden></section>
     <section class="block block--tour" id="homeTour" hidden></section>
 
@@ -261,7 +270,7 @@
     </section>
 
     ${footer()}`;
-    if (me) { homeToday(); dailyQ(); }
+    if (me) { homeToday(); dailyQ(); PWA.banner(document.getElementById('homePush')); }
 
     loadTop();
     EDU.homeBlock(eduCtx, $('#homeTour'));
@@ -280,12 +289,12 @@
   };
   const toolIcon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOOL_ICONS[k]}</svg>`;
   const homeTools = () => lang === 'kk' ? [
-    ['/ent', 'ent', 'Сынақ ҰБТ', 'Нақты емтихан форматы'], ['/practice', 'practice', 'Жаттығу', 'Қатемен жұмыс және әлсіз тақырыптар'],
+    ['/ent', 'ent', 'Сынақ ҰБТ', 'Нақты емтихан форматы'], ['/theory', 'practice', 'Теория және жаттығу', 'Ережелер, формулалар, әлсіз тақырыптар'],
     ['/play?mode=duel', 'duel', 'Досыңмен баттл', 'Сілтеме арқылы бірге-бір'], (me?.role === 'teacher' ? ['/teacher', 'class', 'Мұғалім кабинеті', 'Сыныптар мен жарыстар'] : ['/me/class', 'class', 'Менің сыныбым', 'Сыныптастар мен мұғалім жарыстары']),
     ['/games', 'games', 'Мини-ойындар', 'Блиц, Аман қалу, Дұрыс па'], ['/tournaments', 'tour', 'Турнирлер', 'Мектептер мен сыныптар үшін'],
     ['/unis', 'unis', 'ЖОО және грант', 'Шекті және өту балдары'], ['/rating', 'rating', 'Рейтинг', 'Мектептер мен оқушылар']
   ] : [
-    ['/ent', 'ent', 'Пробный ЕНТ', 'Как на настоящем экзамене'], ['/practice', 'practice', 'Тренировка', 'Работа над ошибками и слабые темы'],
+    ['/ent', 'ent', 'Пробный ЕНТ', 'Как на настоящем экзамене'], ['/theory', 'practice', 'Теория и тренировка', 'Правила, формулы, слабые темы'],
     ['/play?mode=duel', 'duel', 'Баттл с другом', 'Один на один по ссылке'], (me?.role === 'teacher' ? ['/teacher', 'class', 'Кабинет учителя', 'Классы и соревнования'] : ['/me/class', 'class', 'Мой класс', 'Одноклассники и соревнования учителя']),
     ['/games', 'games', 'Мини-игры', 'Блиц, Выживание, Верно или нет'], ['/tournaments', 'tour', 'Турниры', 'Для школ и классов'],
     ['/unis', 'unis', 'Вузы и гранты', 'Пороговые и проходные баллы'], ['/rating', 'rating', 'Рейтинг', 'Школы и ученики']
@@ -318,7 +327,7 @@
   }
 
   function footer() {
-    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena · <a href="/about" data-link>${L.navAbout}</a> · <a href="/privacy" data-link>${L.privTitle}</a></span></div></footer>`;
+    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena · <a href="/theory" data-link>${lang === 'kk' ? 'ҰБТ теориясы' : 'Теория ЕНТ'}</a> · <a href="/about" data-link>${L.navAbout}</a> · <a href="/privacy" data-link>${L.privTitle}</a></span></div></footer>`;
   }
 
   async function loadTop() {
@@ -928,7 +937,7 @@
       e.preventDefault();
       $('#gBtn').disabled = true; $('#gError').textContent = '';
       try {
-        const r = await api('/api/google/complete', { method: 'POST', body: { pending, username: f.username.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked } });
+        const r = await api('/api/google/complete', { method: 'POST', body: { pending, ref: refOf(), username: f.username.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked } });
         signIn(r.token, r.user);
         if (f.role.value === 'teacher') return becomeTeacher();
         route();
@@ -1037,7 +1046,7 @@
       const btn = $('#authBtn'); btn.disabled = true; $('#authError').textContent = '';
       try {
         const body = tab === 'register'
-          ? { username: f.username.value, password: f.password.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked }
+          ? { ref: refOf(), username: f.username.value, password: f.password.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked }
           : { username: f.username.value, password: f.password.value };
         const r = await api(tab === 'register' ? '/api/register' : '/api/login', { method: 'POST', body });
         leaveRoom(); socket.disconnect();

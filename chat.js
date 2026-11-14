@@ -12,7 +12,7 @@ const MAX_LEN = 500;
 const BAD = /(?<![а-яёa-z])(?:(?:на|за|по|вы|у|до|отъ|при|разъ|съ|про)?[её]б(?:а|у|и|л|н|т|ё|е)|(?:на|по|от|при|о)?ху[йеёяи]|(?:рас|рос|ис|с)?пизд|бля(?:д|т|$|[^а-яё])|муда[кч]|муди[лк]|пид[ао]р|ганд[оа]н|долбо[её]б|шлюх|қотақ|көтен|сігі[лнп]|fuck|shit(?![a-z])|bitch)[а-яёәіңғүұқөһa-z]*/gi;
 const clean = s => String(s || '').replace(/[\u0000-\u0008\u000B-\u001F​-‏‪-‮]/g, '').replace(/\n{3,}/g, '\n\n').trim().slice(0, MAX_LEN).replace(BAD, m => '*'.repeat(Math.min(m.length, 6)));
 
-module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, social }) {
+module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, social, push }) {
   const pu = p => (p.photo_v && p.username ? `/p/${p.username}?v=${p.photo_v.slice(0, 8)}` : null);
   const brief = p => ({ username: p.username, name: p.name, avatar: p.avatar || null, photo: pu(p), online: online.has(p.id), teacher: p.role === 'teacher' });
   const schoolRoom = p => (p.school && p.city ? 's:' + crypto.createHash('sha1').update(`${p.city}|${String(p.school).trim().toLowerCase()}`).digest('hex').slice(0, 16) : null);
@@ -140,6 +140,8 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
   }
   // Можно ли писать в комнату: блокировки и «только друзья». Возвращает код ошибки или null.
   async function canSend(me, r) {
+    const ban = (await db.kvGet('chatban:' + me.id))?.val;
+    if (ban?.on && (!ban.until || ban.until > Date.now())) return 'chatBanned';
     if (r.kind !== 'dm') return null;
     const b = await blockState(me.id, r.peer.id);
     if (b.byMe || b.byPeer) return 'chatBlocked';
@@ -158,6 +160,10 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     if (r.kind === 'dm' && !(r.id in (await db.chatReads(r.peer.id)))) await db.chatRead(r.peer.id, r.id, 0);
     typingOff(me, r.id);
     toRoom(r, 'chat', msg);
+    if (r.kind === 'dm' && !online.has(r.peer.id) && push) {
+      const body = extra.kind === 'voice' ? push.L(r.peer, '🎤 Голосовое сообщение', '🎤 Дауыстық хабарлама') : extra.kind === 'image' ? '🖼 ' + (text || push.L(r.peer, 'Фото', 'Фото')) : text.slice(0, 140);
+      push.send(r.peer.id, { title: me.name, body, url: '/chat/' + encodeURIComponent(r.id), tag: r.id }).catch(() => {});
+    }
     return msg;
   }
   app.post('/api/chat/send', auth, wrap(async (req, res) => {
@@ -273,6 +279,6 @@ module.exports = function mount(app, { db, auth, wrap, io, online, emitTo, socia
     });
   }
 
-  return { joinSocket, bindSocket };
+  return { joinSocket, bindSocket, hide };
 };
 module.exports.clean = clean;

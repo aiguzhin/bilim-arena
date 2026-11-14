@@ -148,6 +148,64 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     res.json({ user: store.PUBLIC(await db.setClass(req.player.id, c.id)) });
   }));
   app.post('/api/class/leave', auth, wrap(async (req, res) => { res.json({ user: store.PUBLIC(await db.setClass(req.player.id, null)) }); }));
+  // ---------- домашние задания ----------
+  // kv['hw:<classId>'] — список заданий класса; kv['hwres:<hwId>'] — ответы учеников { pid: { qid: 0|1 } }.
+  const hwList = async cid => (await db.kvGet('hw:' + cid))?.val?.list || [];
+  const hwRes = async hid => (await db.kvGet('hwres:' + hid))?.val || {};
+  const hwPublic = (h, res, pid) => { const mine = res[pid] || {}; const done = Object.keys(mine).length; return { id: h.id, subject: h.subject, topic: h.topic, topicName: h.topic ? TOPICS.nameOf(h.subject, h.topic) : null, n: h.items.length, due: h.due, created_at: h.created_at, done, right: Object.values(mine).reduce((s, x) => s + x, 0), finished: done >= h.items.length }; };
+  app.post('/api/classes/:id/hw', auth, teacherOnly, wrap(async (req, res) => {
+    const c = await ownClass(req, res); if (!c) return;
+    const k = String(req.body?.subject || ''), tp = req.body?.topic ? String(req.body.topic) : null;
+    const n = Math.max(5, Math.min(30, Math.round(Number(req.body?.n) || 10)));
+    const due = String(req.body?.due || '');
+    if (!BANK[k] || (tp && !TOPICS.info(k, tp))) return res.status(400).json({ error: 'pick' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(due) || new Date(due + 'T23:59:59+05:00') < Date.now()) return res.status(400).json({ error: 'hwDue' });
+    const pool = BANK[k].q.filter(q => !tp || q.tp === tp);
+    if (pool.length < 5) return res.status(400).json({ error: 'hwFew' });
+    const items = shuffle(pool.map(q => q.id)).slice(0, n);
+    const h = { id: crypto.randomBytes(6).toString('hex'), subject: k, topic: tp, items, due, created_at: new Date().toISOString() };
+    const list = await hwList(c.id);
+    await db.kvSet('hw:' + c.id, { list: [h, ...list].slice(0, 60) });
+    res.json({ ok: true, id: h.id });
+  }));
+  app.delete('/api/classes/:id/hw/:hid', auth, teacherOnly, wrap(async (req, res) => {
+    const c = await ownClass(req, res); if (!c) return;
+    await db.kvSet('hw:' + c.id, { list: (await hwList(c.id)).filter(h => h.id !== req.params.hid) });
+    res.json({ ok: true });
+  }));
+  // Для учителя: по каждому заданию — кто сколько решил.
+  app.get('/api/classes/:id/hw', auth, teacherOnly, wrap(async (req, res) => {
+    const c = await ownClass(req, res); if (!c) return;
+    const [list, members] = await Promise.all([hwList(c.id), db.members(c.id)]);
+    const out = [];
+    for (const h of list) {
+      const r = await hwRes(h.id);
+      out.push({ ...hwPublic(h, r, null), students: members.map(p => { const m = r[p.id] || {}; return { id: p.id, name: p.name, username: p.username, done: Object.keys(m).length, right: Object.values(m).reduce((s, x) => s + x, 0) }; }) });
+    }
+    res.json({ list: out });
+  }));
+  // Для ученика: задания его класса.
+  app.get('/api/hw', auth, wrap(async (req, res) => {
+    const cid = req.player.class_id;
+    if (!cid) return res.json({ list: [] });
+    const list = await hwList(cid);
+    const out = [];
+    for (const h of list.slice(0, 20)) out.push(hwPublic(h, await hwRes(h.id), req.player.id));
+    res.json({ list: out });
+  }));
+  async function hwOf(req, res) {
+    const cid = req.player.class_id;
+    const h = cid && (await hwList(cid)).find(x => x.id === String(req.params.hid));
+    if (!h) { res.status(404).json({ error: 'notfound' }); return null; }
+    return h;
+  }
+  app.post('/api/hw/:hid/start', auth, wrap(async (req, res) => {
+    const h = await hwOf(req, res); if (!h) return;
+    const mine = (await hwRes(h.id))[req.player.id] || {};
+    const items = h.items.filter(id => !(id in mine) && mock.byId.get(id)).map(id => { const q = mock.byId.get(id); const it = { id, ord: shuffle([...Array(q.o.ru.length).keys()]) }; return { id, ord: it.ord, mistake: false, k: id.split(':')[0], q: mock.view(it, false) }; });
+    res.json({ items, fromMistakes: 0, total: h.items.length, done: Object.keys(mine).length });
+  }));
+
   app.get('/api/class', auth, wrap(async (req, res) => {
     const c = req.player.class_id ? await db.getClass(req.player.class_id) : null;
     if (!c) return res.json({ class: null });
@@ -479,6 +537,7 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     let streak = 0, best_streak = 0;
     { let d = dayOf(Date.now()); if (!days.has(d)) d = dayOf(Date.now() - DAY); while (days.has(d)) { streak++; d = dayOf(new Date(d + 'T12:00:00Z').getTime() - DAY); } }
     { const sorted = [...days].sort(); let run = 0, prev = null; for (const d of sorted) { run = prev && new Date(d) - new Date(prev) === DAY ? run + 1 : 1; best_streak = Math.max(best_streak, run); prev = d; } }
+    const refs = (await db.kvGet('refs:' + p.id).catch(() => null))?.val?.ids || [];
     const A = (key, group, cur, target) => ({ key, group, cur: Math.min(cur, target), target, done: cur >= target });
     const list = [
       A('mock1', 'mock', mocks.length, 1), A('mock5', 'mock', mocks.length, 5), A('mock15', 'mock', mocks.length, 15),
@@ -488,10 +547,19 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
       A('duel1', 'duel', wins, 1), A('duel10', 'duel', wins, 10),
       A('fix50', 'fix', fixed.length, 50), A('fix200', 'fix', fixed.length, 200),
       A('streak3', 'streak', best_streak, 3), A('streak7', 'streak', best_streak, 7), A('streak30', 'streak', best_streak, 30), A('streak100', 'streak', best_streak, 100),
-      A('team', 'team', p.class_id ? 1 : 0, 1)
+      A('team', 'team', p.class_id ? 1 : 0, 1), A('ref1', 'team', refs.length, 1), A('ref5', 'team', refs.length, 5), A('ref20', 'team', refs.length, 20)
     ];
     return { streak, bestStreak: best_streak, days: days.size, list };
   }
+  // Приглашения друзей: ссылка, кто пришёл и кто уже занимается.
+  app.get('/api/me/invite', auth, wrap(async (req, res) => {
+    const ids = (await db.kvGet('refs:' + req.player.id))?.val?.ids || [];
+    const people = ids.length ? await db.playersByIds(ids) : [];
+    const rows = ids.length ? await db.rows(ids) : { mocks: [], practice: [], games: [], entries: [] };
+    const active = new Set([...rows.mocks, ...rows.practice, ...rows.games, ...rows.entries].map(x => x.player_id).filter(Boolean));
+    res.json({ link: `https://bilimarena.com/?ref=${req.player.username}`, invited: people.length, active: people.filter(p => active.has(p.id)).length,
+      list: people.map(p => ({ username: p.username, name: p.name, school: p.school, avatar: p.avatar || null, active: active.has(p.id) })) });
+  }));
   app.get('/api/me/achievements', auth, wrap(async (req, res) => res.json(await achievementsOf(req.player))));
   app.get('/api/users/:username/achievements', auth, wrap(async (req, res) => {
     const p = await db.byUsernamePublic(String(req.params.username || '').toLowerCase());
@@ -568,6 +636,14 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     const sk = id.split(':')[0];
     if (q.tp) await db.topicAdd(req.player.id, `${sk}:${q.tp}`, v.got === v.max).catch(() => {});
     const ti = v.got < v.max ? TOPICS.info(sk, q.tp) : null;
+    // Домашнее задание: засчитываем первый ответ на каждый вопрос.
+    if (req.body?.hw && req.player.class_id) {
+      const h = (await hwList(req.player.class_id)).find(x => x.id === String(req.body.hw));
+      if (h && h.items.includes(id)) {
+        const all = await hwRes(h.id), mine = all[req.player.id] ||= {};
+        if (!(id in mine)) { mine[id] = v.got === v.max ? 1 : 0; await db.kvSet('hwres:' + h.id, all); }
+      }
+    }
     res.json({ got: v.got, max: v.max, a: v.a, e: v.e, note: ti?.note ? { topic: ti.name, text: ti.note } : null });
   }));
   app.post('/api/practice/done', auth, wrap(async (req, res) => {

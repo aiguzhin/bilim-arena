@@ -20,6 +20,23 @@ function memory(db, save) {
     .sort((a, b) => b.score - a.score || a.time_ms - b.time_ms);
   return {
     async kvGet(k) { return db.kv[k] || null; },
+    // Админ-панель: сводка, жалобы на сообщения, полная копия данных.
+    async adminStats() {
+      const now = Date.now(), ago = d => new Date(now - d * 864e5).toISOString(), P = Object.values(db.players);
+      const act = new Set([...db.practice.filter(x => x.created_at > ago(7)).map(x => x.player_id), ...Object.values(db.mocks || {}).filter(t => (t.finished_at || '') > ago(7)).map(t => t.player_id), ...db.minis.filter(m => m.created_at > ago(7)).map(m => m.player_id), ...db.games.filter(g => g.created_at > ago(7)).flatMap(g => g.players.map(p => p.id))]);
+      return { users: P.length, new1: P.filter(p => (p.created_at || '') > ago(1)).length, new7: P.filter(p => (p.created_at || '') > ago(7)).length, active7: act.size,
+        teachers: P.filter(p => p.role === 'teacher').length, classes: Object.keys(db.classes).length, games7: db.games.filter(g => g.created_at > ago(7)).length,
+        mocks7: Object.values(db.mocks || {}).filter(t => (t.finished_at || '') > ago(7)).length, practice7: db.practice.filter(x => x.created_at > ago(7)).reduce((s, x) => s + x.n, 0),
+        minis7: db.minis.filter(m => m.created_at > ago(7)).length, chat7: db.chat.msgs.filter(m => m.created_at > ago(7)).length,
+        days: Array.from({ length: 14 }, (_, i) => { const d = new Date(now - (13 - i) * 864e5).toISOString().slice(0, 10); return { d, n: P.filter(p => (p.created_at || '').slice(0, 10) === d).length }; }) };
+    },
+    async chatReportList() {
+      const by = {};
+      for (const r of db.chat.reports) (by[r.id] ||= { id: r.id, n: 0, at: r.at }).n++;
+      return Object.values(by).map(x => { const m = db.chat.msgs.find(y => y.id === x.id); const p = m && db.players[m.sender_id]; return m && { ...x, text: m.text, kind: m.kind, room: m.room, deleted: m.deleted, created_at: m.created_at, sender: p ? { id: p.id, username: p.username, name: p.name } : null }; }).filter(Boolean).sort((a, b) => b.at.localeCompare(a.at)).slice(0, 200);
+    },
+    async dropReports(id) { db.chat.reports = db.chat.reports.filter(r => r.id !== id); save(); },
+    async dumpAll() { return JSON.parse(JSON.stringify({ ...db, chat: { ...db.chat, media: undefined }, sessions: undefined })); },
     // чаты
     async chatAdd(room, sender_id, text, x = {}) { const m = { id: ++db.chat.seq, room, sender_id, text, kind: x.kind || 'text', media: x.media || null, dur: x.dur || null, reply_to: x.reply_to || null, created_at: new Date().toISOString(), deleted: false }; db.chat.msgs.push(m); if (db.chat.msgs.length > 20000) db.chat.msgs.splice(0, 2000); save(); return { ...m }; },
     async chatGet(id) { const m = db.chat.msgs.find(x => x.id === id); return m ? { ...m } : null; },
@@ -162,6 +179,39 @@ function pg(q) {
   const entry = r => r && ({ ...r, served_at: r.served_at == null ? null : Number(r.served_at), registered_at: iso(r.registered_at), started_at: iso(r.started_at), finished_at: iso(r.finished_at), time_ms: r.time_ms == null ? null : Number(r.time_ms) });
   return {
     async kvGet(k) { const r = (await q('select val, updated_at from kv where key=$1', [k])).rows[0]; return r ? { val: r.val, updated_at: iso(r.updated_at) } : null; },
+    async adminStats() {
+      const r = (await q(`select
+        (select count(*) from players)::int as users,
+        (select count(*) from players where created_at > now() - interval '1 day')::int as new1,
+        (select count(*) from players where created_at > now() - interval '7 days')::int as new7,
+        (select count(*) from (select player_id from practice_log where created_at > now() - interval '7 days'
+          union select player_id from mock_tests where finished_at > now() - interval '7 days'
+          union select player_id from minigames where created_at > now() - interval '7 days'
+          union select gp.player_id from game_players gp join games g on g.id = gp.game_id where g.created_at > now() - interval '7 days') a)::int as active7,
+        (select count(*) from players where role = 'teacher')::int as teachers,
+        (select count(*) from classes)::int as classes,
+        (select count(*) from games where created_at > now() - interval '7 days')::int as games7,
+        (select count(*) from mock_tests where finished_at > now() - interval '7 days')::int as mocks7,
+        (select coalesce(sum(n), 0) from practice_log where created_at > now() - interval '7 days')::int as practice7,
+        (select count(*) from minigames where created_at > now() - interval '7 days')::int as minis7,
+        (select count(*) from chat_messages where created_at > now() - interval '7 days')::int as chat7`)).rows[0];
+      const days = (await q(`select to_char(d, 'YYYY-MM-DD') as d, (select count(*) from players where created_at >= d and created_at < d + interval '1 day')::int as n
+        from generate_series(date_trunc('day', now()) - interval '13 days', date_trunc('day', now()), interval '1 day') d`)).rows;
+      return { ...r, days };
+    },
+    async chatReportList() {
+      return (await q(`select r.message_id as id, count(*)::int as n, max(r.created_at) as at, m.text, m.kind, m.room, m.deleted, m.created_at, p.id as pid, p.username, p.name
+        from chat_reports r join chat_messages m on m.id = r.message_id left join players p on p.id = m.sender_id
+        group by r.message_id, m.id, p.id order by max(r.created_at) desc limit 200`)).rows
+        .map(x => ({ id: Number(x.id), n: x.n, at: iso(x.at), text: x.text, kind: x.kind, room: x.room, deleted: x.deleted, created_at: iso(x.created_at), sender: x.pid ? { id: x.pid, username: x.username, name: x.name } : null }));
+    },
+    async dropReports(id) { await q('delete from chat_reports where message_id=$1', [id]); },
+    async dumpAll() {
+      const out = {};
+      for (const t of ['players', 'games', 'game_players', 'mock_tests', 'subject_stats', 'kv', 'minigames', 'chat_messages', 'chat_reactions', 'chat_reads', 'chat_blocks', 'chat_reports', 'topic_stats', 'daily_answers', 'classes', 'tours', 'tour_entries', 'practice_fixed', 'practice_log', 'friends', 'ent_sessions', 'ent_regs'])
+        out[t] = (await q(`select * from ${t}`)).rows;
+      return out;
+    },
     // чаты
     async chatAdd(room, sender_id, text, x = {}) { const r = (await q('insert into chat_messages (room, sender_id, text, kind, media, dur, reply_to) values ($1,$2,$3,$4,$5,$6,$7) returning *', [room, sender_id, text, x.kind || 'text', x.media || null, x.dur || null, x.reply_to || null])).rows[0]; return fixMsg(r); },
     async chatGet(id) { const r = (await q('select * from chat_messages where id=$1', [id])).rows[0]; return r ? fixMsg(r) : null; },

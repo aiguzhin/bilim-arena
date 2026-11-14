@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|schoolkk\.js|fx\.js|games\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|chat\.js|schoolkk\.js|fx\.js|pwa\.js|theory\.js|admin\.js|games\.js))"/g, `$1?v=${VERSION}"`);
 // Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
 const SITE = 'https://bilimarena.com';
 const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -54,7 +54,7 @@ const LD = JSON.stringify({ '@context': 'https://schema.org', '@graph': [
   { '@type': 'WebSite', name: 'Bilim Arena', alternateName: ['Білім Арена', 'Bilim Arena ЕНТ', 'bilimarena.com'], url: SITE + '/', inLanguage: ['ru', 'kk'] },
   { '@type': 'Organization', name: 'Bilim Arena', url: SITE + '/', logo: SITE + '/icon-512.png' }
 ] });
-let seoUnis = null;
+let seoUnis = null, theory = null;
 const seoFor = async req => {
   const p = req.path;
   if (p === '/unis') return { t: 'Вузы и гранты: пороговые и проходные баллы ЕНТ — Bilim Arena', d: 'Проходные баллы на грант 2025 по всем вузам Казахстана, пороговые баллы ЕНТ-2026, стоимость обучения и зарубежные вузы, которые принимают ЕНТ. Узнайте свой шанс на грант.' };
@@ -69,6 +69,9 @@ const seoFor = async req => {
   if (p === '/games') return { t: 'Мини-игры по ЕНТ — Bilim Arena', d: 'Блиц, Выживание и «Верно или нет»: короткие игры по предметам ЕНТ с топом дня и недели.' };
   if (p === '/rating') return { t: 'Рейтинг школ и учеников — Bilim Arena', d: 'Рейтинг школ, городов и учеников Казахстана по результатам подготовки к ЕНТ.' };
   if (p === '/tournaments' || p.startsWith('/t/')) return { t: 'Турниры по ЕНТ — Bilim Arena', d: 'Турниры для школ и классов по вопросам ЕНТ с общим рейтингом.' };
+  if (p === '/theory') return { t: 'Теория для ЕНТ по темам: правила, формулы, примеры — Bilim Arena', d: 'Краткая теория по темам ЕНТ: математика, физика, химия, биология, информатика, математическая грамотность. Правила, формулы, разобранные задания и тренировка.' };
+  const th = p.match(/^\/theory\/(\w+)\/(\w+)$/);
+  if (th && theory) { const d = theory.page(th[1], th[2]); if (d) return { t: `${d.name} — теория для ЕНТ (${d.subject.ru}) — Bilim Arena`, d: `${d.note.ru.slice(0, 150)} Разобранные задания и тренировка по теме.` }; }
   if (p === '/about') return { t: 'О проекте — Bilim Arena', d: 'Bilim Arena — подготовка к ЕНТ онлайн: пробный ЕНТ, тренировки, баттлы, мини-игры, турниры и шанс на грант. На казахском и русском.' };
   return null;
 };
@@ -80,11 +83,12 @@ const sendIndex = async (req, res) => {
     .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escAttr(s.t)}">`).replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escAttr(s.d)}">`);
   res.type('html').send(html);
 };
-app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /b/\nDisallow: /parent/\n\nSitemap: ${SITE}/sitemap.xml\n`));
+app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /b/\nDisallow: /parent/\nDisallow: /admin\n\nSitemap: ${SITE}/sitemap.xml\n`));
 app.get('/sitemap.xml', async (req, res) => {
   let ids = [];
   try { ids = ((await db.kvGet('unis'))?.val?.unis || []).map(u => u.id); } catch {}
-  const urls = ['/', '/unis', '/unis?tab=rules', '/unis?tab=kz', '/unis?tab=abroad', '/about', ...ids.map(i => `/unis/${i}`)];
+  const th = theory ? theory.list().flatMap(x => x.topics.map(t => `/theory/${x.s}/${t.k}`)) : [];
+  const urls = ['/', '/theory', ...th, '/unis', '/unis?tab=rules', '/unis?tab=kz', '/unis?tab=abroad', '/about', ...ids.map(i => `/unis/${i}`)];
   res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(u => `<url><loc>${SITE}${u.replace(/&/g, '&amp;')}</loc></url>`).join('\n')}\n</urlset>\n`);
 });
 // Переезд на свой сервер. CANONICAL_HOST (задаётся на старом хостинге) — все страницы пересылаются на основной домен.
@@ -122,7 +126,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/chat', '/chat/:room', '/plan', '/parent/:token', '/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
+app.get(['/admin', '/theory', '/theory/:s/:k', '/chat', '/chat/:room', '/plan', '/parent/:token', '/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -180,6 +184,18 @@ function readRequired(b) {
   return { birth_date: birth, phone: '+' + digits };
 }
 const validUsername = u => /^[a-z0-9_.]{3,20}$/.test(u);
+// Приглашения: новый игрок пришёл по ссылке ?ref=<логин>. Пригласившему засчитывается в kv['refs:<id>'].
+async function noteReferral(row, ref) {
+  try {
+    const u = String(ref || '').trim().toLowerCase();
+    if (!validUsername(u) || u === row.username) return;
+    const p = await db.findByUsername(u);
+    if (!p) return;
+    await db.kvSet('ref:' + row.id, { by: p.id });
+    const list = (await db.kvGet('refs:' + p.id))?.val?.ids || [];
+    if (!list.includes(row.id)) await db.kvSet('refs:' + p.id, { ids: [...list, row.id].slice(-500) });
+  } catch (e) { console.error('ref', e.message); }
+}
 
 app.post('/api/register', wrap(async (req, res) => {
   if (limited(req)) return res.status(429).json({ error: 'limit' });
@@ -195,6 +211,7 @@ app.post('/api/register', wrap(async (req, res) => {
   if (reqd.error) return res.status(400).json(reqd);
   const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: await hashPassword(password), ...prof, ...reqd });
   if (!row) return res.status(409).json({ error: 'taken' });
+  await noteReferral(row, b.ref);
   await newSession(row, res);
 }));
 
@@ -352,6 +369,7 @@ app.post('/api/google/complete', wrap(async (req, res) => {
   if (reqd.error) return res.status(400).json(reqd);
   const row = await db.createAccount({ id: crypto.randomUUID(), username, pass_hash: null, google_sub: g.sub, email: g.email, ...prof, ...reqd });
   if (!row) return res.status(409).json({ error: 'taken' });
+  await noteReferral(row, b.ref);
   pendingGoogle.delete(b.pending);
   newSession(row, res);
 }));
@@ -654,10 +672,13 @@ const card = p => ({ id: p.id, name: p.name, school: p.school, city: p.city, use
 const online = new Map();
 const emitTo = (pid, ev, data) => { for (const sid of online.get(pid) || []) io.to(sid).emit(ev, data); };
 const social = require('./social')(app, { db, auth, wrap, store, online, emitTo, cardOf: p => { const c = card(p); delete c.id; return c; } });
-const chat = require('./chat')(app, { db, auth, wrap, io, online, emitTo, social });
+const push = require('./push')(app, { db, auth, wrap, online, edu });
+const chat = require('./chat')(app, { db, auth, wrap, io, online, emitTo, social, push });
 require('./unis')(app, db);
 require('./minigames')(app, { db, auth, wrap, BANK, QUICK, shuffle });
 require('./plan')(app, { db, auth, wrap, edu, BANK });
+theory = require('./theory')(app, { BANK });
+require('./admin')(app, { db, wrap, BANK, chat });
 // Живые баттлы для главной: что идёт прямо сейчас и чем закончились последние. Без текста вопросов и ответов.
 const photoUrl = (u, v) => (v ? `/p/${u}?v=${String(v).slice(0, 8)}` : null);
 app.get('/api/arena/live', wrap(async (req, res) => {
@@ -808,8 +829,12 @@ io.on('connection', socket => {
     if (!r || !r.players.has(socket.id) || r.state !== 'lobby') return ack?.({ error: 'notfound' });
     const f = await db.findByUsername(String(username || '').toLowerCase()).catch(() => null);
     if (!f || !(await social.isFriend(profile.id, f.id).catch(() => false))) return ack?.({ error: 'notFriend' });
-    if (!online.has(f.id)) return ack?.({ error: 'offline' });
     const from = card(await db.get(profile.id).catch(() => null) || profile); delete from.id;
+    if (!online.has(f.id)) {
+      // Друг не на сайте — зовём уведомлением на телефон, если оно включено.
+      const ok = await push.send(f.id, { title: push.L(f, `${from.name} зовёт в баттл`, `${from.name} баттлға шақырады`), body: topicName(r.subject)?.[f.settings?.lang === 'kk' ? 'kk' : 'ru'] || '', url: `/b/${r.code}`, tag: 'invite' }).catch(() => false);
+      return ack?.(ok ? { ok: true, pushed: true } : { error: 'offline' });
+    }
     emitTo(f.id, 'battle_invite', { code: r.code, mode: r.mode, topic: topicName(r.subject), lang: r.lang, from });
     ack?.({ ok: true });
   });

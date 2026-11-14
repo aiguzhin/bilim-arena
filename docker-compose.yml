@@ -9,6 +9,10 @@ services:
     container_name: bilim-arena
     restart: always
     env_file: .env
+    environment:
+      BACKUP_DIR: /backups
+    volumes:
+      - ./backups:/backups
     networks: [edge]
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz || exit 1"]

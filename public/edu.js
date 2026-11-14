@@ -56,6 +56,7 @@ window.EDU = (() => {
       becomeBtn: 'Я учитель — открыть кабинет', becomeNote: 'Учителя не участвуют в рейтингах учеников. Если вы ученик, вступите в класс в профиле.',
       newClass: 'Новый класс', className: 'Название класса', classNamePh: '11 «А»', create: 'Создать', classes: 'Мои классы', noClasses: 'Классов пока нет. Создайте первый — ученики вступят по коду.',
       code: 'Код', copyLink: 'Ссылка-приглашение', inviteHint: 'Ученики вступают по коду в профиле → «Класс» или по ссылке.',
+      hwTab: 'Домашние задания', hwTitle: 'Домашнее задание', hwNew: 'Новое задание', hwSubj: 'Предмет', hwTopic: 'Тема', hwAnyTopic: 'Все темы', hwN: 'Вопросов', hwDue: 'Срок', hwGive: 'Задать классу', hwGiven: 'Задание отправлено классу', hwQ: 'вопр.', hwUntil: 'до', hwDoneN: (a, b) => `Сделали ${a} из ${b}`, hwWho: 'Кто как решил', hwDel: 'Удалить задание', hwDelAsk: 'Удалить задание? Результаты учеников тоже удалятся.', hwNone: 'Заданий пока нет. Выберите предмет и тему — класс увидит задание на странице «Класс».', hwStart: 'Начать', hwCont: 'Продолжить', hwFinished: 'Сделано', hwBack: 'К заданиям класса',
       tabStudents: 'Ученики', tabSubjects: 'Предметы', tabTours: 'Турниры', tabCheck: 'Проверка',
       thStudent: 'Ученик', thMocks: 'Пробных', thBest: 'Лучший', thLast: 'Последний', thProg: 'Рост', thWeak: 'Слабый предмет', thAct: 'Активность', thSeen: 'Был(а)',
       actNote: 'Активность — очки за 30 дней: пробный ЕНТ 5, турнир 4, баттл и тренировка по ошибкам по 1.',
@@ -87,7 +88,7 @@ window.EDU = (() => {
         tour1: ['Дебют', 'Сыграть в турнире'], tour5: ['Турнирный боец', 'Сыграть в 5 турнирах'], podium: ['Призёр', 'Войти в тройку турнира'],
         duel1: ['Первая победа', 'Выиграть дуэль'], duel10: ['Дуэлянт', 'Выиграть 10 дуэлей'],
         fix50: ['Над ошибками', 'Исправить 50 ошибок'], fix200: ['Без пробелов', 'Исправить 200 ошибок'],
-        streak3: ['Три дня', 'Заниматься 3 дня подряд'], streak7: ['Неделя', 'Заниматься 7 дней подряд'], streak30: ['Месяц', 'Заниматься 30 дней подряд'], streak100: ['Сто дней', 'Заниматься 100 дней подряд'],
+        streak3: ['Три дня', 'Заниматься 3 дня подряд'], streak7: ['Неделя', 'Заниматься 7 дней подряд'], streak30: ['Месяц', 'Заниматься 30 дней подряд'], streak100: ['Сто дней', 'Заниматься 100 дней подряд'], ref1: ['Позвал друга', 'Друг зарегистрировался по вашей ссылке'], ref5: ['Своя команда', '5 друзей пришли по вашей ссылке'], ref20: ['Амбассадор', '20 друзей пришли по вашей ссылке'],
         team: ['В команде', 'Вступить в класс']
       },
 
@@ -103,7 +104,7 @@ window.EDU = (() => {
       leagueNote: 'Лига зависит от стартового уровня школы — среднего балла первых пробных ЕНТ учеников: высшая — от 90, первая — 60–89, вторая — до 60.',
       myCity: 'Только мой город', verified: 'На платформе есть учитель школы', rEmpty: 'В этом рейтинге пока никого нет.', rEmptyCta: 'Решить пробный ЕНТ',
       thPts: 'Очки', thLeague: 'Лига', thRise: 'Рост', thStud: 'Учеников', thRating: 'Рейтинг', thWins: 'Победы', you: 'вы',
-      err: { teacher: 'Доступно только учителям', className: 'Введите название класса', classGoal: 'Цель — от 1 до 500', classCode: 'Класс с таким кодом не найден', classFull: 'В классе уже 60 учеников', teacherJoin: 'Учитель не может вступить в класс как ученик', hasClasses: 'Сначала удалите свои классы', tourClosed: 'Вход в турнир уже закрыт', tourSoon: 'Турнир ещё не начался', tourMinutes: 'Время — от 5 до 90 минут', tourStart: 'Проверьте время начала', limitClasses: 'Не больше 20 классов', notfound: 'Не найдено' }
+      err: { hwDue: 'Срок — сегодня или позже.', hwFew: 'По этой теме мало заданий, выберите другую.', teacher: 'Доступно только учителям', className: 'Введите название класса', classGoal: 'Цель — от 1 до 500', classCode: 'Класс с таким кодом не найден', classFull: 'В классе уже 60 учеников', teacherJoin: 'Учитель не может вступить в класс как ученик', hasClasses: 'Сначала удалите свои классы', tourClosed: 'Вход в турнир уже закрыт', tourSoon: 'Турнир ещё не начался', tourMinutes: 'Время — от 5 до 90 минут', tourStart: 'Проверьте время начала', limitClasses: 'Не больше 20 классов', notfound: 'Не найдено' }
     },
     kk: {
       loading: 'Жүктелуде…', back: 'Артқа', cancel: 'Болдырмау', save: 'Сақтау', del: 'Жою', copied: 'Көшірілді', min: 'мин',
@@ -151,6 +152,7 @@ window.EDU = (() => {
       becomeBtn: 'Мен мұғаліммін — кабинетті ашу', becomeNote: 'Мұғалімдер оқушылар рейтингіне қатыспайды. Оқушы болсаңыз, профильде сыныпқа қосылыңыз.',
       newClass: 'Жаңа сынып', className: 'Сынып атауы', classNamePh: '11 «А»', create: 'Құру', classes: 'Менің сыныптарым', noClasses: 'Әзірге сынып жоқ. Біріншісін құрыңыз — оқушылар кодпен қосылады.',
       code: 'Код', copyLink: 'Шақыру сілтемесі', inviteHint: 'Оқушылар профильдегі «Сынып» бөлімінде кодпен немесе сілтеме арқылы қосылады.',
+      hwTab: 'Үй тапсырмалары', hwTitle: 'Үй тапсырмасы', hwNew: 'Жаңа тапсырма', hwSubj: 'Пән', hwTopic: 'Тақырып', hwAnyTopic: 'Барлық тақырып', hwN: 'Сұрақ саны', hwDue: 'Мерзімі', hwGive: 'Сыныпқа беру', hwGiven: 'Тапсырма сыныпқа жіберілді', hwQ: 'сұрақ', hwUntil: 'дейін', hwDoneN: (a, b) => `${b} оқушының ${a}-і орындады`, hwWho: 'Кім қалай шешті', hwDel: 'Тапсырманы жою', hwDelAsk: 'Тапсырманы жою керек пе? Оқушылардың нәтижелері де жойылады.', hwNone: 'Тапсырма әлі жоқ. Пән мен тақырыпты таңдаңыз — сынып тапсырманы «Сынып» бетінде көреді.', hwStart: 'Бастау', hwCont: 'Жалғастыру', hwFinished: 'Орындалды', hwBack: 'Сынып тапсырмаларына',
       tabStudents: 'Оқушылар', tabSubjects: 'Пәндер', tabTours: 'Турнирлер', tabCheck: 'Тексеру',
       thStudent: 'Оқушы', thMocks: 'Сынақ', thBest: 'Үздік', thLast: 'Соңғы', thProg: 'Өсу', thWeak: 'Әлсіз пән', thAct: 'Белсенділік', thSeen: 'Соңғы кіру',
       actNote: 'Белсенділік — 30 күндегі ұпай: сынақ ҰБТ 5, турнир 4, баттл мен қатемен жұмыс 1-ден.',
@@ -180,7 +182,7 @@ window.EDU = (() => {
         tour1: ['Дебют', 'Турнирге қатысу'], tour5: ['Турнир жауынгері', '5 турнирге қатысу'], podium: ['Жүлдегер', 'Турнирде үздік үштікке кіру'],
         duel1: ['Алғашқы жеңіс', 'Дуэльде жеңу'], duel10: ['Дуэлянт', '10 дуэльде жеңу'],
         fix50: ['Қатемен жұмыс', '50 қатені түзету'], fix200: ['Олқылықсыз', '200 қатені түзету'],
-        streak3: ['Үш күн', '3 күн қатарынан айналысу'], streak7: ['Апта', '7 күн қатарынан айналысу'], streak30: ['Ай', '30 күн қатарынан айналысу'], streak100: ['Жүз күн', '100 күн қатарынан айналысу'],
+        streak3: ['Үш күн', '3 күн қатарынан айналысу'], streak7: ['Апта', '7 күн қатарынан айналысу'], streak30: ['Ай', '30 күн қатарынан айналысу'], streak100: ['Жүз күн', '100 күн қатарынан айналысу'], ref1: ['Досын шақырды', 'Досыңыз сіздің сілтемеңізбен тіркелді'], ref5: ['Өз командасы', '5 дос сіздің сілтемеңізбен келді'], ref20: ['Амбассадор', '20 дос сіздің сілтемеңізбен келді'],
         team: ['Командада', 'Сыныпқа қосылу']
       },
 
@@ -195,7 +197,7 @@ window.EDU = (() => {
       leagueNote: 'Лига мектептің бастапқы деңгейіне байланысты — оқушылардың алғашқы сынақ ҰБТ-сының орташа балы: жоғары — 90-нан, бірінші — 60–89, екінші — 60-қа дейін.',
       myCity: 'Тек менің қалам', verified: 'Платформада мектеп мұғалімі бар', rEmpty: 'Бұл рейтингте әзірге ешкім жоқ.', rEmptyCta: 'Сынақ ҰБТ тапсыру',
       thPts: 'Ұпай', thLeague: 'Лига', thRise: 'Өсу', thStud: 'Оқушы', thRating: 'Рейтинг', thWins: 'Жеңіс', you: 'сіз',
-      err: { teacher: 'Тек мұғалімдерге қолжетімді', className: 'Сынып атауын енгізіңіз', classGoal: 'Мақсат — 1-ден 500-ге дейін', classCode: 'Мұндай кодты сынып табылмады', classFull: 'Сыныпта 60 оқушы бар', teacherJoin: 'Мұғалім сыныпқа оқушы ретінде қосыла алмайды', hasClasses: 'Алдымен сыныптарыңызды жойыңыз', tourClosed: 'Турнирге кіру жабылды', tourSoon: 'Турнир әлі басталған жоқ', tourMinutes: 'Уақыт — 5-тен 90 минутқа дейін', tourStart: 'Басталу уақытын тексеріңіз', limitClasses: '20 сыныптан артық емес', notfound: 'Табылмады' }
+      err: { hwDue: 'Мерзімі — бүгін немесе кейін.', hwFew: 'Бұл тақырып бойынша тапсырма аз, басқасын таңдаңыз.', teacher: 'Тек мұғалімдерге қолжетімді', className: 'Сынып атауын енгізіңіз', classGoal: 'Мақсат — 1-ден 500-ге дейін', classCode: 'Мұндай кодты сынып табылмады', classFull: 'Сыныпта 60 оқушы бар', teacherJoin: 'Мұғалім сыныпқа оқушы ретінде қосыла алмайды', hasClasses: 'Алдымен сыныптарыңызды жойыңыз', tourClosed: 'Турнирге кіру жабылды', tourSoon: 'Турнир әлі басталған жоқ', tourMinutes: 'Уақыт — 5-тен 90 минутқа дейін', tourStart: 'Басталу уақытын тексеріңіз', limitClasses: '20 сыныптан артық емес', notfound: 'Табылмады' }
     }
   };
   const t = () => T[X.lang()] || T.ru;
@@ -516,19 +518,20 @@ window.EDU = (() => {
     X.app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => session(b.dataset.s || null));
     X.app.querySelectorAll('[data-ts]').forEach(b => b.onclick = () => session(b.dataset.ts, b.dataset.tp));
   }
-  async function session(k, tp = null) {
+  async function session(k, tp = null, hw = null) {
     loading();
-    let d; try { d = await X.api('/api/practice/start', { method: 'POST', body: { subject: k, topic: tp } }); } catch (x) { X.toast(errText(x)); return viewPractice(); }
-    if (!d.items.length) return viewPractice();
+    const back = hw ? '/me/class' : '/practice';
+    let d; try { d = hw ? await X.api(`/api/hw/${hw}/start`, { method: 'POST' }) : await X.api('/api/practice/start', { method: 'POST', body: { subject: k, topic: tp } }); } catch (x) { X.toast(errText(x)); return hw ? X.go(back) : viewPractice(); }
+    if (!d.items.length) return hw ? X.go(back) : viewPractice();
     const lang = X.lang();
     let i = 0, value = null, res = null, right = 0;
     const draw = () => {
       const it = d.items[i];
       X.app.innerHTML = page(`
-        <div class="ps__top"><a href="/practice" data-link class="ps__back">← ${t().prTitle}</a><span class="num muted">${i + 1} / ${d.items.length}</span></div>
+        <div class="ps__top"><a href="${back}" data-link class="ps__back">← ${hw ? t().hwTitle : t().prTitle}</a><span class="num muted">${i + 1} / ${d.items.length}</span></div>
         <div class="tplay__prog ps__prog"><i style="width:${Math.round(i / d.items.length * 100)}%"></i></div>
         <div class="tplay__card">
-          <p class="ps__kicker">${esc(subj(it.k))} · ${it.mistake ? t().fromMist : t().fresh}</p>
+          <p class="ps__kicker">${esc(subj(it.k))} · ${hw ? t().hwTitle : it.mistake ? t().fromMist : t().fresh}</p>
           <div id="psQ">${qHtml(it.q, lang, value, res ? { key: res.a } : {})}</div>
           ${res ? `<div class="ps__res ${res.got === res.max ? 'ok' : res.got ? 'mid' : 'bad'}"><b>${res.got === res.max ? t().right : res.got ? t().partial : t().wrong}</b>${res.e ? `<p>${fmtTxt(X.pick(res.e))}</p>` : ''}${res.note ? `<div class="ps__note"><b>${esc(X.pick(res.note.topic))}</b><p>${fmtTxt(X.pick(res.note.text))}</p></div>` : ''}</div>` : ''}
           <div class="tplay__acts">${res ? `<button class="btn" id="psNext">${i + 1 < d.items.length ? t().next : t().finish}</button>` : `<button class="btn" id="psCheck" ${hasAnswer(value) ? '' : 'disabled'}>${t().check}</button>`}</div>
@@ -537,7 +540,7 @@ window.EDU = (() => {
       const c = $('#psCheck');
       if (c) c.onclick = async () => {
         c.disabled = true;
-        try { res = await X.api('/api/practice/check', { method: 'POST', body: { id: it.id, ord: it.ord, answer: value } }); if (res.got === res.max) right++; draw(); }
+        try { res = await X.api('/api/practice/check', { method: 'POST', body: { id: it.id, ord: it.ord, answer: value, hw } }); if (res.got === res.max) right++; draw(); }
         catch (x) { X.toast(errText(x)); c.disabled = false; }
       };
       const nx = $('#psNext');
@@ -546,8 +549,9 @@ window.EDU = (() => {
     const done = async () => {
       X.api('/api/practice/done', { method: 'POST', body: { n: d.items.length, correct: right } }).catch(() => {});
       X.app.innerHTML = page(`<div class="tbig"><h1>${t().sDone}</h1><div class="tbig__clock num">${right} / ${d.items.length}</div><p class="page__lead">${t().sScore(right, d.items.length)}</p>
-        <div class="tbig__btns"><button class="btn" id="psAgain">${t().sAgain}</button><a class="btn btn--ghost" href="/practice" data-link>${t().sList}</a></div></div>`);
-      $('#psAgain').onclick = () => session(k, tp);
+        <div class="tbig__btns">${hw ? `<a class="btn" href="/me/class" data-link>${t().hwBack}</a>` : `<button class="btn" id="psAgain">${t().sAgain}</button><a class="btn btn--ghost" href="/practice" data-link>${t().sList}</a>`}</div></div>`);
+      if (hw) FX.confetti({ count: 60 });
+      const ag = $('#psAgain'); if (ag) ag.onclick = () => session(k, tp);
     };
     draw();
   }
@@ -591,7 +595,7 @@ window.EDU = (() => {
     const link = `${location.origin}/join/${c.code}`;
     const flags = d.students.flatMap(s => s.flags.map(f => ({ ...f, s })));
     const goalPct = Math.min(100, Math.round(d.goal.done / Math.max(1, d.goal.target) * 100));
-    const tabs = [['students', t().tabStudents], ['subjects', t().tabSubjects], ['tours', t().tabTours], ['check', t().tabCheck + (flags.length ? ` <span class="badge">${flags.length}</span>` : '')]];
+    const tabs = [['students', t().tabStudents], ['hw', t().hwTab], ['subjects', t().tabSubjects], ['tours', t().tabTours], ['check', t().tabCheck + (flags.length ? ` <span class="badge">${flags.length}</span>` : '')]];
     X.app.innerHTML = page(`
       <p class="ps__top"><a href="/teacher" data-link class="ps__back">← ${t().tTitle}</a></p>
       <div class="chead"><div><h1>${esc(c.name)}</h1><p class="page__lead">${esc(schoolName(c.school))}, ${esc(X.cityName(c.city))} · ${t().students(d.students.length)}</p></div>
@@ -637,6 +641,26 @@ window.EDU = (() => {
           const csv = '﻿' + [head, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\r\n');
           const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = `${c.name.replace(/[^\p{L}\p{N}]+/gu, '_')}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
         };
+      } else if (classTab === 'hw') {
+        el.innerHTML = SKEL();
+        const subjOpts = Object.keys(X.meta().subjects || {}).map(k => `<option value="${k}">${esc(subj(k))}</option>`).join('');
+        const today = new Date(Date.now() + 864e5 * 3).toISOString().slice(0, 10);
+        X.api(`/api/classes/${id}/hw`).then(r => {
+          el.innerHTML = `<form class="hw-form panel" id="hwForm"><h3>${t().hwNew}</h3>
+            <label class="field"><span>${t().hwSubj}</span><select name="subject">${subjOpts}</select></label>
+            <label class="field"><span>${t().hwTopic}</span><select name="topic"><option value="">${t().hwAnyTopic}</option></select></label>
+            <label class="field"><span>${t().hwN}</span><select name="n">${[5, 10, 15, 20, 30].map(n => `<option ${n === 10 ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
+            <label class="field"><span>${t().hwDue}</span><input type="date" name="due" value="${today}" min="${new Date().toISOString().slice(0, 10)}"></label>
+            <button class="btn">${t().hwGive}</button></form>
+            ${r.list.length ? r.list.map(h => { const fin = h.students.filter(s => s.done >= h.n).length; return `<section class="hw-item"><div class="hw-item__head"><div><b>${esc(subj(h.subject))}${h.topicName ? ' · ' + esc(X.pick(h.topicName)) : ''}</b><span class="muted"> · ${h.n} ${t().hwQ} · ${t().hwUntil} ${fmtDate(h.due + 'T12:00:00Z', X.lang())}</span></div><span class="tag ${fin === h.students.length && fin ? 'tag--ok' : ''}">${t().hwDoneN(fin, h.students.length)}</span></div>
+              <details><summary>${t().hwWho}</summary><table class="table"><tbody>${h.students.map(s => `<tr><td>${esc(s.name)}</td><td class="r num">${s.done} / ${h.n}</td><td class="r num"><b>${s.done ? Math.round(s.right / s.done * 100) + '%' : '—'}</b></td></tr>`).join('')}</tbody></table>
+              <button class="linkbtn" data-hwdel="${h.id}">${t().hwDel}</button></details></section>`; }).join('') : `<div class="empty">${t().hwNone}</div>`}`;
+          const f = $('#hwForm');
+          const loadTopics = async () => { const r2 = await fetch('/api/topics/' + f.subject.value).then(x => x.json()).catch(() => ({ topics: [] })); f.topic.innerHTML = `<option value="">${t().hwAnyTopic}</option>` + r2.topics.map(x => `<option value="${x.k}">${esc(X.pick(x.name))} (${x.n})</option>`).join(''); };
+          f.subject.onchange = loadTopics; loadTopics();
+          f.onsubmit = async e => { e.preventDefault(); try { await X.api(`/api/classes/${id}/hw`, { method: 'POST', body: { subject: f.subject.value, topic: f.topic.value || null, n: +f.n.value, due: f.due.value } }); X.toast(t().hwGiven); body(); } catch (x) { X.toast(t().err[x.code] || errText(x)); } };
+          el.querySelectorAll('[data-hwdel]').forEach(b => b.onclick = async () => { if (await confirmDlg(t().hwDelAsk, t().hwDel)) { await X.api(`/api/classes/${id}/hw/${b.dataset.hwdel}`, { method: 'DELETE' }).catch(() => {}); body(); } });
+        }).catch(() => { el.innerHTML = ''; });
       } else if (classTab === 'subjects') {
         el.innerHTML = d.subjects.length ? `<p class="muted" style="margin-bottom:14px">${t().subjLead}</p><ul class="acc">${d.subjects.map(s => `<li><div class="acc__top"><span>${esc(subj(s.k))}</span><span class="num"><b>${s.pct}%</b> <span class="muted">· ${t().students(s.n)}</span></span></div><div class="acc__bar"><i style="width:${s.pct}%" class="${pctClass(s.pct)}"></i></div></li>`).join('')}</ul>` : `<div class="empty">${t().noSubj}</div>`;
       } else if (classTab === 'tours') {
@@ -690,8 +714,11 @@ window.EDU = (() => {
       <p class="form-error" id="jErr" role="alert"></p></section>
       <p style="margin-top:28px" class="muted">${t().becomeTitle}: <a href="/teacher" data-link>${t().tTitle}</a></p>`;
     const c = d.class, pct = Math.min(100, Math.round(d.goal.done / Math.max(1, d.goal.target) * 100));
+    const hw = (await X.api('/api/hw').catch(() => ({ list: [] }))).list;
+    const hwHtml = hw.length ? `<h2 class="me__h2">${t().hwTitle}</h2><div class="hw-list">${hw.map(h => { const late = !h.finished && new Date(h.due + 'T23:59:59+05:00') < Date.now(); return `<div class="hw-row${h.finished ? ' is-done' : ''}${late ? ' is-late' : ''}"><div><b>${esc(subj(h.subject))}${h.topicName ? ' · ' + esc(X.pick(h.topicName)) : ''}</b><span class="muted">${t().hwUntil} ${fmtDate(h.due + 'T12:00:00Z', X.lang())} · ${h.done} / ${h.n}${h.done ? ` · ${Math.round(h.right / h.done * 100)}%` : ''}</span></div>${h.finished ? `<span class="tag tag--ok">${t().hwFinished}</span>` : `<button class="btn btn--sm" data-hw="${h.id}" data-hk="${h.subject}">${h.done ? t().hwCont : t().hwStart}</button>`}</div>`; }).join('')}</div>` : '';
     return `<section class="cmine"><div class="cmine__top"><div><h2>${esc(c.name)}</h2><p class="muted">${esc(schoolName(c.school))}, ${esc(X.cityName(c.city))} · ${t().teacherLbl}: ${esc(c.teacher)}</p></div><span class="tag">${t().code} ${c.code}</span></div>
       <div class="cgoal"><div class="cgoal__top"><span>${t().teamGoal}</span></div><div class="goal__bar"><i style="width:${pct}%"></i></div><p class="goal__note">${t().teamGoalText(d.goal.done, d.goal.target)}</p></div></section>
+      ${hwHtml}
       ${d.tours.length ? `<h2 class="me__h2">${t().classTours}</h2><div class="tlist">${d.tours.map(x => tourCard(x)).join('')}</div>` : ''}
       <h2 class="me__h2">${t().mates}</h2><p class="muted" style="margin:-6px 0 12px">${t().matesNote}</p>
       <table class="table"><thead><tr><th>#</th><th>${t().thStudent}</th><th class="r">${t().thBest}</th><th class="r hide-sm">${t().thProg}</th><th class="r">${t().thAct}</th></tr></thead><tbody>
@@ -699,6 +726,7 @@ window.EDU = (() => {
       <p style="margin-top:24px"><button class="btn btn--ghost btn--sm" id="cLeave">${t().leave}</button></p>`;
   }
   function bindClass(rerender) {
+    X.app.querySelectorAll('[data-hw]').forEach(b => b.onclick = () => session(b.dataset.hk, null, b.dataset.hw));
     const f = $('#jForm');
     if (f) f.onsubmit = async e => {
       e.preventDefault();

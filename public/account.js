@@ -61,8 +61,9 @@ window.ACC = (() => {
     $('#menuList').innerHTML = `
       ${item('/me', A().tabProfile)}${item('/me/achievements', A().tabAch)}${item('/me/results', A().tabResults)}${me.role === 'teacher' ? item('/teacher', A().menuTeacher) : item('/me/class', A().tabClass)}${item('/settings', A().tabSettings)}
       <hr>
-      ${item('/chat', X.lang() === 'kk' ? 'Чаттар' : 'Чаты')}${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/ent/register', A().menuEntReg)}${item('/games', L.navGames)}${item('/unis', L.navUnis)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
+      ${item('/chat', X.lang() === 'kk' ? 'Чаттар' : 'Чаты')}${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/theory', X.lang() === 'kk' ? 'Теория' : 'Теория')}${item('/ent/register', A().menuEntReg)}${item('/games', L.navGames)}${item('/unis', L.navUnis)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
       <hr>
+      <button type="button" data-pwa-install ${PWA.canInstall() ? '' : 'hidden'} onclick="PWA.install()">${PWA.t().install}</button>
       <button type="button" id="menuSwitch">${A().switchAcc}</button>
       <button type="button" id="menuLogout">${A().logout}</button>`;
     const t = current().theme;
