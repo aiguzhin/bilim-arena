@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|games\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js|plan\.js|games\.js))"/g, `$1?v=${VERSION}"`);
 // Для поисковиков: у каждой страницы свой заголовок, описание и канонический адрес.
 const SITE = 'https://bilimarena.com';
 const escAttr = s => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
@@ -80,7 +80,7 @@ const sendIndex = async (req, res) => {
     .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${escAttr(s.t)}">`).replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${escAttr(s.d)}">`);
   res.type('html').send(html);
 };
-app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /b/\n\nSitemap: ${SITE}/sitemap.xml\n`));
+app.get('/robots.txt', (req, res) => res.type('text/plain').send(`User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /b/\nDisallow: /parent/\n\nSitemap: ${SITE}/sitemap.xml\n`));
 app.get('/sitemap.xml', async (req, res) => {
   let ids = [];
   try { ids = ((await db.kvGet('unis'))?.val?.unis || []).map(u => u.id); } catch {}
@@ -122,7 +122,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
+app.get(['/plan', '/parent/:token', '/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id', '/games'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -653,6 +653,7 @@ const emitTo = (pid, ev, data) => { for (const sid of online.get(pid) || []) io.
 const social = require('./social')(app, { db, auth, wrap, store, online, emitTo, cardOf: p => { const c = card(p); delete c.id; return c; } });
 require('./unis')(app, db);
 require('./minigames')(app, { db, auth, wrap, BANK, QUICK, shuffle });
+require('./plan')(app, { db, auth, wrap, edu, BANK });
 // Живые баттлы для главной: что идёт прямо сейчас и чем закончились последние. Без текста вопросов и ответов.
 const photoUrl = (u, v) => (v ? `/p/${u}?v=${String(v).slice(0, 8)}` : null);
 app.get('/api/arena/live', wrap(async (req, res) => {

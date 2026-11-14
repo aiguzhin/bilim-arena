@@ -190,7 +190,7 @@ window.SES = (() => {
           <label class="check" style="margin-top:16px"><input type="checkbox" id="rOk" ${st.ok ? 'checked' : ''}> <span>${t().dataOk}</span></label>`;
       else if (st.step === 2) body = `<p class="muted">${t().s2lead}</p><p class="rmand">${t().mandatory}</p>
           <div class="combos combos--ent rcombos">${Object.keys(X.meta().combos).map(c => `<label><input type="radio" name="rc" value="${c}" ${c === st.combo ? 'checked' : ''}><div class="opt">${esc(comboName(c))}</div></label>`).join('')}</div>`;
-      else if (st.step === 3) body = `<p class="muted">${t().s3lead}</p><div class="rlangs">${['kk', 'ru', 'en'].map(l => `<label><input type="radio" name="rl" value="${l}" ${l === st.lang ? 'checked' : ''}><span><b>${t().langs[l]}</b></span></label>`).join('')}</div>`;
+      else if (st.step === 3) body = `<p class="muted">${t().s3lead}</p><div class="rlangs">${['kk', 'ru'].map(l => `<label><input type="radio" name="rl" value="${l}" ${l === st.lang ? 'checked' : ''}><span><b>${t().langs[l]}</b></span></label>`).join('')}</div>`;
       else if (st.step === 4) {
         // Сначала день, потом время — как при записи на ЕНТ.
         const dayKey = ms => { const d = new Date(ms); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`; };

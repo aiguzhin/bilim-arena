@@ -10,7 +10,7 @@ const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= []; db.daily ||= [];
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {}; db.minis ||= []; db.daily ||= []; db.tstats ||= {};
   const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
@@ -19,6 +19,8 @@ function memory(db, save) {
     .sort((a, b) => b.score - a.score || a.time_ms - b.time_ms);
   return {
     async kvGet(k) { return db.kv[k] || null; },
+    async topicAdd(pid, key, ok) { const m = db.tstats[pid] ||= {}; const x = m[key] ||= [0, 0]; x[0] += 1; if (ok) x[1] += 1; save(); },
+    async topicRows(pid) { return Object.entries(db.tstats[pid] || {}).map(([key, [answered, correct]]) => ({ key, answered, correct })); },
     async dailyGet(day, pid) { return db.daily.find(d => d.day === day && d.player_id === pid) || null; },
     async dailyAdd(day, pid, choice, ok) { if (db.daily.some(d => d.day === day && d.player_id === pid)) return false; db.daily.push({ day, player_id: pid, choice, ok }); save(); return true; },
     async dailyStat(day) { const l = db.daily.filter(d => d.day === day); return { n: l.length, ok: l.filter(d => d.ok).length }; },
@@ -142,6 +144,8 @@ function pg(q) {
   const entry = r => r && ({ ...r, served_at: r.served_at == null ? null : Number(r.served_at), registered_at: iso(r.registered_at), started_at: iso(r.started_at), finished_at: iso(r.finished_at), time_ms: r.time_ms == null ? null : Number(r.time_ms) });
   return {
     async kvGet(k) { const r = (await q('select val, updated_at from kv where key=$1', [k])).rows[0]; return r ? { val: r.val, updated_at: iso(r.updated_at) } : null; },
+    async topicAdd(pid, key, ok) { await q('insert into topic_stats (player_id, key, answered, correct) values ($1,$2,1,$3) on conflict (player_id, key) do update set answered = topic_stats.answered + 1, correct = topic_stats.correct + $3', [pid, key, ok ? 1 : 0]); },
+    async topicRows(pid) { return (await q('select key, answered, correct from topic_stats where player_id=$1', [pid])).rows; },
     async dailyGet(day, pid) { return (await q('select choice, ok from daily_answers where day=$1 and player_id=$2', [day, pid])).rows[0] || null; },
     async dailyAdd(day, pid, choice, ok) { return (await q('insert into daily_answers (day, player_id, choice, ok) values ($1,$2,$3,$4) on conflict do nothing', [day, pid, choice, ok])).rowCount === 1; },
     async dailyStat(day) { const r = (await q('select count(*)::int as n, count(*) filter (where ok)::int as ok from daily_answers where day=$1', [day])).rows[0]; return { n: r.n, ok: r.ok }; },
@@ -162,6 +166,7 @@ function pg(q) {
       await q(`create table if not exists kv (key text primary key, val jsonb not null, updated_at timestamptz not null default now())`);
       await q(`create table if not exists minigames (id bigserial primary key, player_id text not null references players(id) on delete cascade, mode text not null, subject text not null, score int not null, correct int not null, total int not null, created_at timestamptz not null default now())`);
       await q(`create index if not exists minigames_mode_time on minigames (mode, created_at)`);
+      await q(`create table if not exists topic_stats (player_id text not null references players(id) on delete cascade, key text not null, answered int not null default 0, correct int not null default 0, primary key (player_id, key))`);
       await q(`create table if not exists daily_answers (day text not null, player_id text not null references players(id) on delete cascade, choice int not null, ok boolean not null, created_at timestamptz not null default now(), primary key (day, player_id))`);
       await q(`alter table players add column if not exists role text`);
       await q(`alter table players add column if not exists class_id text`);

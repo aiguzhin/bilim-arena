@@ -492,7 +492,14 @@ window.EDU = (() => {
   // ---------- работа над ошибками ----------
   async function viewPractice() {
     X.setTitle(t().prTitle); loading();
+    const qs = new URLSearchParams(location.search);
+    if (qs.get('s')) { history.replaceState({}, '', '/practice'); return session(qs.get('s'), qs.get('tp') || null); }
     let d; try { d = await X.api('/api/practice'); } catch { return; }
+    const TT = X.lang() === 'kk'
+      ? { h: 'Әлсіз тақырыптар', lead: 'Дұрыс жауабы 75%-дан аз тақырыптар. Тақырып бойынша 10 сұрақ.', acc: (p, n) => `${n} жауаптың ${p}%-ы дұрыс`, plan: 'Дайындық жоспары' }
+      : { h: 'Слабые темы', lead: 'Темы, где меньше 75% верных ответов. По 10 вопросов на тему.', acc: (p, n) => `${p}% верных из ${n}`, plan: 'План подготовки' };
+    const tline = w => `<li class="prow"><div class="prow__name"><b>${esc(X.pick(w.name))}</b><span class="muted">${esc(subj(w.s))} · ${TT.acc(w.pct, w.answered)}</span></div>
+      <div class="acc__bar"><i style="width:${w.pct}%" class="${pctClass(w.pct)}"></i></div><button class="btn btn--sm" data-ts="${w.s}" data-tp="${w.k}">${t().prTrain}</button></li>`;
     const rows = d.subjects.filter(s => s.mistakes || s.pct != null).sort((a, b) => b.mistakes - a.mistakes || (a.pct ?? 101) - (b.pct ?? 101));
     const rest = d.subjects.filter(s => !s.mistakes && s.pct == null);
     const line = s => `<li class="prow"><div class="prow__name"><b>${esc(subj(s.k))}</b><span class="muted">${s.mistakes ? t().prMist(s.mistakes) : ''}${s.mistakes && s.pct != null ? ' · ' : ''}${s.pct != null ? t().prAcc(s.pct) : s.mistakes ? '' : t().prNoData}</span></div>
@@ -502,14 +509,16 @@ window.EDU = (() => {
       <h1>${t().prTitle}</h1><p class="page__lead">${t().prLead}</p>
       <div class="pstats"><span>${t().prWait(d.total)}</span><span>${t().prFixed(d.fixed)}</span><span>${t().prToday(d.today)}</span></div>
       ${d.total ? `<button class="btn" data-s="">${t().prAll}</button>` : `<div class="empty">${t().prEmpty}<br><a class="btn" href="/ent" data-link>${X.L().navEnt}</a></div>`}
+      ${d.weakTopics?.length ? `<section class="pplan"><h2>${TT.h}</h2><p class="muted">${TT.lead} <a href="/plan" data-link>${TT.plan} →</a></p><ul class="prlist">${d.weakTopics.map(tline).join('')}</ul></section>` : ''}
       ${d.weak.length ? `<section class="pplan"><h2>${t().prPlan}</h2><p class="muted">${t().prPlanLead}</p><ul class="prlist">${d.weak.map(k => line(d.subjects.find(s => s.k === k))).join('')}</ul></section>` : ''}
       <h2 class="me__h2">${t().prSubjects}</h2>
       <ul class="prlist">${rows.concat(rest).map(line).join('')}</ul>`);
     X.app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => session(b.dataset.s || null));
+    X.app.querySelectorAll('[data-ts]').forEach(b => b.onclick = () => session(b.dataset.ts, b.dataset.tp));
   }
-  async function session(k) {
+  async function session(k, tp = null) {
     loading();
-    let d; try { d = await X.api('/api/practice/start', { method: 'POST', body: { subject: k } }); } catch (x) { X.toast(errText(x)); return viewPractice(); }
+    let d; try { d = await X.api('/api/practice/start', { method: 'POST', body: { subject: k, topic: tp } }); } catch (x) { X.toast(errText(x)); return viewPractice(); }
     if (!d.items.length) return viewPractice();
     const lang = X.lang();
     let i = 0, value = null, res = null, right = 0;
@@ -521,7 +530,7 @@ window.EDU = (() => {
         <div class="tplay__card">
           <p class="ps__kicker">${esc(subj(it.k))} · ${it.mistake ? t().fromMist : t().fresh}</p>
           <div id="psQ">${qHtml(it.q, lang, value, res ? { key: res.a } : {})}</div>
-          ${res ? `<div class="ps__res ${res.got === res.max ? 'ok' : res.got ? 'mid' : 'bad'}"><b>${res.got === res.max ? t().right : res.got ? t().partial : t().wrong}</b>${res.e ? `<p>${fmtTxt(X.pick(res.e))}</p>` : ''}</div>` : ''}
+          ${res ? `<div class="ps__res ${res.got === res.max ? 'ok' : res.got ? 'mid' : 'bad'}"><b>${res.got === res.max ? t().right : res.got ? t().partial : t().wrong}</b>${res.e ? `<p>${fmtTxt(X.pick(res.e))}</p>` : ''}${res.note ? `<div class="ps__note"><b>${esc(X.pick(res.note.topic))}</b><p>${fmtTxt(X.pick(res.note.text))}</p></div>` : ''}</div>` : ''}
           <div class="tplay__acts">${res ? `<button class="btn" id="psNext">${i + 1 < d.items.length ? t().next : t().finish}</button>` : `<button class="btn" id="psCheck" ${hasAnswer(value) ? '' : 'disabled'}>${t().check}</button>`}</div>
         </div>`);
       if (!res) $('#psQ').onclick = e => { const v = qClick(it.q, value, e); if (v !== undefined) { value = v; draw(); } };
@@ -538,7 +547,7 @@ window.EDU = (() => {
       X.api('/api/practice/done', { method: 'POST', body: { n: d.items.length, correct: right } }).catch(() => {});
       X.app.innerHTML = page(`<div class="tbig"><h1>${t().sDone}</h1><div class="tbig__clock num">${right} / ${d.items.length}</div><p class="page__lead">${t().sScore(right, d.items.length)}</p>
         <div class="tbig__btns"><button class="btn" id="psAgain">${t().sAgain}</button><a class="btn btn--ghost" href="/practice" data-link>${t().sList}</a></div></div>`);
-      $('#psAgain').onclick = () => session(k);
+      $('#psAgain').onclick = () => session(k, tp);
     };
     draw();
   }

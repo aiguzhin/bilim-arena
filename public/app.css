@@ -1568,3 +1568,56 @@ section.block--tour { padding: 48px 0 0; }
 @media (max-width: 1020px) { .nav > a.nav__rating { display: none; } }
 @media (max-width: 920px) { .nav > a.nav__games { display: none; } }
 @media (max-width: 840px) { .nav > a.nav__unis { display: none; } }
+
+/* Регистрация: выбор роли */
+.rolepick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rolepick label { position: relative; cursor: pointer; }
+.rolepick input { position: absolute; opacity: 0; inset: 0; }
+.rolepick span { display: block; text-align: center; padding: 11px 10px; border: 1px solid var(--line); border-radius: 10px; font-weight: 600; color: var(--ink-2); background: var(--card); transition: border-color .15s, background .15s, color .15s; }
+.rolepick input:checked + span { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
+.rolepick input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+.rolepick__hint { display: block; margin-top: 8px; color: var(--ink-3); font-size: 13px; line-height: 1.4; }
+.rolepick__hint[hidden] { display: none !important; }
+
+/* Полоса «Сегодня»: прогресс дневной нормы */
+.today__task > div { flex: 1; min-width: 0; }
+.today__bar { display: block; height: 5px; border-radius: 3px; background: var(--line); margin-top: 8px; overflow: hidden; }
+.today__bar u { display: block; height: 100%; background: var(--blue); border-radius: 3px; }
+
+/* Справка по теме после ошибки */
+.ps__note { margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--blue-soft); color: var(--ink); }
+.ps__note b { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: .03em; color: var(--blue); margin-bottom: 4px; }
+.ps__note p { margin: 0; font-size: 14.5px; line-height: 1.5; }
+
+/* План подготовки и отчёт для родителей */
+.pl-goal-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px; align-items: end; margin-top: 24px; }
+.pl-goal-form .form-error { grid-column: 1 / -1; margin: 0; }
+.pl-goal-form .form-error:empty { display: none; }
+.pl-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 24px; }
+.pl-tile { border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; background: var(--card); }
+.pl-tile span { display: block; font-size: 13px; color: var(--ink-3); }
+.pl-tile b { display: block; font: 700 26px/1.2 var(--display); color: var(--heading); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.pl-left { margin: 14px 0 0; color: var(--ink-2); font-weight: 600; }
+.pl-sec { margin-top: 36px; }
+.pl-sec h2 { font-size: 20px; margin: 0 0 10px; }
+.pl-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 150px; align-items: end; margin: 6px 0 10px; }
+.pl-day { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; gap: 4px; }
+.pl-day i { display: block; width: 100%; max-width: 44px; border-radius: 6px 6px 2px 2px; background: var(--line); }
+.pl-day.ok i { background: var(--blue); }
+.pl-day b { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; min-height: 16px; }
+.pl-day span { font-size: 12px; color: var(--ink-3); }
+.pl-chart { width: 100%; height: auto; display: block; }
+.pl-grid { stroke: var(--line); stroke-width: 1; }
+.pl-ax { font-size: 11px; fill: var(--ink-3); }
+.pl-goal { stroke: var(--good); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.pl-line { fill: none; stroke: var(--blue); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.pl-dot { fill: var(--blue); stroke: var(--card); stroke-width: 2; }
+.pl-val { font-size: 12px; font-weight: 700; fill: var(--heading); }
+.pl-link { display: flex; gap: 8px; margin: 12px 0 10px; }
+.pl-link input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); font-size: 14px; }
+@media (max-width: 640px) {
+  .pl-goal-form { grid-template-columns: 1fr 1fr; }
+  .pl-goal-form .btn { grid-column: 1 / -1; }
+  .pl-tiles { grid-template-columns: 1fr 1fr; }
+  .pl-tile b { font-size: 22px; }
+}

@@ -26,7 +26,7 @@ module.exports = function (app, { db, auth, wrap, BANK, QUICK, shuffle }) {
     const pick = o => (o[g.lang] || o.ru);
     const opts = order.map(i => pick(q.o)[i]);
     const a = order.indexOf(q.a);
-    g.cur = { t: pick(q.t), o: opts, a, e: q.e ? pick(q.e) : null, img: q.img || null, at: Date.now() };
+    g.cur = { t: pick(q.t), o: opts, a, e: q.e ? pick(q.e) : null, img: q.img || null, at: Date.now(), tp: q.tp || null };
     if (g.mode === 'tf') {
       // Утверждение: вопрос + один вариант. В половине случаев вариант верный.
       g.cur.show = Math.random() < 0.5 ? a : shuffle([0, 1, 2, 3].filter(i => i !== a))[0];
@@ -77,6 +77,7 @@ module.exports = function (app, { db, auth, wrap, BANK, QUICK, shuffle }) {
     else ok = Number.isInteger(req.body.choice) && req.body.choice === c.a;
     if (g.mode === 'survival' && Date.now() - c.at > (MODES.survival.perQ + 2) * 1000) ok = false;
     g.answered += 1;
+    if (c.tp) db.topicAdd(g.pid, `${g.subject}:${c.tp}`, ok).catch(() => {});
     if (ok) { g.correct += 1; g.score += 1; }
     else if (g.mode === 'survival') g.lives -= 1;
     const reveal = { ok, a: c.a, e: c.e, ...(g.mode === 'tf' ? { truth: c.truth, right: c.o[c.a] } : {}) };

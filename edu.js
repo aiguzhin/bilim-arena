@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const BANK = require('./bank');
 const mock = require('./mock');
+const TOPICS = require('./bank/topics');
 
 const TZ_MS = 5 * 3600 * 1000; // Казахстан, UTC+5
 const DAY = 24 * 3600 * 1000;
@@ -510,6 +511,20 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     });
     return { map: out, fixed: fixed.length };
   }
+  // Точность по темам: пробные ЕНТ и турниры считаем по ответам, тренировки и мини-игры — из накопленного счётчика.
+  async function topicStats(pid) {
+    const [src, rows] = await Promise.all([db.mistakeSources(pid), db.topicRows(pid)]);
+    const m = new Map();
+    const add = (key, n, c) => { const x = m.get(key) || { answered: 0, correct: 0 }; x.answered += n; x.correct += c; m.set(key, x); };
+    const one = (it, a) => { const q = mock.byId.get(it.id); if (!q || !q.tp || a == null) return; add(`${it.id.split(':')[0]}:${q.tp}`, 1, mock.scoreOne(q, it, a) === mock.maxOf(q) ? 1 : 0); };
+    for (const t of src.mocks) for (const sec of t.sections || []) sec.items.forEach((it, i) => one(it, t.answers[`${sec.k}.${i}`]));
+    for (const e of src.entries) e.items.forEach((it, i) => one(it, e.answers?.[i]));
+    for (const r of rows) add(r.key, r.answered, r.correct);
+    return [...m.entries()].map(([key, x]) => { const [s, k] = key.split(':'); return { s, k, name: TOPICS.nameOf(s, k), answered: x.answered, pct: Math.round(x.correct / x.answered * 100) }; })
+      .filter(x => BANK[x.s] && x.k !== 'other');
+  }
+  const weakTopics = (list, n = 5) => list.filter(x => x.answered >= 3 && x.pct < 75).sort((a, b) => a.pct - b.pct || b.answered - a.answered).slice(0, n);
+
   app.get('/api/practice', auth, wrap(async (req, res) => {
     const [{ map, fixed }, rows, stats] = await Promise.all([mistakeMap(req.player.id), db.rows([req.player.id]), db.profileStats(req.player.id)]);
     const subj = {};
@@ -520,18 +535,22 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     const subjects = Object.keys(BANK).map(k => ({ k, mistakes: count[k] || 0, pct: subj[k]?.max ? Math.round(subj[k].got / subj[k].max * 100) : null, answered: subj[k]?.max || 0 }));
     const weak = subjects.filter(s => s.pct != null && s.answered >= 5).sort((a, b) => a.pct - b.pct).slice(0, 3).filter(s => s.pct < 85).map(s => s.k);
     const today = rows.practice.filter(x => dayOf(x.created_at) === dayOf(Date.now())).reduce((n, x) => n + x.n, 0);
-    res.json({ subjects, weak, total: map.size, fixed, today });
+    const topics = await topicStats(req.player.id);
+    res.json({ subjects, weak, total: map.size, fixed, today, topics: topics.sort((a, b) => a.pct - b.pct), weakTopics: weakTopics(topics) });
   }));
   app.post('/api/practice/start', auth, wrap(async (req, res) => {
     const k = req.body?.subject ? String(req.body.subject) : null;
     if (k && !BANK[k]) return res.status(400).json({ error: 'pick' });
     const { map } = await mistakeMap(req.player.id);
-    let ids = [...map.entries()].filter(([, s]) => !k || s === k).map(([id]) => id);
+    const tp = k && req.body?.topic ? String(req.body.topic) : null;
+    if (tp && !TOPICS.info(k, tp)) return res.status(400).json({ error: 'pick' });
+    const inTopic = id => !tp || mock.byId.get(id)?.tp === tp;
+    let ids = [...map.entries()].filter(([id, s]) => (!k || s === k) && inTopic(id)).map(([id]) => id);
     ids = shuffle(ids).slice(0, 10);
     const fromMistakes = ids.length;
     if (ids.length < 10 && k) {
       const seen = new Set(ids);
-      ids.push(...shuffle(BANK[k].q.filter(q => !seen.has(q.id)).map(q => q.id)).slice(0, 10 - ids.length));
+      ids.push(...shuffle(BANK[k].q.filter(q => !seen.has(q.id) && (!tp || q.tp === tp)).map(q => q.id)).slice(0, 10 - ids.length));
     }
     if (!ids.length) return res.json({ items: [], fromMistakes: 0 });
     const items = ids.map(id => { const q = mock.byId.get(id); const it = { id, ord: shuffle([...Array(q.o.ru.length).keys()]) }; return { id, ord: it.ord, mistake: map.has(id), k: id.split(':')[0], q: mock.view(it, false) }; });
@@ -546,7 +565,10 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     const answer = mock.cleanAnswers(sec, { 'x.0': req.body?.answer })['x.0'];
     const v = mock.view(it, true, answer);
     if (v.got === v.max) await db.addFixed(req.player.id, [id]);
-    res.json({ got: v.got, max: v.max, a: v.a, e: v.e });
+    const sk = id.split(':')[0];
+    if (q.tp) await db.topicAdd(req.player.id, `${sk}:${q.tp}`, v.got === v.max).catch(() => {});
+    const ti = v.got < v.max ? TOPICS.info(sk, q.tp) : null;
+    res.json({ got: v.got, max: v.max, a: v.a, e: v.e, note: ti?.note ? { topic: ti.name, text: ti.note } : null });
   }));
   app.post('/api/practice/done', auth, wrap(async (req, res) => {
     const n = Math.max(0, Math.min(50, Math.round(Number(req.body?.n) || 0))), c = Math.max(0, Math.min(n, Math.round(Number(req.body?.correct) || 0)));
@@ -554,5 +576,5 @@ module.exports = function mount(app, { db, auth, wrap, store, COMBOS, SUBJECTS, 
     res.json({ ok: true });
   }));
 
-  return { ratingCache, ensureWeekly };
+  return { ratingCache, ensureWeekly, topicStats, weakTopics, achievementsOf };
 };

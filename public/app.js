@@ -166,10 +166,13 @@
     if (path === '/privacy') return viewPrivacy();
     if (path === '/login') return viewAuth(true);
     if (path === '/unis' || path.startsWith('/unis/')) return UNI.view(path);
+    if (path.startsWith('/parent/')) return PLAN.view(path);
+    if (path === '/about') return viewAbout();
     if (!me) return viewAuth();
     if (me.needsProfile) return viewRequired();
     if (path === '/friends') return SOC.view();
     if (path === '/games') return GAMES.view(path);
+    if (path === '/plan') return PLAN.view(path);
     const m = path.match(/^\/b\/([A-Z0-9]{5})$/i);
     if (m) return joinFlow(m[1].toUpperCase());
     if (path === '/play') return viewSetup();
@@ -213,25 +216,11 @@
   SES.init(eduCtx);
   UNI.init(eduCtx);
   GAMES.init(eduCtx);
+  PLAN.init(eduCtx);
 
   // ---------- главная ----------
-  // Полоса «Сегодня»: серия дней, задание дня и шанс на грант.
-  async function homeToday() {
-    const box = document.getElementById('homeToday'); if (!box) return;
-    const T = lang === 'kk'
-      ? { streak: n => `${n} күн қатарынан`, start: 'Серияны бүгін бастаңыз', task: 'Бүгінгі тапсырма', taskT: 'Қатемен жұмыс — 10 сұрақ', go: 'Бастау', grant: 'Грант мүмкіндігі', grantT: s => `Соңғы сынақ: ${s} балл`, grantNo: 'Балыңыз бойынша қай ЖОО-ға өтетініңізді біліңіз', see: 'Көру' }
-      : { streak: n => `${n} дн. подряд`, start: 'Начните серию сегодня', task: 'Задание дня', taskT: 'Работа над ошибками — 10 вопросов', go: 'Начать', grant: 'Шанс на грант', grantT: s => `Последний пробный: ${s} баллов`, grantNo: 'Узнайте, в какие вузы проходите со своим баллом', see: 'Смотреть' };
-    let a = null, last = null;
-    try { [a, last] = await Promise.all([api('/api/me/achievements'), api('/api/ent').then(r => r.tests[0] || null)]); } catch { return; }
-    if (!document.body.contains(box)) return;
-    const flame = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c1 4 5 5 5 10a5 5 0 0 1-10 0c0-3 2-4 2-6 1 1 2 2 2 3 1-2 1-4 1-7z"/></svg>';
-    box.innerHTML = `<div class="wrap today__grid">
-      <div class="today__item today__streak${a.streak ? ' on' : ''}"><i>${flame}</i><div><b>${a.streak ? T.streak(a.streak) : T.start}</b></div></div>
-      <a class="today__item" href="/practice" data-link><div><span>${T.task}</span><b>${T.taskT}</b></div><em>${T.go} →</em></a>
-      <a class="today__item" href="/unis" data-link><div><span>${T.grant}</span><b>${last ? T.grantT(last.score) : T.grantNo}</b></div><em>${T.see} →</em></a>
-    </div>`;
-    box.hidden = false;
-  }
+  // Полоса «Сегодня»: серия дней, норма на сегодня и цель — см. plan.js.
+  const homeToday = () => { const box = document.getElementById('homeToday'); if (box) PLAN.home(box); };
 
   function viewHome() {
     setTitle();
@@ -288,13 +277,13 @@
   };
   const toolIcon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TOOL_ICONS[k]}</svg>`;
   const homeTools = () => lang === 'kk' ? [
-    ['/ent', 'ent', 'Сынақ ҰБТ', 'Нақты емтихан форматы'], ['/practice', 'practice', 'Жаттығу', 'Қатемен жұмыс және тақырыптар'],
-    ['/play?mode=duel', 'duel', 'Досыңмен баттл', 'Сілтеме арқылы бірге-бір'], ['/play?mode=class', 'class', 'Сынып сыныпқа', '30 адамға дейінгі командалар'],
+    ['/ent', 'ent', 'Сынақ ҰБТ', 'Нақты емтихан форматы'], ['/practice', 'practice', 'Жаттығу', 'Қатемен жұмыс және әлсіз тақырыптар'],
+    ['/play?mode=duel', 'duel', 'Досыңмен баттл', 'Сілтеме арқылы бірге-бір'], (me?.role === 'teacher' ? ['/teacher', 'class', 'Мұғалім кабинеті', 'Сыныптар мен жарыстар'] : ['/me/class', 'class', 'Менің сыныбым', 'Сыныптастар мен мұғалім жарыстары']),
     ['/games', 'games', 'Мини-ойындар', 'Блиц, Аман қалу, Дұрыс па'], ['/tournaments', 'tour', 'Турнирлер', 'Мектептер мен сыныптар үшін'],
     ['/unis', 'unis', 'ЖОО және грант', 'Шекті және өту балдары'], ['/rating', 'rating', 'Рейтинг', 'Мектептер мен оқушылар']
   ] : [
-    ['/ent', 'ent', 'Пробный ЕНТ', 'Как на настоящем экзамене'], ['/practice', 'practice', 'Тренировка', 'Работа над ошибками и темы'],
-    ['/play?mode=duel', 'duel', 'Баттл с другом', 'Один на один по ссылке'], ['/play?mode=class', 'class', 'Класс на класс', 'Команды до 30 человек'],
+    ['/ent', 'ent', 'Пробный ЕНТ', 'Как на настоящем экзамене'], ['/practice', 'practice', 'Тренировка', 'Работа над ошибками и слабые темы'],
+    ['/play?mode=duel', 'duel', 'Баттл с другом', 'Один на один по ссылке'], (me?.role === 'teacher' ? ['/teacher', 'class', 'Кабинет учителя', 'Классы и соревнования'] : ['/me/class', 'class', 'Мой класс', 'Одноклассники и соревнования учителя']),
     ['/games', 'games', 'Мини-игры', 'Блиц, Выживание, Верно или нет'], ['/tournaments', 'tour', 'Турниры', 'Для школ и классов'],
     ['/unis', 'unis', 'Вузы и гранты', 'Пороговые и проходные баллы'], ['/rating', 'rating', 'Рейтинг', 'Школы и ученики']
   ];
@@ -326,7 +315,7 @@
   }
 
   function footer() {
-    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena${me ? ` · <a href="/about" data-link>${L.navAbout}</a>` : ''} · <a href="/privacy" data-link>${L.privTitle}</a></span><span>${L.footer}</span></div></footer>`;
+    return `<footer class="foot"><div class="wrap foot__in"><span>© ${new Date().getFullYear()} Bilim Arena · <a href="/about" data-link>${L.navAbout}</a> · <a href="/privacy" data-link>${L.privTitle}</a></span></div></footer>`;
   }
 
   async function loadTop() {
@@ -386,7 +375,7 @@
       const last = store.get('ba_qlang') || lang;
       dlg.innerHTML = `<form method="dialog" class="dlg__body">
         <h2>${L.qlangTitle}</h2><p class="muted">${L.qlangHint}</p>
-        <div class="qlang">${['kk', 'ru', 'en'].map(l => `<button type="button" class="qlang__opt" data-l="${l}" ${l === last ? 'autofocus' : ''}>
+        <div class="qlang">${['kk', 'ru'].map(l => `<button type="button" class="qlang__opt" data-l="${l}" ${l === last ? 'autofocus' : ''}>
           <b>${LANGN[l]}</b><span>${L.qlangSub[l]}</span></button>`).join('')}</div>
         <div class="dlg__actions"><button class="btn btn--ghost" value="cancel">${L.cancel}</button></div>
       </form>`;
@@ -897,7 +886,8 @@
       <p class="page__lead">${L.gLead}</p>
       <form id="gForm" class="auth__form panel" style="margin-top:24px" novalidate>
         <label class="field"><span>${L.fUsername}</span><input name="username" maxlength="20" autocapitalize="none" spellcheck="false" value="${esc(uname)}"><small>${L.fUsernameHint}</small></label>
-        <label class="field"><span>${L.fName}</span><input name="name" maxlength="24" value="${esc(name)}" placeholder="${L.fNamePh}"></label>
+        <div class="field"><span>${lang === 'kk' ? 'Мен' : 'Я'}</span><div class="rolepick"><label><input type="radio" name="role" value="student" checked><span>${lang === 'kk' ? 'Оқушымын' : 'Ученик'}</span></label><label><input type="radio" name="role" value="teacher"><span>${lang === 'kk' ? 'Мұғаліммін' : 'Учитель'}</span></label></div><small class="rolepick__hint" hidden>${lang === 'kk' ? 'Мұғалім сынып ашып, оқушыларды кодпен қосады, жарыс өткізеді және әр оқушының нәтижесін көреді.' : 'Учитель открывает класс, приглашает учеников по коду, проводит соревнования и видит результаты каждого.'}</small></div>
+            <label class="field"><span>${L.fName}</span><input name="name" maxlength="24" value="${esc(name)}" placeholder="${L.fNamePh}"></label>
             <label class="field"><span>${L.fBirth}</span><input name="birth" type="date" min="1926-01-01" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
             <label class="field"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"><small>${L.fPhoneHint}</small></label>
         <label class="field"><span>${L.fCity}</span><select name="city">${$('#citySelect').innerHTML}</select></label>
@@ -908,13 +898,16 @@
       </form>
     </div></div>`;
     const f = $('#gForm').elements;
+    roleHint($('#gForm'));
     attachSchoolSuggest(f.school, f.city);
     $('#gForm').onsubmit = async e => {
       e.preventDefault();
       $('#gBtn').disabled = true; $('#gError').textContent = '';
       try {
         const r = await api('/api/google/complete', { method: 'POST', body: { pending, username: f.username.value, name: f.name.value, birth: f.birth.value, phone: f.phone.value, city: f.city.value, school: f.school.value, consent: f.consent.checked } });
-        signIn(r.token, r.user); route();
+        signIn(r.token, r.user);
+        if (f.role.value === 'teacher') return becomeTeacher();
+        route();
       } catch (x) {
         if (x.code === 'expired') return viewAuth();
         $('#gError').textContent = L.err[x.code] || L.err.server; $('#gBtn').disabled = false;
@@ -922,6 +915,14 @@
     };
     (f.username.value ? f.name.value ? f.birth : f.name : f.username).focus();
   }
+
+  // Регистрация учителем: ставим роль и сразу открываем кабинет учителя.
+  async function becomeTeacher() {
+    try { const r = await api('/api/me/role', { method: 'POST', body: { role: 'teacher' } }); me = { ...me, ...r.user }; renderChip(); } catch {}
+    history.replaceState({}, '', '/teacher');
+    route();
+  }
+  const roleHint = root => root.querySelectorAll('input[name=role]').forEach(i => i.addEventListener('change', () => { const h = root.querySelector('.rolepick__hint'); if (h) h.hidden = root.querySelector('input[name=role]:checked').value !== 'teacher'; }));
 
   // Обязательные данные профиля: если их нет (аккаунт создан раньше), без них дальше не пускаем.
   function viewRequired() {
@@ -980,6 +981,7 @@
           <form id="authForm" class="auth__form" novalidate>
             <label class="field"><span>${L.fUsername}</span><input name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" required placeholder="aigerim_07"></label>
             <label class="field"><span>${L.fPassword}</span><input name="password" type="password" maxlength="72" required></label>
+            <div class="field reg"><span>${lang === 'kk' ? 'Мен' : 'Я'}</span><div class="rolepick"><label><input type="radio" name="role" value="student" checked><span>${lang === 'kk' ? 'Оқушымын' : 'Ученик'}</span></label><label><input type="radio" name="role" value="teacher"><span>${lang === 'kk' ? 'Мұғаліммін' : 'Учитель'}</span></label></div><small class="rolepick__hint" hidden>${lang === 'kk' ? 'Мұғалім сынып ашып, оқушыларды кодпен қосады, жарыс өткізеді және әр оқушының нәтижесін көреді.' : 'Учитель открывает класс, приглашает учеников по коду, проводит соревнования и видит результаты каждого.'}</small></div>
             <label class="field reg"><span>${L.fName}</span><input name="name" maxlength="24" autocomplete="nickname" placeholder="${L.fNamePh}"></label>
             <label class="field reg"><span>${L.fBirth}</span><input name="birth" type="date" min="1926-01-01" max="${new Date(Date.now() - 10 * 365.25 * 864e5).toISOString().slice(0, 10)}"></label>
             <label class="field reg"><span>${L.fPhone}</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7 7__ ___ __ __"></label>
@@ -1004,6 +1006,7 @@
     };
     app.querySelectorAll('[data-auth]').forEach(b => b.onclick = () => setTab(b.dataset.auth));
     setTab(tab);
+    roleHint(form);
     attachSchoolSuggest(f.school, f.city);
     form.onsubmit = async e => {
       e.preventDefault();
@@ -1015,6 +1018,7 @@
         const r = await api(tab === 'register' ? '/api/register' : '/api/login', { method: 'POST', body });
         leaveRoom(); socket.disconnect();
         signIn(r.token, r.user);
+        if (tab === 'register' && f.role.value === 'teacher') return becomeTeacher();
         if (adding) history.replaceState({}, '', '/me');
         route();
       } catch (x) { $('#authError').textContent = L.err[x.code] || L.err.server; btn.disabled = false; }
@@ -1110,7 +1114,8 @@
       <div class="about__block"><h2>${L.formatTitle}</h2><p>${L.formatText}</p></div>
       <div class="about__block"><h2>${L.scoringTitle}</h2><p>${L.scoringText}</p></div>
       <div class="about__block"><h2>${L.privacyTitle}</h2><p>${L.privacyText}</p></div>
-      <div style="margin-top:32px"><a href="/play" data-link class="btn">${L.aboutCta}</a></div>
+      <p class="muted" style="margin-top:24px">${L.footer}</p>
+      <div style="margin-top:32px"><a href="${me ? '/play' : '/'}" data-link class="btn">${me ? L.aboutCta : L.tabRegister}</a></div>
     </div></div>${footer()}`;
     try {
       const st = await fetch('/api/site').then(r => r.json());

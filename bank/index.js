@@ -52,6 +52,7 @@ for (const [k, s] of Object.entries(BANK)) s.name = { ...s.name, en: ENNAMES[k] 
 // Убранные задания (bank/retired.js) не попадают в тесты и игры, но по id их ещё можно найти — для старых результатов.
 const RETIRED = require('./retired');
 const ALL = new Map();
-for (const s of Object.values(BANK)) { for (const q of s.q) ALL.set(q.id, q); s.q = s.q.filter(q => !RETIRED.has(q.id)); }
+const { topicOf } = require('./topics');
+for (const [k, s] of Object.entries(BANK)) { for (const q of s.q) { ALL.set(q.id, q); q.tp = topicOf(k, q); } s.q = s.q.filter(q => !RETIRED.has(q.id)); }
 Object.defineProperty(BANK, 'ALL', { value: ALL, enumerable: false });
 module.exports = BANK;
