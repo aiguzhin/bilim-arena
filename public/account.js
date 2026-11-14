@@ -61,7 +61,7 @@ window.ACC = (() => {
     $('#menuList').innerHTML = `
       ${item('/me', A().tabProfile)}${item('/me/achievements', A().tabAch)}${item('/me/results', A().tabResults)}${me.role === 'teacher' ? item('/teacher', A().menuTeacher) : item('/me/class', A().tabClass)}${item('/settings', A().tabSettings)}
       <hr>
-      ${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/ent/register', A().menuEntReg)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
+      ${item('/friends', A().menuFriends)}${item('/ent', L.navEnt)}${item('/ent/register', A().menuEntReg)}${item('/unis', L.navUnis)}${item('/tournaments', L.navTours)}${item('/practice', A().menuPractice)}${item('/play', L.navPlay)}${item('/rating', L.navRating)}${item('/about', L.navAbout)}
       <hr>
       <button type="button" id="menuSwitch">${A().switchAcc}</button>
       <button type="button" id="menuLogout">${A().logout}</button>`;

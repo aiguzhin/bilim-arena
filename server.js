@@ -46,7 +46,7 @@ function validTopic(t) {
 // Версия ассетов меняется при каждом запуске, поэтому после выкладки браузеры сразу берут новые файлы.
 const fs = require('fs');
 const VERSION = (process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || String(Date.now())).slice(0, 8);
-const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js))"/g, `$1?v=${VERSION}"`);
+const INDEX = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').replace(/(\/(?:app\.css|app\.js|i18n\.js|ent\.js|account\.js|edu\.js|social\.js|session\.js|refs\.js|unis\.js))"/g, `$1?v=${VERSION}"`);
 const sendIndex = (req, res) => { res.set('Cache-Control', 'no-cache'); res.type('html').send(INDEX); };
 // Переезд на свой сервер. CANONICAL_HOST (задаётся на старом хостинге) — все страницы пересылаются на основной домен.
 const CANON = (process.env.CANONICAL_HOST || '').trim();
@@ -83,7 +83,7 @@ app.get('/api/leaders', async (req, res) => {
   try { res.json(await db.leaders()); } catch (e) { console.error(e); res.status(500).json({ error: 'unavailable' }); }
 });
 app.get('/api/stats', (req, res) => res.json({ online: io.engine.clientsCount, battles: [...rooms.values()].filter(r => r.state === 'playing').length }));
-app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id'], sendIndex);
+app.get(['/b/:code', '/rating', '/play', '/me', '/about', '/privacy', '/ent', '/ent/:id', '/me/:tab', '/login', '/settings', '/settings/:tab', '/u/:username', '/tournaments', '/t/:id', '/practice', '/teacher', '/teacher/:id', '/join/:code', '/friends', '/ent/s/:id', '/unis', '/unis/:id'], sendIndex);
 
 // ---------- аккаунты ----------
 app.use(express.json({ limit: '300kb' }));
@@ -612,6 +612,7 @@ const card = p => ({ id: p.id, name: p.name, school: p.school, city: p.city, use
 const online = new Map();
 const emitTo = (pid, ev, data) => { for (const sid of online.get(pid) || []) io.to(sid).emit(ev, data); };
 const social = require('./social')(app, { db, auth, wrap, store, online, emitTo, cardOf: p => { const c = card(p); delete c.id; return c; } });
+require('./unis')(app, db);
 
 // ---------- сокеты ----------
 io.use(async (socket, next) => {

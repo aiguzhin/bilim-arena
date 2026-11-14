@@ -165,6 +165,7 @@
     }
     if (path === '/privacy') return viewPrivacy();
     if (path === '/login') return viewAuth(true);
+    if (path === '/unis' || path.startsWith('/unis/')) return UNI.view(path);
     if (!me) return viewAuth();
     if (me.needsProfile) return viewRequired();
     if (path === '/friends') return SOC.view();
@@ -209,6 +210,7 @@
   const socCtx = { ...eduCtx, socket, joinRoom: code => { if (room) leaveRoom(); reset(); joinFlow(code, true); } };
   SOC.init(socCtx);
   SES.init(eduCtx);
+  UNI.init(eduCtx);
 
   // ---------- главная ----------
   function viewHome() {

@@ -10,7 +10,7 @@ const iso = v => (v == null ? null : v instanceof Date ? v.toISOString() : v);
 
 // ---------- память ----------
 function memory(db, save) {
-  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {};
+  db.classes ||= {}; db.tours ||= {}; db.entries ||= {}; db.fixed ||= {}; db.practice ||= []; db.friends ||= []; db.sessions ||= {}; db.regs ||= {}; db.kv ||= {};
   const pair = (x, y) => (x < y ? [x, y] : [y, x]);
   const members = cid => Object.values(db.players).filter(p => p.class_id === cid);
   const gamesRows = ids => db.games.flatMap(g => g.players.filter(p => !ids || ids.has(p.id)).map(p => ({ player_id: p.id, created_at: g.created_at, won: !!p.win, mode: g.mode })));
@@ -18,6 +18,8 @@ function memory(db, save) {
   const ranked = tid => Object.values(db.entries).filter(e => e.tour_id === tid && e.finished_at && (!e.flag || e.cleared))
     .sort((a, b) => b.score - a.score || a.time_ms - b.time_ms);
   return {
+    async kvGet(k) { return db.kv[k] || null; },
+    async kvSet(k, v) { db.kv[k] = { val: v, updated_at: new Date().toISOString() }; save(); },
     async setRole(id, role) { db.players[id].role = role; save(); return db.players[id]; },
     async setClass(id, cid) { db.players[id].class_id = cid; save(); return db.players[id]; },
     async createClass(c) { db.classes[c.id] = { ...c, goal: c.goal ?? 20, created_at: new Date().toISOString() }; save(); return db.classes[c.id]; },
@@ -123,7 +125,10 @@ function pg(q) {
   const tour = r => r && ({ ...r, starts_at: iso(r.starts_at), join_until: iso(r.join_until), ends_at: iso(r.ends_at), created_at: iso(r.created_at), duration_ms: Number(r.duration_ms) });
   const entry = r => r && ({ ...r, served_at: r.served_at == null ? null : Number(r.served_at), registered_at: iso(r.registered_at), started_at: iso(r.started_at), finished_at: iso(r.finished_at), time_ms: r.time_ms == null ? null : Number(r.time_ms) });
   return {
+    async kvGet(k) { const r = (await q('select val, updated_at from kv where key=$1', [k])).rows[0]; return r ? { val: r.val, updated_at: iso(r.updated_at) } : null; },
+    async kvSet(k, v) { await q('insert into kv (key, val, updated_at) values ($1,$2,now()) on conflict (key) do update set val=excluded.val, updated_at=now()', [k, JSON.stringify(v)]); },
     async init() {
+      await q(`create table if not exists kv (key text primary key, val jsonb not null, updated_at timestamptz not null default now())`);
       await q(`alter table players add column if not exists role text`);
       await q(`alter table players add column if not exists class_id text`);
       await q(`alter table mock_tests add column if not exists meta jsonb`);
