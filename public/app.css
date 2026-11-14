@@ -1559,3 +1559,12 @@ a.today__item:hover { border-color: var(--blue); }
 .board--live .side__name, .board--live .side__school { white-space: normal; line-height: 1.25; }
 section.block--daily { padding: 28px 0 0; }
 section.block--tour { padding: 48px 0 0; }
+
+/* Шапка: пункты меню никогда не переносятся на две строки; на средних экранах лишнее уходит в меню ☰ */
+.nav > a:not(.btn) { white-space: nowrap; }
+.logo { flex: 0 0 auto; }
+@media (max-width: 1240px) { .nav { gap: 16px; } .nav > a:not(.btn) { font-size: 14px; } }
+@media (max-width: 1120px) { .nav > a.nav__tours { display: none; } }
+@media (max-width: 1020px) { .nav > a.nav__rating { display: none; } }
+@media (max-width: 920px) { .nav > a.nav__games { display: none; } }
+@media (max-width: 840px) { .nav > a.nav__unis { display: none; } }
