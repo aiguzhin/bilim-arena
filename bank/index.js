@@ -48,4 +48,10 @@ const ENNAMES = { history: 'History of Kazakhstan', mathlit: 'Mathematical liter
   informatics: 'Computer science', chemistry: 'Chemistry', biology: 'Biology', geography: 'Geography', worldhistory: 'World history', law: 'Fundamentals of law',
   english: 'English', kazlang: 'Kazakh language', kazlit: 'Kazakh literature', ruslang: 'Russian language', ruslit: 'Russian literature' };
 for (const [k, s] of Object.entries(BANK)) s.name = { ...s.name, en: ENNAMES[k] };
+
+// Убранные задания (bank/retired.js) не попадают в тесты и игры, но по id их ещё можно найти — для старых результатов.
+const RETIRED = require('./retired');
+const ALL = new Map();
+for (const s of Object.values(BANK)) { for (const q of s.q) ALL.set(q.id, q); s.q = s.q.filter(q => !RETIRED.has(q.id)); }
+Object.defineProperty(BANK, 'ALL', { value: ALL, enumerable: false });
 module.exports = BANK;

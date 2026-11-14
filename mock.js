@@ -10,7 +10,7 @@ const MANDATORY = { history: { n: 20, c: 10, min: 5 }, mathlit: { n: 10, c: 10, 
 const PROFILE = { s: 25, c: 5, m: 5, p: 5, min: 5 };
 
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-const byId = new Map(Object.values(BANK).flatMap(s => s.q.map(q => [q.id, q])));
+const byId = BANK.ALL;
 // Языковые предметы одинаковы во всех версиях; остальные идут на английском, если есть перевод.
 const NEUTRAL = new Set(['english', 'kazlang', 'kazlit', 'ruslang', 'ruslit']);
 const hasEn = q => NEUTRAL.has(q.id.split(':')[0]) || !!q.t.en;
