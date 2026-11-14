@@ -1513,3 +1513,10 @@ a.today__item:hover { border-color: var(--blue); }
   .g-mode p { min-height: 0; }
   .g-q p { font-size: 17px; }
 }
+@media (max-width: 560px) {
+  .board--live .side__who, .board--live .side--r .side__who { flex-direction: column; gap: 6px; }
+  .board--live .side__who { align-items: flex-start; }
+  .board--live .side--r .side__who { align-items: flex-end; }
+  .board--live .side__name { white-space: normal; line-height: 1.2; font-size: 14px; }
+  .board--live .score { font-size: 36px; }
+}
